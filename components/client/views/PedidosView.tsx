@@ -1,10 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { useAppTheme } from '@/themes/colors';
-import { OrderCard, OrderStatus } from './OrderCard';
-import { SearchIcon, MenuIcon } from '../shared/Icons';
-import { UserHeader } from './UserHeader';
-import { navbarStore } from '../shared/navbar/NavbarState';
+import React from 'react';
+import { Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { OrderCard, OrderStatus } from '../orders/OrderCard';
+import { UserHeader } from '../shared/UserHeader';
 
 const MOCK_ORDERS = [
   {
@@ -31,69 +30,17 @@ const MOCK_ORDERS = [
       { id: 'i2', quantity: 2, name: 'Suco Natural', price: 20.00 },
     ]
   },
-  {
-    id: '3',
-    orderNumber: '7362',
-    customerName: 'Raquel Lais',
-    status: 'Pendente' as OrderStatus,
-    total: 140.00,
-    elapsedTime: '00:10:41',
-    items: [
-      { id: 'i1', quantity: 1, name: 'Canoa de Sushi', price: 120.00 },
-      { id: 'i2', quantity: 2, name: 'Suco Natural', price: 20.00 },
-    ]
-  },
-  {
-    id: '4',
-    orderNumber: '7362',
-    customerName: 'Raquel Lais',
-    status: 'Pronto' as OrderStatus,
-    total: 140.00,
-    elapsedTime: '00:10:41',
-    items: [
-      { id: 'i1', quantity: 1, name: 'Canoa de Sushi', price: 120.00 },
-      { id: 'i2', quantity: 2, name: 'Suco Natural', price: 20.00 },
-    ]
-  },
-  {
-    id: '5',
-    orderNumber: '7362',
-    customerName: 'Raquel Lais',
-    status: 'Entregue' as OrderStatus,
-    total: 140.00,
-    elapsedTime: '00:10:41',
-    items: [
-      { id: 'i1', quantity: 1, name: 'Canoa de Sushi', price: 120.00 },
-      { id: 'i2', quantity: 2, name: 'Suco Natural', price: 20.00 },
-    ]
-  },
-  {
-    id: '6',
-    orderNumber: '7362',
-    customerName: 'Raquel Lais',
-    status: 'Cancelado' as OrderStatus,
-    total: 140.00,
-    elapsedTime: '00:10:41',
-    items: [
-      { id: 'i1', quantity: 1, name: 'Canoa de Sushi', price: 120.00 },
-      { id: 'i2', quantity: 2, name: 'Suco Natural', price: 20.00 },
-    ]
-  },
 ];
 
 export function PedidosView() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
   const theme = useAppTheme();
-  const styles = makeStyles(theme.text, theme.foreground, theme.contrast, isWeb);
+  const router = useRouter();
+  const styles = makeStyles(theme, isWeb);
 
   return (
     <View style={styles.container}>
-      {!isWeb && (
-        <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-          <Text style={{ color: '#3B82F6', fontFamily: 'Jost_700Bold', fontSize: 14 }}>PEDIDOS</Text>
-        </View>
-      )}
       {/* User Header Component - Apenas Mobile */}
       {!isWeb && <UserHeader userName="GABRIEL MAGINA" />}
 
@@ -103,20 +50,20 @@ export function PedidosView() {
           <TextInput
             style={styles.searchInput}
             placeholder="Nome"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={theme.text + '80'}
           />
         </View>
         <View style={styles.actionsRight}>
           <TouchableOpacity style={styles.orderBtn} activeOpacity={0.7}>
             <Text style={styles.orderBtnText}>Ordem ↓</Text>
           </TouchableOpacity>
-          
+
           {isWeb ? (
-            <TouchableOpacity style={styles.createBtn} activeOpacity={0.8} onPress={() => navbarStore.setActiveTab('add_pedido')}>
+            <TouchableOpacity style={styles.createBtn} activeOpacity={0.8} onPress={() => router.push('/pedidos/addPedido')}>
               <Text style={styles.createBtnText}>Criar Pedido</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8} onPress={() => navbarStore.setActiveTab('add_pedido')}>
+            <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8} onPress={() => router.push('/pedidos/addPedido')}>
               <Text style={styles.plusBtnText}>+</Text>
             </TouchableOpacity>
           )}
@@ -124,7 +71,7 @@ export function PedidosView() {
       </View>
 
       <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView showsVerticalScrollIndicator={false}>
           {/* Date Divider */}
           <View style={styles.dateDivider}>
             <Text style={styles.dateText}>05/03/2026</Text>
@@ -145,9 +92,7 @@ export function PedidosView() {
   );
 }
 
-function makeStyles(textColor: string, foreground: string, contrast: string, isWeb: boolean) {
-  const isWebPlatform = Platform.OS === 'web';
-
+function makeStyles(theme: any, isWeb: boolean) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -157,23 +102,23 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 32,
+      marginBottom: 20,
       gap: 16,
     },
     searchContainer: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#EEEEEE',
+      backgroundColor: theme.foreground,
       borderRadius: 20,
-      paddingHorizontal: 20,
+      paddingHorizontal: 16,
       height: 56,
     },
     searchInput: {
       flex: 1,
       fontFamily: 'Jost_400Regular',
       fontSize: 16,
-      color: textColor,
+      color: theme.text,
       outlineStyle: 'none',
     } as any,
     actionsRight: {
@@ -182,22 +127,22 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
       gap: 12,
     },
     orderBtn: {
-      backgroundColor: '#EEEEEE',
+      backgroundColor: theme.foreground,
       borderRadius: 20,
       paddingHorizontal: 24,
       height: 56,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: '#E5E7EB',
+      borderColor: theme.background,
     },
     orderBtnText: {
       fontFamily: 'Jost_700Bold',
       fontSize: 16,
-      color: textColor,
+      color: theme.text,
     },
     createBtn: {
-      backgroundColor: '#FF5F2F',
+      backgroundColor: theme.contrast,
       borderRadius: 20,
       paddingHorizontal: 32,
       height: 56,
@@ -210,7 +155,7 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
       color: '#FFFFFF',
     },
     plusBtn: {
-      backgroundColor: '#FF5F2F',
+      backgroundColor: theme.contrast,
       borderRadius: 20,
       width: 56,
       height: 56,
@@ -227,15 +172,6 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
       flex: 1,
       backgroundColor: 'transparent',
       borderRadius: 32,
-      padding: 32,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.05,
-      shadowRadius: 15,
-      elevation: 2,
-    },
-    scrollContent: {
-      paddingBottom: 40,
     },
     dateDivider: {
       flexDirection: 'row',
@@ -245,13 +181,14 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
     dateText: {
       fontFamily: 'Jost_600SemiBold',
       fontSize: 14,
-      color: '#6B7280',
+      color: theme.text,
+      opacity: 0.6,
       marginRight: 12,
     },
     dividerLine: {
       flex: 1,
       height: 1,
-      backgroundColor: '#E5E7EB',
+      backgroundColor: theme.background,
     },
     grid: {
       flexDirection: 'row',

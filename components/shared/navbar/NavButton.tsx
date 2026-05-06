@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, StyleSheet } from 'react-native';
+import { useAppTheme } from '@/themes/colors';
 
 interface NavButtonProps {
   active?: boolean;
@@ -10,16 +11,20 @@ interface NavButtonProps {
 }
 
 export function NavButton({ active, onPress, icon, label, isWeb = false }: NavButtonProps) {
+  const theme = useAppTheme();
+  const styles = makeStyles(theme, !!active);
+
   if (isWeb) {
     return (
       <Pressable 
         onPress={onPress} 
-        className="flex-row items-center py-3 my-1"
+        style={styles.webBtn}
+        activeOpacity={0.7}
       >
-        <View className="w-8 items-center justify-center">
+        <View style={styles.iconContainer}>
           {icon}
         </View>
-        <Text className={`ml-3 font-semibold text-base ${active ? 'text-primary' : 'text-gray-500'}`}>
+        <Text style={styles.webLabel}>
           {label}
         </Text>
       </Pressable>
@@ -30,9 +35,39 @@ export function NavButton({ active, onPress, icon, label, isWeb = false }: NavBu
   return (
     <Pressable 
       onPress={onPress}
-      className="flex-1 py-4 items-center justify-center z-10"
+      style={styles.mobileBtn}
     >
       {icon}
     </Pressable>
   );
+}
+
+function makeStyles(theme: any, active: boolean) {
+  return StyleSheet.create({
+    webBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      marginVertical: 4,
+    },
+    iconContainer: {
+      width: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    webLabel: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 16,
+      marginLeft: 12,
+      color: active ? theme.contrast : theme.text,
+      opacity: active ? 1 : 0.6,
+    },
+    mobileBtn: {
+      flex: 1,
+      height: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10,
+    },
+  });
 }

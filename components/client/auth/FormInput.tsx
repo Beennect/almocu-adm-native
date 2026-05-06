@@ -27,7 +27,7 @@ function makeStyles(textColor: string, foreground: string) {
     wrapper: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: foreground,
       borderRadius: 50,
       height: 48,
       paddingHorizontal: 16,

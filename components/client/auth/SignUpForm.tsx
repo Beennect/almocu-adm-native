@@ -62,7 +62,7 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
         <Text style={styles.linkText}>Entrar na conta</Text>
       </TouchableOpacity>
 
-      {/* Social buttons - No cadastro eles são menores/circulares no print */}
+      {/* Social buttons */}
       <View style={styles.socialRow}>
         <FormButton variant="social" socialIcon="facebook-f" style={styles.socialCircle} />
         <FormButton variant="social" socialIcon="google" style={styles.socialCircle} />

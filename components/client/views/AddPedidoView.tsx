@@ -1,21 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useAppTheme } from '@/themes/colors';
-import { AddEnderecoIcon, InfoAdicionaisIcon, FinalizarPedidoIcon, ChevronDownIcon, PlusIcon, MinusIcon } from '../shared/Icons';
+import React from 'react';
+import { StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { AddEnderecoIcon, ChevronDownIcon, FinalizarPedidoIcon, InfoAdicionaisIcon, MinusIcon, PlusIcon } from '../../shared/Icons';
 
 export function AddPedidoView() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
   const theme = useAppTheme();
-  const styles = makeStyles(theme.text, theme.foreground, theme.contrast, isWeb);
+  const styles = makeStyles(theme, isWeb);
 
   return (
     <View style={styles.container}>
-      {!isWeb && (
-        <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-          <Text style={{ color: '#3B82F6', fontFamily: 'Jost_700Bold', fontSize: 14 }}>ADD PEDIDO</Text>
-        </View>
-      )}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Sobre o pedido</Text>
         <View style={styles.headerLine} />
@@ -26,14 +21,14 @@ export function AddPedidoView() {
           <TextInput
             style={styles.input}
             placeholder="Nome do cliente"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={theme.text + '80'}
           />
         </View>
-        
+
         <TouchableOpacity style={styles.pickerContainer} activeOpacity={0.7}>
           <Text style={styles.pickerText}>Mesa</Text>
           <View style={styles.pickerDivider} />
-          <ChevronDownIcon color="#9CA3AF" size={20} />
+          <ChevronDownIcon color={theme.text} opacity={0.5} size={20} />
         </TouchableOpacity>
       </View>
 
@@ -45,16 +40,16 @@ export function AddPedidoView() {
           </Text>
           <Text style={styles.itemPrice}>R$ 140,00</Text>
         </View>
-        
+
         <View style={styles.quantityDivider} />
-        
+
         <View style={styles.quantitySelector}>
           <TouchableOpacity style={styles.qtyBtn}>
-            <MinusIcon color="#FF5F2F" size={16} />
+            <MinusIcon color={theme.contrast} size={16} />
           </TouchableOpacity>
           <Text style={styles.qtyText}>01</Text>
           <TouchableOpacity style={styles.qtyBtn}>
-            <PlusIcon color="#111827" size={16} />
+            <PlusIcon color={theme.text} size={16} />
           </TouchableOpacity>
         </View>
       </View>
@@ -62,19 +57,19 @@ export function AddPedidoView() {
       <TouchableOpacity style={styles.addMoreContainer} activeOpacity={0.7}>
         <Text style={styles.addMoreText}>Adicionar item ao pedido</Text>
         <View style={styles.pickerDivider} />
-        <ChevronDownIcon color="#9CA3AF" size={20} />
+        <ChevronDownIcon color={theme.text} opacity={0.5} size={20} />
       </TouchableOpacity>
 
       <View style={styles.footerLine} />
 
       <View style={styles.actionsRow}>
         <TouchableOpacity style={styles.secondaryBtn}>
-          <AddEnderecoIcon color="#111827" size={28} />
+          <AddEnderecoIcon color={theme.text} size={28} />
           <Text style={styles.secondaryBtnText}>Adicionar Endereço</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.secondaryBtn}>
-          <InfoAdicionaisIcon color="#111827" size={28} />
+          <InfoAdicionaisIcon color={theme.text} size={28} />
           <Text style={styles.secondaryBtnText}>Informações Adicionais</Text>
         </TouchableOpacity>
 
@@ -87,7 +82,7 @@ export function AddPedidoView() {
   );
 }
 
-function makeStyles(textColor: string, foreground: string, contrast: string, isWeb: boolean) {
+function makeStyles(theme: any, isWeb: boolean) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -101,13 +96,14 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
     headerTitle: {
       fontFamily: 'Jost_600SemiBold',
       fontSize: 14,
-      color: '#6B7280',
+      color: theme.text,
+      opacity: 0.6,
       marginRight: 12,
     },
     headerLine: {
       flex: 1,
       height: 1,
-      backgroundColor: '#D1D5DB',
+      backgroundColor: theme.background,
     },
     row: {
       flexDirection: 'row',
@@ -116,7 +112,7 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
     },
     inputContainer: {
       flex: 1,
-      backgroundColor: '#F9FAFB', // Div mais clara
+      backgroundColor: theme.foreground,
       borderRadius: 16,
       height: 64,
       paddingHorizontal: 24,
@@ -125,12 +121,12 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
     input: {
       fontFamily: 'Jost_600SemiBold',
       fontSize: 16,
-      color: '#111827',
+      color: theme.text,
       outlineStyle: 'none',
     } as any,
     pickerContainer: {
       width: 180,
-      backgroundColor: '#F9FAFB', // Div mais clara
+      backgroundColor: theme.foreground,
       borderRadius: 16,
       height: 64,
       flexDirection: 'row',
@@ -141,18 +137,19 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
       flex: 1,
       fontFamily: 'Jost_600SemiBold',
       fontSize: 16,
-      color: '#9CA3AF',
+      color: theme.text,
+      opacity: 0.5,
     },
     pickerDivider: {
       width: 1,
       height: '40%',
       borderLeftWidth: 1,
-      borderColor: '#D1D5DB',
+      borderColor: theme.background,
       marginHorizontal: 12,
       borderStyle: 'dashed',
     },
     itemCard: {
-      backgroundColor: '#FFFFFF', // Card branco destacado
+      backgroundColor: theme.foreground,
       borderRadius: 24,
       flexDirection: 'row',
       alignItems: 'center',
@@ -171,25 +168,26 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
     itemName: {
       fontFamily: 'Jost_700Bold',
       fontSize: 16,
-      color: '#111827',
+      color: theme.text,
     },
     itemDesc: {
       fontFamily: 'Jost_600SemiBold',
       fontSize: 13,
-      color: '#6B7280',
+      color: theme.text,
+      opacity: 0.6,
       marginVertical: 6,
       lineHeight: 18,
     },
     itemPrice: {
       fontFamily: 'Jost_700Bold',
       fontSize: 16,
-      color: '#111827',
+      color: theme.text,
     },
     quantityDivider: {
       width: 1,
       height: '60%',
       borderLeftWidth: 1,
-      borderColor: '#D1D5DB',
+      borderColor: theme.background,
       borderStyle: 'dashed',
     },
     quantitySelector: {
@@ -207,12 +205,12 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
     qtyText: {
       fontFamily: 'Jost_700Bold',
       fontSize: 18,
-      color: '#111827',
+      color: theme.text,
       minWidth: 24,
       textAlign: 'center',
     },
     addMoreContainer: {
-      backgroundColor: '#F9FAFB', // Div mais clara
+      backgroundColor: theme.foreground,
       borderRadius: 16,
       height: 64,
       flexDirection: 'row',
@@ -224,11 +222,12 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
       flex: 1,
       fontFamily: 'Jost_600SemiBold',
       fontSize: 16,
-      color: '#9CA3AF',
+      color: theme.text,
+      opacity: 0.5,
     },
     footerLine: {
       height: 1,
-      backgroundColor: '#D1D5DB',
+      backgroundColor: theme.background,
       marginBottom: 40,
     },
     actionsRow: {
@@ -239,7 +238,7 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
     secondaryBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#F9FAFB', // Div mais clara
+      backgroundColor: theme.foreground,
       paddingHorizontal: 28,
       height: 64,
       borderRadius: 20,
@@ -248,14 +247,14 @@ function makeStyles(textColor: string, foreground: string, contrast: string, isW
     secondaryBtnText: {
       fontFamily: 'Jost_700Bold',
       fontSize: 15,
-      color: '#111827',
+      color: theme.text,
     },
     primaryBtn: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#FF5F2F',
+      backgroundColor: theme.contrast,
       height: 64,
       borderRadius: 20,
       gap: 12,

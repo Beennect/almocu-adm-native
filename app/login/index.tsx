@@ -9,19 +9,22 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LoginForm } from '@/components/client/LoginForm';
-import { SignUpForm } from '@/components/client/SignUpForm';
+import { LoginForm } from '@/components/client/auth/LoginForm';
+import { SignUpForm } from '@/components/client/auth/SignUpForm';
 import { LogoPotIcon, SacIcon } from '@/components/shared/Icons';
 import { useAppTheme } from '@/themes/colors';
+import { AlmocuIcon } from '@/components/shared/Icons';
+
+
 
 export default function Login() {
   const { width } = useWindowDimensions();
   const theme = useAppTheme();
-  const { background, foreground, contrast } = theme;
+  const { background, foreground, contrast, text } = theme;
   const isWebLayout = width >= 768;
   const [isLogin, setIsLogin] = useState(true);
 
-  const styles = makeStyles(background, foreground, contrast, isWebLayout);
+  const styles = makeStyles(background, foreground, contrast, text, isWebLayout);
 
   const toggleForm = () => setIsLogin(!isLogin);
 
@@ -45,8 +48,7 @@ export default function Login() {
         {/* Header */}
         <View style={styles.webHeader}>
           <View style={styles.logoRow}>
-            <LogoPotIcon color={contrast} size={32} />
-            <Text style={styles.logoText}>Logo</Text>
+            <AlmocuIcon color={contrast} size={128} />
           </View>
           <TouchableOpacity style={styles.clienteBtn} activeOpacity={0.8}>
             <Text style={styles.clienteBtnText}>Cliente</Text>
@@ -78,8 +80,7 @@ export default function Login() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.mobileContent}>
         <View style={styles.mobileLogoRow}>
-          <LogoPotIcon color={contrast} size={32} />
-          <Text style={styles.logoText}>Logo</Text>
+          <AlmocuIcon color={contrast} size={128} />
         </View>
 
         <View style={styles.formContainer}>
@@ -94,20 +95,20 @@ export default function Login() {
   );
 }
 
-function makeStyles(background: string, foreground: string, contrast: string, isWeb: boolean) {
+function makeStyles(background: string, foreground: string, contrast: string, text: string, isWeb: boolean) {
   return StyleSheet.create({
     webRoot: {
       flex: 1,
       backgroundColor: background,
-      minHeight: '100%' as any,
-      overflow: 'hidden' as any,
+      minHeight: Platform.OS === 'web' ? '100vh' : '100%' as any,
+      overflow: 'hidden',
     },
     blob: {
       position: 'absolute',
       width: 1000,
       height: 860,
       borderRadius: 500,
-      opacity: 0.45,
+      opacity: 0.15, // Reduced opacity for cleaner look in dark mode
     },
     blobTopRight: {
       top: -480,
@@ -157,16 +158,17 @@ function makeStyles(background: string, foreground: string, contrast: string, is
     webCard: {
       backgroundColor: foreground,
       borderRadius: 30,
-      borderWidth: 7,
-      borderColor: foreground,
+      borderWidth: 1, // Subtle border instead of thick foreground border
+      borderColor: background,
       paddingVertical: 40,
       paddingHorizontal: 36,
       width: '100%',
       maxWidth: 440,
       shadowColor: '#000',
-      shadowOpacity: 0.08,
-      shadowRadius: 24,
-      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 30,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 5,
     },
     webFooter: {
       flexDirection: 'row',
@@ -184,7 +186,7 @@ function makeStyles(background: string, foreground: string, contrast: string, is
     },
     safe: {
       flex: 1,
-      backgroundColor: '#E5E7EB',
+      backgroundColor: background,
       paddingHorizontal: 24,
       paddingTop: 20,
     },
@@ -199,7 +201,7 @@ function makeStyles(background: string, foreground: string, contrast: string, is
     formContainer: {
       flex: 1,
       justifyContent: 'center',
-      paddingBottom: 80, // Compensate for logo row to center form
+      paddingBottom: 80,
     },
   });
 }

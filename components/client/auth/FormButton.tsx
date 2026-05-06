@@ -57,7 +57,7 @@ function makeStyles(contrast: string, textColor: string, foreground: string) {
       backgroundColor: contrast,
     },
     social: {
-      backgroundColor: '#FFFFFF', // Mantido branco para botões sociais como no Figma
+      backgroundColor: foreground,
     },
     iconWrap: {
       marginRight: 12,
