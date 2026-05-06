@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #e6e6e6;
+  --foreground: #f6f6f6; /* Cinza um pouco mais escuro para o FG */
+  --contrast: #ff5f2f;
+  --text: #303030;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #303030;
+    --foreground: #3d3d3d;
+    --contrast: #ff5f2f;
+    --text: #ffffff; /* Texto Branco no Escuro */
+  }
+}
