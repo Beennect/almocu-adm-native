@@ -1,7 +1,14 @@
 import { useAppTheme } from '@/themes/colors';
 import React from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import { AddEnderecoIcon, ChevronDownIcon, FinalizarPedidoIcon, InfoAdicionaisIcon, MinusIcon, PlusIcon } from '../../../components/shared/Icons';
+import { 
+  AddEnderecoIcon, 
+  ChevronDownIcon, 
+  FinalizarPedidoIcon, 
+  InfoAdicionaisIcon, 
+  MinusIcon, 
+  PlusIcon 
+} from '../../../components/shared/Icons';
 
 export default function AddPedidoScreen() {
   const { width } = useWindowDimensions();
@@ -65,17 +72,17 @@ export default function AddPedidoScreen() {
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.button}>
-          <AddEnderecoIcon style={styles.buttonIcon} />
+          <AddEnderecoIcon color={theme.text} style={styles.buttonIcon} />
           <Text style={styles.buttonText}>Adicionar Endereço</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.button}>
-          <InfoAdicionaisIcon style={styles.buttonIcon} />
+          <InfoAdicionaisIcon color={theme.text} style={styles.buttonIcon} />
           <Text style={styles.buttonText}>Informações Adicionais</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={{...styles.button, ...styles.primaryButton}}>
-          <FinalizarPedidoIcon style={styles.primaryButtonIcon} />
+          <FinalizarPedidoIcon color={theme.foreground} style={styles.primaryButtonIcon} />
           <Text style={styles.primaryButtonText}>Finalizar Pedido</Text>
         </TouchableOpacity>
       </View>
