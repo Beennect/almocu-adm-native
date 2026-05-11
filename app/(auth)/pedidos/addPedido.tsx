@@ -17,7 +17,7 @@ export default function AddPedidoScreen() {
       </View>
 
       <View style={styles.row}>
-        <View style={styles.inputContainer}>
+        <View style={styles.inputWrapper}>
           <TextInput
             style={styles.input}
             placeholder="Nome do cliente"
@@ -27,8 +27,9 @@ export default function AddPedidoScreen() {
 
         <TouchableOpacity style={styles.pickerContainer} activeOpacity={0.7}>
           <Text style={styles.pickerText}>Mesa</Text>
-          <View style={styles.pickerDivider} />
-          <ChevronDownIcon color={theme.text} opacity={0.5} size={20} />
+          <View style={styles.pickerIconContainer}>
+            <ChevronDownIcon color={theme.text} size={20} />
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -62,20 +63,20 @@ export default function AddPedidoScreen() {
 
       <View style={styles.footerLine} />
 
-      <View style={styles.actionsRow}>
-        <TouchableOpacity style={styles.secondaryBtn}>
-          <AddEnderecoIcon color={theme.text} size={28} />
-          <Text style={styles.secondaryBtnText}>Adicionar Endereço</Text>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.button}>
+          <AddEnderecoIcon style={styles.buttonIcon} />
+          <Text style={styles.buttonText}>Adicionar Endereço</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryBtn}>
-          <InfoAdicionaisIcon color={theme.text} size={28} />
-          <Text style={styles.secondaryBtnText}>Informações Adicionais</Text>
+        <TouchableOpacity style={styles.button}>
+          <InfoAdicionaisIcon style={styles.buttonIcon} />
+          <Text style={styles.buttonText}>Informações Adicionais</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.primaryBtn}>
-          <FinalizarPedidoIcon color="#FFFFFF" size={30} />
-          <Text style={styles.primaryBtnText}>Finalizar Pedido</Text>
+        <TouchableOpacity style={{...styles.button, ...styles.primaryButton}}>
+          <FinalizarPedidoIcon style={styles.primaryButtonIcon} />
+          <Text style={styles.primaryButtonText}>Finalizar Pedido</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -86,7 +87,9 @@ function makeStyles(theme: any, isWeb: boolean) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      padding: isWeb ? 40 : 16,
+      backgroundColor: theme.background,
+      paddingTop: isWeb ? 32 : 20,
+      paddingHorizontal: isWeb ? 32 : 16,
     },
     header: {
       flexDirection: 'row',
@@ -107,38 +110,44 @@ function makeStyles(theme: any, isWeb: boolean) {
     },
     row: {
       flexDirection: 'row',
-      gap: 16,
+      gap: 12,
+      alignItems: 'center',
+      flexWrap: 'wrap',
       marginBottom: 16,
     },
-    inputContainer: {
+    inputWrapper: {
       flex: 1,
-      backgroundColor: theme.foreground,
-      borderRadius: 16,
-      height: 64,
-      paddingHorizontal: 24,
-      justifyContent: 'center',
+      minWidth: 140,
     },
     input: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 16,
+      backgroundColor: theme.foreground,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
       color: theme.text,
+      fontSize: 14,
+      fontFamily: 'Jost_400Regular',
       outlineStyle: 'none',
     } as any,
     pickerContainer: {
-      width: 180,
       backgroundColor: theme.foreground,
       borderRadius: 16,
-      height: 64,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 24,
+      justifyContent: 'space-between',
+      minWidth: 100,
     },
     pickerText: {
-      flex: 1,
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 16,
       color: theme.text,
-      opacity: 0.5,
+      fontSize: 14,
+      fontFamily: 'Jost_400Regular',
+      marginRight: 8,
+    },
+    pickerIconContainer: {
+      marginLeft: 4,
+      color: theme.text,
     },
     pickerDivider: {
       width: 1,
@@ -230,39 +239,49 @@ function makeStyles(theme: any, isWeb: boolean) {
       backgroundColor: theme.background,
       marginBottom: 40,
     },
-    actionsRow: {
+    buttonContainer: {
       flexDirection: 'row',
-      gap: 16,
-      alignItems: 'center',
-    },
-    secondaryBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.foreground,
-      paddingHorizontal: 28,
-      height: 64,
-      borderRadius: 20,
       gap: 12,
+      marginTop: 24,
+      flexWrap: 'wrap',
     },
-    secondaryBtnText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 15,
-      color: theme.text,
-    },
-    primaryBtn: {
-      flex: 1,
+    button: {
+      flex: isWeb ? 1 : undefined,
+      flexGrow: 1,
+      minWidth: isWeb ? 'auto' : 140,
+      backgroundColor: theme.foreground,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.contrast,
-      height: 64,
-      borderRadius: 20,
-      gap: 12,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: 'transparent',
     },
-    primaryBtnText: {
-      fontFamily: 'Jost_700Bold',
+    buttonIcon: {
       fontSize: 18,
-      color: '#FFFFFF',
+      color: theme.text,
+    },
+    buttonText: {
+      color: theme.text,
+      fontSize: 12,
+      fontFamily: 'Jost_400Regular',
+      fontWeight: '500',
+    },
+    primaryButton: {
+      backgroundColor: theme.contrast,
+    },
+    primaryButtonIcon: {
+      fontSize: 16,
+      color: theme.foreground,
+    },
+    primaryButtonText: {
+      color: theme.foreground,
+      fontSize: 12,
+      fontFamily: 'Jost_400Regular',
+      fontWeight: '600',
     },
   });
 }
