@@ -1,5 +1,5 @@
 import React from "react";
-import Svg, { Circle, Path, Rect, Line, Polyline } from "react-native-svg";
+import Svg, { Circle, Line, Path, Polyline } from "react-native-svg";
 
 export const HomeIcon = ({ color = "currentColor", size = 24, ...props }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
@@ -343,3 +343,77 @@ export const AlmocuIcon = ({ color = "currentColor", size = 24, ...props }) => {
     </Svg>
   )
 }
+
+export const MapPointIcon = ({ color = "currentColor", size = 24, ...props}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <Path
+      d="M5 8.51464C5 4.9167 8.13401 2 12 2C15.866 2 19 4.9167 19 8.51464C19 12.0844 16.7658 16.2499 13.2801 17.7396C12.4675 18.0868 11.5325 18.0868 10.7199 17.7396C7.23416 16.2499 5 12.0844 5 8.51464Z"
+      stroke={color}
+      strokeWidth={1.5}
+    />
+    <Path
+      d="M14 9C14 10.1046 13.1046 11 12 11C10.8954 11 10 10.1046 10 9C10 7.89543 10.8954 7 12 7C13.1046 7 14 7.89543 14 9Z"
+      stroke={color}
+      strokeWidth={1.5}
+    />
+    <Path
+      d="M20.9605 15.5C21.6259 16.1025 22 16.7816 22 17.5C22 19.9853 17.5228 22 12 22C6.47715 22 2 19.9853 2 17.5C2 16.7816 2.37412 16.1025 3.03947 15.5"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+export const FoodStoreIcon = ({ color = "currentColor", size = 24, ...props}) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 44 45"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <Path
+      d="M10.99 12.937a3.76 3.76 0 0 1-1.074 2.637 3.64 3.64 0 0 1-2.595 1.092 3.64 3.64 0 0 1-2.595-1.092 3.76 3.76 0 0 1-1.075-2.637V9.208L7.32 1.75h29.358l3.67 7.458v3.73a3.76 3.76 0 0 1-1.074 2.636 3.64 3.64 0 0 1-2.596 1.092 3.64 3.64 0 0 1-2.595-1.092 3.76 3.76 0 0 1-1.074-2.637M3.65 9.208h36.7m-29.36 0v3.73a3.76 3.76 0 0 0 1.075 2.636 3.64 3.64 0 0 0 2.595 1.092 3.64 3.64 0 0 0 2.595-1.092 3.76 3.76 0 0 0 1.075-2.637m0-3.729v3.73a3.76 3.76 0 0 0 1.075 2.636A3.64 3.64 0 0 0 22 16.666a3.64 3.64 0 0 0 2.595-1.092 3.76 3.76 0 0 0 1.075-2.637V9.208m0 3.73a3.76 3.76 0 0 0 1.075 2.636 3.64 3.64 0 0 0 2.595 1.092 3.64 3.64 0 0 0 2.595-1.092 3.76 3.76 0 0 0 1.075-2.637m0 0V9.208M22 25.98c1.947 0 3.814.786 5.19 2.185a7.52 7.52 0 0 1 2.15 5.273v1.953H14.66v-1.953a7.52 7.52 0 0 1 2.15-5.273A7.28 7.28 0 0 1 22 25.979Zm0 0v-3.73M10.99 35.292h22.02M0 42.75h44M5.495 14.792V42.75m33.01-27.958V42.75"
+      stroke={color}
+      strokeWidth={3.5}
+      strokeMiterlimit={10}
+    />
+  </Svg>
+);
+
+export const CameraIcon = ({ color = "currentColor", size = 24, ...props }) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <Path
+      d="M3 9a2 2 0 0 1 2-2h1.5a2 2 0 0 0 1.6-.8l1.05-1.4a2 2 0 0 1 1.6-.8h2.5a2 2 0 0 1 1.6.8l1.05 1.4a2 2 0 0 0 1.6.8H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Circle
+      cx={12}
+      cy={13}
+      r={4}
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);

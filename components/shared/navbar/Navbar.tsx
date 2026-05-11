@@ -1,20 +1,19 @@
-import React from "react";
-import Animated, { useAnimatedStyle, withSpring, useDerivedValue, withTiming, Easing } from 'react-native-reanimated';
-import { Pressable, Text, useWindowDimensions, View, ScrollView, StyleSheet } from "react-native";
-import { observer } from "mobx-react-lite";
 import { usePathname, useRouter } from "expo-router";
+import { observer } from "mobx-react-lite";
+import React from "react";
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useDerivedValue, withTiming } from 'react-native-reanimated';
 import { useAppTheme } from "../../../themes/colors";
 import {
-  BagIcon,
-  LogoPotIcon,
-  DashboardIcon,
-  CardapioIcon,
-  ClocheIcon,
-  LockIcon,
-  LogOutIcon,
-  MoonIcon,
-  SettingsIcon,
-  AlmocuIcon
+    AlmocuIcon,
+    BagIcon,
+    CardapioIcon,
+    ClocheIcon,
+    DashboardIcon,
+    LockIcon,
+    LogOutIcon,
+    MoonIcon,
+    SettingsIcon
 } from "../Icons";
 import { NavButton } from "./NavButton";
 
@@ -40,7 +39,7 @@ export const Navbar = observer(function Navbar() {
                  pathname.includes('dashboard') ? 'dashboard' : 'pedidos';
 
   const setActive = (tab: string) => {
-    router.push(`/${tab}` as any);
+    router.push(`/(auth)/${tab}` as any);
   };
 
   const styles = makeStyles(theme, isWeb);
