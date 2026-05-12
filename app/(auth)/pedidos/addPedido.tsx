@@ -1,6 +1,14 @@
 import { useAppTheme } from '@/themes/colors';
-import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import React, { useState } from 'react';
+import { 
+  StyleSheet, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  useWindowDimensions, 
+  View,
+  ScrollView
+} from 'react-native';
 import { 
   AddEnderecoIcon, 
   ChevronDownIcon, 
@@ -9,6 +17,7 @@ import {
   MinusIcon, 
   PlusIcon 
 } from '../../../components/shared/Icons';
+import { SelectModal } from '../../../components/shared/SelectModal';
 
 export default function AddPedidoScreen() {
   const { width } = useWindowDimensions();
@@ -16,76 +25,121 @@ export default function AddPedidoScreen() {
   const theme = useAppTheme();
   const styles = makeStyles(theme, isWeb);
 
+  const [mesa, setMesa] = useState<string>('');
+  const [quantity, setQuantity] = useState<number>(1);
+  const [mesaModalVisible, setMesaModalVisible] = useState(false);
+  const [itemModalVisible, setItemModalVisible] = useState(false);
+
+  const mesaOptions = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"];
+  const itemOptions = ["Canoa Sushi Grande", "Canoa Sushi Pequena", "Combo 1", "Combo 2", "Temaki Salmão"];
+
+  const handleDecrease = () => {
+    if (quantity > 1) setQuantity(prev => prev - 1);
+  };
+
+  const handleIncrease = () => {
+    setQuantity(prev => prev + 1);
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Sobre o pedido</Text>
-        <View style={styles.headerLine} />
-      </View>
-
-      <View style={styles.row}>
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.input}
-            placeholder="Nome do cliente"
-            placeholderTextColor={theme.text + '80'}
-          />
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Sobre o pedido</Text>
+          <View style={styles.headerLine} />
         </View>
 
-        <TouchableOpacity style={styles.pickerContainer} activeOpacity={0.7}>
-          <Text style={styles.pickerText}>Mesa</Text>
-          <View style={styles.pickerIconContainer}>
-            <ChevronDownIcon color={theme.text} size={20} />
+        <View style={styles.row}>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder="Nome do cliente"
+              placeholderTextColor={theme.text + '80'}
+            />
           </View>
-        </TouchableOpacity>
-      </View>
 
-      <View style={styles.itemCard}>
-        <View style={styles.itemContent}>
-          <Text style={styles.itemName}>Canoa Sushi Grande</Text>
-          <Text style={styles.itemDesc} numberOfLines={2}>
-            30 Unidades de sushi contendo 6 camarões crocantes, 6 niguiri de salmão, 6 urama...
-          </Text>
-          <Text style={styles.itemPrice}>R$ 140,00</Text>
-        </View>
-
-        <View style={styles.quantityDivider} />
-
-        <View style={styles.quantitySelector}>
-          <TouchableOpacity style={styles.qtyBtn}>
-            <MinusIcon color={theme.contrast} size={16} />
-          </TouchableOpacity>
-          <Text style={styles.qtyText}>01</Text>
-          <TouchableOpacity style={styles.qtyBtn}>
-            <PlusIcon color={theme.text} size={16} />
+          <TouchableOpacity 
+            style={styles.pickerContainer} 
+            activeOpacity={0.7}
+            onPress={() => setMesaModalVisible(true)}
+          >
+            <Text style={styles.pickerText}>{mesa || 'Mesa'}</Text>
+            <View style={styles.pickerIconContainer}>
+              <ChevronDownIcon color={theme.text} size={20} />
+            </View>
           </TouchableOpacity>
         </View>
-      </View>
 
-      <TouchableOpacity style={styles.addMoreContainer} activeOpacity={0.7}>
-        <Text style={styles.addMoreText}>Adicionar item ao pedido</Text>
-        <View style={styles.pickerDivider} />
-        <ChevronDownIcon color={theme.text} opacity={0.5} size={20} />
-      </TouchableOpacity>
+        <View style={styles.itemCard}>
+          <View style={styles.itemContent}>
+            <Text style={styles.itemName}>Canoa Sushi Grande</Text>
+            <Text style={styles.itemDesc} numberOfLines={2}>
+              30 Unidades de sushi contendo 6 camarões crocantes, 6 niguiri de salmão, 6 urama...
+            </Text>
+            <Text style={styles.itemPrice}>R$ 140,00</Text>
+          </View>
 
-      <View style={styles.footerLine} />
+          <View style={styles.quantityDivider} />
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button}>
-          <AddEnderecoIcon color={theme.text} style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>Adicionar Endereço</Text>
+          <View style={styles.quantitySelector}>
+            <TouchableOpacity style={styles.qtyBtn} onPress={handleDecrease}>
+              <MinusIcon color={quantity > 1 ? theme.text : theme.text + '40'} size={16} />
+            </TouchableOpacity>
+            <Text style={styles.qtyText}>{quantity.toString().padStart(2, '0')}</Text>
+            <TouchableOpacity style={styles.qtyBtn} onPress={handleIncrease}>
+              <PlusIcon color={theme.text} size={16} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.addMoreContainer} 
+          activeOpacity={0.7}
+          onPress={() => setItemModalVisible(true)}
+        >
+          <Text style={styles.addMoreText}>Adicionar item ao pedido</Text>
+          <View style={styles.pickerDivider} />
+          <ChevronDownIcon color={theme.text} opacity={0.5} size={20} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button}>
-          <InfoAdicionaisIcon color={theme.text} style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>Informações Adicionais</Text>
-        </TouchableOpacity>
+        <View style={styles.footerLine} />
 
-        <TouchableOpacity style={{...styles.button, ...styles.primaryButton}}>
-          <FinalizarPedidoIcon color={theme.foreground} style={styles.primaryButtonIcon} />
-          <Text style={styles.primaryButtonText}>Finalizar Pedido</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.button}>
+            <AddEnderecoIcon color={theme.text} style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Adicionar Endereço</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.button}>
+            <InfoAdicionaisIcon color={theme.text} style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>Informações Adicionais</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={{...styles.button, ...styles.primaryButton}}>
+            <FinalizarPedidoIcon color={theme.foreground} style={styles.primaryButtonIcon} />
+            <Text style={styles.primaryButtonText}>Finalizar Pedido</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <SelectModal 
+        visible={mesaModalVisible}
+        onClose={() => setMesaModalVisible(false)}
+        onSelect={setMesa}
+        options={mesaOptions}
+        title="Selecione a Mesa"
+      />
+
+      <SelectModal 
+        visible={itemModalVisible}
+        onClose={() => setItemModalVisible(false)}
+        onSelect={(item) => console.log('Item selecionado:', item)}
+        options={itemOptions}
+        title="Adicionar Item"
+      />
     </View>
   );
 }
@@ -97,6 +151,13 @@ function makeStyles(theme: any, isWeb: boolean) {
       backgroundColor: theme.background,
       paddingTop: isWeb ? 32 : 20,
       paddingHorizontal: isWeb ? 32 : 16,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingBottom: 40,
     },
     header: {
       flexDirection: 'row',
