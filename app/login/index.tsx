@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LoginForm } from '@/components/client/auth/LoginForm';
-import { SignUpForm } from '@/components/client/auth/SignUpForm';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { SignUpForm } from '@/components/auth/SignUpForm';
 import { LogoPotIcon, SacIcon } from '@/components/shared/Icons';
 import { useAppTheme } from '@/themes/colors';
 import { AlmocuIcon } from '@/components/shared/Icons';
