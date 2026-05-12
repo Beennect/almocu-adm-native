@@ -2,8 +2,8 @@ import { useAppTheme } from '@/themes/colors';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import { OrderCard, OrderStatus } from '../../../components/client/orders/OrderCard';
-import { UserHeader } from '../../../components/client/shared/UserHeader';
+import { OrderCard, OrderStatus } from '../../../components/orders/OrderCard';
+import { UserHeader } from '../../../components/shared/UserHeader';
 
 const MOCK_ORDERS = [
   {

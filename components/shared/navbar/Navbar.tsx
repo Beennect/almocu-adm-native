@@ -36,7 +36,9 @@ export const Navbar = observer(function Navbar() {
   // Logic to determine active tab from pathname
   const active = pathname.includes('cardapio') ? 'cardapio' : 
                  pathname.includes('pedidos') ? 'pedidos' : 
-                 pathname.includes('dashboard') ? 'dashboard' : 'pedidos';
+                 pathname.includes('dashboard') ? 'dashboard' : 
+                 pathname.includes('ingredientes') ? 'ingredientes' : 
+                 pathname.includes('config') ? 'config' : 'pedidos';
 
   const setActive = (tab: string) => {
     router.push(`/(auth)/${tab}` as any);

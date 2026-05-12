@@ -2,8 +2,8 @@ import { useAppTheme } from '@/themes/colors';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import { MenuCard, MenuItem } from '../../../components/client/menu/MenuCard';
-import { UserHeader } from '../../../components/client/shared/UserHeader';
+import { MenuCard, MenuItem } from '../../../components/menu/MenuCard';
+import { UserHeader } from '../../../components/shared/UserHeader';
 
 const MOCK_ITEMS: MenuItem[] = [
   {
@@ -49,16 +49,16 @@ export default function CardapioScreen() {
         </View>
         <View style={styles.actionsRight}>
           {isWeb ? (
-            <TouchableOpacity 
-              style={styles.createBtn} 
+            <TouchableOpacity
+              style={styles.createBtn}
               activeOpacity={0.8}
               onPress={() => router.push('cardapio/addItem')}
             >
               <Text style={styles.createBtnText}>Novo Item</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity 
-              style={styles.plusBtn} 
+            <TouchableOpacity
+              style={styles.plusBtn}
               activeOpacity={0.8}
               onPress={() => router.push('cardapio/addItem')}
             >

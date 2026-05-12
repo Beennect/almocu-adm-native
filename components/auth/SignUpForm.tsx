@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { FormInput } from './FormInput';
-import { FormButton } from './FormButton';
+import { EmailIcon, KeyIcon, ShieldCheckIcon, UserIcon } from '@/components/shared/Icons';
 import { useAppTheme } from '@/themes/colors';
-import { EmailIcon, KeyIcon, UserIcon, ShieldCheckIcon } from '@/components/shared/Icons';
+import React, { useState } from 'react';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FormButton } from '../shared/FormButton';
+import { FormInput } from '../shared/FormInput';
 
 export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [nome, setNome] = useState('');

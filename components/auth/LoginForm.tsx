@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { FormInput } from './FormInput';
-import { FormButton } from './FormButton';
-import { useAppTheme } from '@/themes/colors';
 import { EmailIcon, KeyIcon } from '@/components/shared/Icons';
+import { useAppTheme } from '@/themes/colors';
+import React, { useState } from 'react';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FormButton } from '../shared/FormButton';
+import { FormInput } from '../shared/FormInput';
 
 export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [email, setEmail] = useState('');

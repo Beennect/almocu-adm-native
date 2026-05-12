@@ -3,6 +3,7 @@ import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Slot } from 'expo-router';
 import { Navbar } from '@/components/shared/navbar/Navbar';
 import { useAppTheme } from '@/themes/colors';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AuthLayout() {
   const { width } = useWindowDimensions();
@@ -10,7 +11,7 @@ export default function AuthLayout() {
   const theme = useAppTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       {isWeb ? (
         <View style={styles.webWrapper}>
           <Navbar />
@@ -28,7 +29,7 @@ export default function AuthLayout() {
           <Navbar />
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
