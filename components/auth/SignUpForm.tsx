@@ -1,7 +1,6 @@
 import { EmailIcon, KeyIcon, ShieldCheckIcon, UserIcon } from '@/components/shared/Icons';
-import { useAppTheme } from '@/themes/colors';
 import React, { useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { FormButton } from '../shared/FormButton';
 import { FormInput } from '../shared/FormInput';
 
@@ -10,20 +9,19 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
-  const theme = useAppTheme();
-
-  const styles = makeStyles(theme.text);
 
   return (
-    <View style={styles.container}>
+    <View className="w-full self-center">
       {/* Heading */}
-      <View style={styles.headingBlock}>
-        <Text style={styles.subtitle}>Junte-se à nós</Text>
-        <Text style={styles.title}>GERENCIE, ANALISE E CRESÇA</Text>
+      <View className="items-center mb-7">
+        <Text className="font-[Jost_600SemiBold] text-base text-text mb-1">Junte-se à nós</Text>
+        <Text className="font-[Khand_700Bold] text-[36px] md:text-[42px] font-bold text-text text-center uppercase leading-[36px] md:leading-[42px]">
+          GERENCIE, ANALISE E CRESÇA
+        </Text>
       </View>
 
       {/* Inputs */}
-      <View style={styles.inputBlock}>
+      <View className="mb-1">
         <FormInput
           Icon={UserIcon}
           placeholder="Nome"
@@ -58,69 +56,15 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
       <FormButton title="CRIE A SUA CONTA" variant="primary" />
 
       {/* Link para Login */}
-      <TouchableOpacity style={styles.linkRow} activeOpacity={0.7} onPress={onToggleForm}>
-        <Text style={styles.linkText}>Entrar na conta</Text>
+      <TouchableOpacity className="items-center mt-1 mb-5" activeOpacity={0.7} onPress={onToggleForm}>
+        <Text className="font-[Jost_600SemiBold] text-sm text-text underline">Entrar na conta</Text>
       </TouchableOpacity>
 
       {/* Social buttons */}
-      <View style={styles.socialRow}>
-        <FormButton variant="social" socialIcon="facebook-f" style={styles.socialCircle} />
-        <FormButton variant="social" socialIcon="google" style={styles.socialCircle} />
+      <View className="flex-row justify-center gap-3">
+        <FormButton variant="social" socialIcon="facebook-f" className="w-12 px-0 mb-0" />
+        <FormButton variant="social" socialIcon="google" className="w-12 px-0 mb-0" />
       </View>
     </View>
   );
-}
-
-function makeStyles(textColor: string) {
-  const isMobile = Platform.OS !== 'web' || (typeof window !== 'undefined' && window.innerWidth < 768);
-
-  return StyleSheet.create({
-    container: {
-      width: '100%',
-      alignSelf: 'center',
-    },
-    headingBlock: {
-      alignItems: 'center',
-      marginBottom: 28,
-    },
-    subtitle: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 16,
-      color: textColor,
-      marginBottom: 4,
-    },
-    title: {
-      fontFamily: 'Khand_700Bold',
-      fontSize: isMobile ? 36 : 42,
-      fontWeight: '700',
-      color: textColor,
-      textAlign: 'center',
-      textTransform: 'uppercase',
-      lineHeight: isMobile ? 36 : 42,
-    },
-    inputBlock: {
-      marginBottom: 4,
-    },
-    linkRow: {
-      alignItems: 'center',
-      marginTop: 4,
-      marginBottom: 20,
-    },
-    linkText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 14,
-      color: textColor,
-      textDecorationLine: 'underline',
-    },
-    socialRow: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      gap: 12,
-    },
-    socialCircle: {
-      width: 48,
-      paddingHorizontal: 0,
-      marginBottom: 0,
-    },
-  });
 }

@@ -1,6 +1,6 @@
 import { useAppTheme } from '@/themes/colors';
 import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { 
   AddEnderecoIcon, 
   ChevronDownIcon, 
@@ -14,281 +14,83 @@ export default function AddPedidoScreen() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
   const theme = useAppTheme();
-  const styles = makeStyles(theme, isWeb);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Sobre o pedido</Text>
-        <View style={styles.headerLine} />
+    <View className={`flex-1 bg-background ${isWeb ? 'pt-8 px-8' : 'pt-5 px-4'}`}>
+      <View className="flex-row items-center mb-8">
+        <Text className="font-[Jost_600SemiBold] text-sm text-text opacity-60 mr-3">Sobre o pedido</Text>
+        <View className="flex-1 h-[1px] bg-background" />
       </View>
 
-      <View style={styles.row}>
-        <View style={styles.inputWrapper}>
+      <View className="flex-row gap-3 items-center flex-wrap mb-4">
+        <View className="flex-1 min-w-[140px]">
           <TextInput
-            style={styles.input}
+            className="bg-foreground rounded-[16px] px-4 py-3.5 text-text text-sm font-[Jost_400Regular] outline-none"
             placeholder="Nome do cliente"
             placeholderTextColor={theme.text + '80'}
           />
         </View>
 
-        <TouchableOpacity style={styles.pickerContainer} activeOpacity={0.7}>
-          <Text style={styles.pickerText}>Mesa</Text>
-          <View style={styles.pickerIconContainer}>
+        <TouchableOpacity className="bg-foreground rounded-[16px] px-4 py-3.5 flex-row items-center justify-between min-w-[100px]" activeOpacity={0.7}>
+          <Text className="text-text text-sm font-[Jost_400Regular] mr-2">Mesa</Text>
+          <View className="ml-1">
             <ChevronDownIcon color={theme.text} size={20} />
           </View>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.itemCard}>
-        <View style={styles.itemContent}>
-          <Text style={styles.itemName}>Canoa Sushi Grande</Text>
-          <Text style={styles.itemDesc} numberOfLines={2}>
+      <View className="bg-foreground rounded-[24px] flex-row items-center p-4 mb-6 shadow-sm elevation-2">
+        <View className="flex-1 pr-3">
+          <Text className="font-[Jost_700Bold] text-base text-text">Canoa Sushi Grande</Text>
+          <Text className="font-[Jost_600SemiBold] text-[13px] text-text opacity-60 my-1.5 leading-[18px]" numberOfLines={2}>
             30 Unidades de sushi contendo 6 camarões crocantes, 6 niguiri de salmão, 6 urama...
           </Text>
-          <Text style={styles.itemPrice}>R$ 140,00</Text>
+          <Text className="font-[Jost_700Bold] text-base text-text">R$ 140,00</Text>
         </View>
 
-        <View style={styles.quantityDivider} />
+        <View 
+          className="w-[1px] h-3/5" 
+          style={{ borderLeftWidth: 1, borderColor: theme.background, borderStyle: 'dashed' }} 
+        />
 
-        <View style={styles.quantitySelector}>
-          <TouchableOpacity style={styles.qtyBtn}>
+        <View className="flex-row items-center px-4 gap-4">
+          <TouchableOpacity className="w-7 h-7 items-center justify-center">
             <MinusIcon color={theme.contrast} size={16} />
           </TouchableOpacity>
-          <Text style={styles.qtyText}>01</Text>
-          <TouchableOpacity style={styles.qtyBtn}>
+          <Text className="font-[Jost_700Bold] text-lg text-text min-w-[24px] text-center">01</Text>
+          <TouchableOpacity className="w-7 h-7 items-center justify-center">
             <PlusIcon color={theme.text} size={16} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <TouchableOpacity style={styles.addMoreContainer} activeOpacity={0.7}>
-        <Text style={styles.addMoreText}>Adicionar item ao pedido</Text>
-        <View style={styles.pickerDivider} />
+      <TouchableOpacity className="bg-foreground rounded-[16px] h-16 flex-row items-center px-6 mb-10" activeOpacity={0.7}>
+        <Text className="flex-1 font-[Jost_600SemiBold] text-base text-text opacity-50">Adicionar item ao pedido</Text>
+        <View 
+          className="w-[1px] h-2/5 mx-3" 
+          style={{ borderLeftWidth: 1, borderColor: theme.background, borderStyle: 'dashed' }} 
+        />
         <ChevronDownIcon color={theme.text} opacity={0.5} size={20} />
       </TouchableOpacity>
 
-      <View style={styles.footerLine} />
+      <View className="h-[1px] bg-background mb-10" />
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button}>
-          <AddEnderecoIcon color={theme.text} style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>Adicionar Endereço</Text>
+      <View className="flex-row gap-3 mt-6 flex-wrap">
+        <TouchableOpacity className={`flex-grow ${isWeb ? 'flex-1 min-w-0' : 'min-w-[140px]'} bg-foreground rounded-xl px-4 py-3 flex-row items-center justify-center gap-2 border border-transparent`}>
+          <AddEnderecoIcon color={theme.text} size={18} />
+          <Text className="text-text text-[12px] font-[Jost_400Regular] font-medium">Adicionar Endereço</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.button}>
-          <InfoAdicionaisIcon color={theme.text} style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>Informações Adicionais</Text>
+        <TouchableOpacity className={`flex-grow ${isWeb ? 'flex-1 min-w-0' : 'min-w-[140px]'} bg-foreground rounded-xl px-4 py-3 flex-row items-center justify-center gap-2 border border-transparent`}>
+          <InfoAdicionaisIcon color={theme.text} size={18} />
+          <Text className="text-text text-[12px] font-[Jost_400Regular] font-medium">Informações Adicionais</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={{...styles.button, ...styles.primaryButton}}>
-          <FinalizarPedidoIcon color={theme.foreground} style={styles.primaryButtonIcon} />
-          <Text style={styles.primaryButtonText}>Finalizar Pedido</Text>
+        <TouchableOpacity className={`flex-grow ${isWeb ? 'flex-1 min-w-0' : 'min-w-[140px]'} bg-contrast rounded-xl px-4 py-3 flex-row items-center justify-center gap-2 border border-transparent`}>
+          <FinalizarPedidoIcon color={theme.foreground} size={16} />
+          <Text className="text-foreground text-[12px] font-[Jost_400Regular] font-semibold">Finalizar Pedido</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
-}
-
-function makeStyles(theme: any, isWeb: boolean) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.background,
-      paddingTop: isWeb ? 32 : 20,
-      paddingHorizontal: isWeb ? 32 : 16,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 32,
-    },
-    headerTitle: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 14,
-      color: theme.text,
-      opacity: 0.6,
-      marginRight: 12,
-    },
-    headerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: theme.background,
-    },
-    row: {
-      flexDirection: 'row',
-      gap: 12,
-      alignItems: 'center',
-      flexWrap: 'wrap',
-      marginBottom: 16,
-    },
-    inputWrapper: {
-      flex: 1,
-      minWidth: 140,
-    },
-    input: {
-      backgroundColor: theme.foreground,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      color: theme.text,
-      fontSize: 14,
-      fontFamily: 'Jost_400Regular',
-      outlineStyle: 'none',
-    } as any,
-    pickerContainer: {
-      backgroundColor: theme.foreground,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      minWidth: 100,
-    },
-    pickerText: {
-      color: theme.text,
-      fontSize: 14,
-      fontFamily: 'Jost_400Regular',
-      marginRight: 8,
-    },
-    pickerIconContainer: {
-      marginLeft: 4,
-      color: theme.text,
-    },
-    pickerDivider: {
-      width: 1,
-      height: '40%',
-      borderLeftWidth: 1,
-      borderColor: theme.background,
-      marginHorizontal: 12,
-      borderStyle: 'dashed',
-    },
-    itemCard: {
-      backgroundColor: theme.foreground,
-      borderRadius: 24,
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 16,
-      marginBottom: 24,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      elevation: 2,
-    },
-    itemContent: {
-      flex: 1,
-      paddingRight: 12,
-    },
-    itemName: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 16,
-      color: theme.text,
-    },
-    itemDesc: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 13,
-      color: theme.text,
-      opacity: 0.6,
-      marginVertical: 6,
-      lineHeight: 18,
-    },
-    itemPrice: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 16,
-      color: theme.text,
-    },
-    quantityDivider: {
-      width: 1,
-      height: '60%',
-      borderLeftWidth: 1,
-      borderColor: theme.background,
-      borderStyle: 'dashed',
-    },
-    quantitySelector: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      gap: 16,
-    },
-    qtyBtn: {
-      width: 28,
-      height: 28,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    qtyText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 18,
-      color: theme.text,
-      minWidth: 24,
-      textAlign: 'center',
-    },
-    addMoreContainer: {
-      backgroundColor: theme.foreground,
-      borderRadius: 16,
-      height: 64,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      marginBottom: 40,
-    },
-    addMoreText: {
-      flex: 1,
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 16,
-      color: theme.text,
-      opacity: 0.5,
-    },
-    footerLine: {
-      height: 1,
-      backgroundColor: theme.background,
-      marginBottom: 40,
-    },
-    buttonContainer: {
-      flexDirection: 'row',
-      gap: 12,
-      marginTop: 24,
-      flexWrap: 'wrap',
-    },
-    button: {
-      flex: isWeb ? 1 : undefined,
-      flexGrow: 1,
-      minWidth: isWeb ? 'auto' : 140,
-      backgroundColor: theme.foreground,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      borderWidth: 1,
-      borderColor: 'transparent',
-    },
-    buttonIcon: {
-      fontSize: 18,
-      color: theme.text,
-    },
-    buttonText: {
-      color: theme.text,
-      fontSize: 12,
-      fontFamily: 'Jost_400Regular',
-      fontWeight: '500',
-    },
-    primaryButton: {
-      backgroundColor: theme.contrast,
-    },
-    primaryButtonIcon: {
-      fontSize: 16,
-      color: theme.foreground,
-    },
-    primaryButtonText: {
-      color: theme.foreground,
-      fontSize: 12,
-      fontFamily: 'Jost_400Regular',
-      fontWeight: '600',
-    },
-  });
 }

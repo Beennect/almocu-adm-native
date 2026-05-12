@@ -3,61 +3,55 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet,
-  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LoginForm } from '@/components/client/auth/LoginForm';
-import { SignUpForm } from '@/components/client/auth/SignUpForm';
-import { LogoPotIcon, SacIcon } from '@/components/shared/Icons';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { SignUpForm } from '@/components/auth/SignUpForm';
+import { SacIcon } from '@/components/shared/Icons';
 import { useAppTheme } from '@/themes/colors';
 import { AlmocuIcon } from '@/components/shared/Icons';
-
-
 
 export default function Login() {
   const { width } = useWindowDimensions();
   const theme = useAppTheme();
-  const { background, foreground, contrast, text } = theme;
+  const { contrast } = theme;
   const isWebLayout = width >= 768;
   const [isLogin, setIsLogin] = useState(true);
-
-  const styles = makeStyles(background, foreground, contrast, text, isWebLayout);
 
   const toggleForm = () => setIsLogin(!isLogin);
 
   if (isWebLayout) {
     return (
-      <View style={styles.webRoot}>
+      <View className="flex-1 bg-background overflow-hidden">
         {/* Blobs */}
         <LinearGradient
           colors={['transparent', contrast]}
           start={{ x: 0, y: 1 }}
           end={{ x: 1, y: 0 }}
-          style={[styles.blob, styles.blobTopRight]}
+          className="absolute w-[1000px] h-[860px] rounded-[500px] opacity-[0.15] top-[-480px] right-[-500px]"
         />
         <LinearGradient
           colors={['transparent', contrast]}
           start={{ x: 1, y: 0 }}
           end={{ x: 0, y: 1 }}
-          style={[styles.blob, styles.blobBottomLeft]}
+          className="absolute w-[1000px] h-[860px] rounded-[500px] opacity-[0.15] bottom-[-480px] left-[-500px]"
         />
 
         {/* Header */}
-        <View style={styles.webHeader}>
-          <View style={styles.logoRow}>
+        <View className="flex-row items-center justify-between px-8 pt-6 pb-2 z-10">
+          <View className="flex-row items-center">
             <AlmocuIcon color={contrast} size={128} />
           </View>
-          <TouchableOpacity style={styles.clienteBtn} activeOpacity={0.8}>
-            <Text style={styles.clienteBtnText}>Cliente</Text>
+          <TouchableOpacity className="bg-contrast rounded-full px-7 py-3" activeOpacity={0.8}>
+            <Text className="font-[Jost_700Bold] text-white text-[15px]">Cliente</Text>
           </TouchableOpacity>
         </View>
 
         {/* Card centralizado */}
-        <View style={styles.webCenter}>
-          <View style={styles.webCard}>
+        <View className="flex-1 items-center justify-center z-10 px-5">
+          <View className="bg-foreground rounded-[30px] border border-background py-10 px-9 w-full max-w-[440px] shadow-2xl elevation-5">
             {isLogin ? (
               <LoginForm onToggleForm={toggleForm} />
             ) : (
@@ -67,9 +61,9 @@ export default function Login() {
         </View>
 
         {/* Rodapé SAC */}
-        <View style={styles.webFooter}>
+        <View className="flex-row items-center justify-end px-8 pb-6 gap-1.5 z-10">
           <SacIcon color={contrast} size={22} />
-          <Text style={styles.sacText}>SAC</Text>
+          <Text className="font-[Jost_700Bold] text-contrast text-sm">SAC</Text>
         </View>
       </View>
     );
@@ -77,13 +71,13 @@ export default function Login() {
 
   // ── Mobile ──────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.mobileContent}>
-        <View style={styles.mobileLogoRow}>
+    <SafeAreaView className="flex-1 bg-background px-6 pt-5">
+      <View className="flex-1">
+        <View className="flex-row items-center mb-[60px]">
           <AlmocuIcon color={contrast} size={128} />
         </View>
 
-        <View style={styles.formContainer}>
+        <View className="flex-1 justify-center pb-20">
           {isLogin ? (
             <LoginForm onToggleForm={toggleForm} />
           ) : (
@@ -93,115 +87,4 @@ export default function Login() {
       </View>
     </SafeAreaView>
   );
-}
-
-function makeStyles(background: string, foreground: string, contrast: string, text: string, isWeb: boolean) {
-  return StyleSheet.create({
-    webRoot: {
-      flex: 1,
-      backgroundColor: background,
-      minHeight: Platform.OS === 'web' ? '100vh' : '100%' as any,
-      overflow: 'hidden',
-    },
-    blob: {
-      position: 'absolute',
-      width: 1000,
-      height: 860,
-      borderRadius: 500,
-      opacity: 0.15, // Reduced opacity for cleaner look in dark mode
-    },
-    blobTopRight: {
-      top: -480,
-      right: -500,
-    },
-    blobBottomLeft: {
-      bottom: -480,
-      left: -500,
-    },
-    webHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 32,
-      paddingTop: 24,
-      paddingBottom: 8,
-      zIndex: 10,
-    },
-    logoRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    logoText: {
-      fontFamily: 'Jost_700Bold',
-      color: contrast,
-      fontSize: 20,
-      marginLeft: 8,
-    },
-    clienteBtn: {
-      backgroundColor: contrast,
-      borderRadius: 50,
-      paddingHorizontal: 28,
-      paddingVertical: 12,
-    },
-    clienteBtnText: {
-      fontFamily: 'Jost_700Bold',
-      color: '#FFFFFF',
-      fontSize: 15,
-    },
-    webCenter: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 10,
-      paddingHorizontal: 20,
-    },
-    webCard: {
-      backgroundColor: foreground,
-      borderRadius: 30,
-      borderWidth: 1, // Subtle border instead of thick foreground border
-      borderColor: background,
-      paddingVertical: 40,
-      paddingHorizontal: 36,
-      width: '100%',
-      maxWidth: 440,
-      shadowColor: '#000',
-      shadowOpacity: 0.1,
-      shadowRadius: 30,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 5,
-    },
-    webFooter: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      paddingHorizontal: 32,
-      paddingBottom: 24,
-      gap: 6,
-      zIndex: 10,
-    },
-    sacText: {
-      fontFamily: 'Jost_700Bold',
-      color: contrast,
-      fontSize: 14,
-    },
-    safe: {
-      flex: 1,
-      backgroundColor: background,
-      paddingHorizontal: 24,
-      paddingTop: 20,
-    },
-    mobileContent: {
-      flex: 1,
-    },
-    mobileLogoRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 60,
-    },
-    formContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      paddingBottom: 80,
-    },
-  });
 }

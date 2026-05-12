@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { EditIcon } from '@/components/shared/Icons';
 import { useAppTheme } from '@/themes/colors';
 
@@ -13,98 +13,37 @@ export interface MenuItem {
 
 export function MenuCard({ name, description, price, image }: MenuItem) {
   const theme = useAppTheme();
-  const styles = makeStyles(theme);
 
   return (
-    <View style={styles.card}>
+    <View className="flex-row bg-foreground rounded-[24px] p-3 mb-4 items-center">
       {/* Left: Image Placeholder */}
-      <View style={styles.imageContainer}>
+      <View className="mr-4">
         {image ? (
-          <Image source={{ uri: image }} style={styles.image} />
+          <Image source={{ uri: image }} className="w-20 h-20 rounded-xl bg-background" />
         ) : (
-          <View style={styles.placeholderImage} />
+          <View className="w-20 h-20 rounded-xl bg-background" />
         )}
       </View>
 
       {/* Middle: Content */}
-      <View style={styles.content}>
-        <Text style={styles.name}>{name}</Text>
-        <Text style={styles.description} numberOfLines={2}>{description}</Text>
-        <Text style={styles.price}>R$ {price.toFixed(2).replace('.', ',')}</Text>
+      <View className="flex-1 pr-2">
+        <Text className="font-[Jost_700Bold] text-base text-text mb-1">{name}</Text>
+        <Text className="font-[Jost_400Regular] text-[13px] text-text opacity-60 mb-2 leading-[18px]" numberOfLines={2}>
+          {description}
+        </Text>
+        <Text className="font-[Jost_700Bold] text-base text-text">R$ {price.toFixed(2).replace('.', ',')}</Text>
       </View>
 
       {/* Vertical Divider */}
-      <View style={styles.verticalDivider} />
+      <View 
+        className="w-[1px] h-3/5 mx-3" 
+        style={{ borderLeftWidth: 1, borderColor: theme.background, borderStyle: 'dashed' }} 
+      />
 
       {/* Right: Edit Action */}
-      <TouchableOpacity style={styles.editBtn} activeOpacity={0.7}>
+      <TouchableOpacity className="w-11 h-11 items-center justify-center" activeOpacity={0.7}>
         <EditIcon color={theme.text} opacity={0.7} size={24} />
       </TouchableOpacity>
     </View>
   );
-}
-
-function makeStyles(theme: any) {
-  return StyleSheet.create({
-    card: {
-      flexDirection: 'row',
-      backgroundColor: theme.foreground,
-      borderRadius: 24,
-      padding: 12,
-      marginBottom: 16,
-      alignItems: 'center',
-    },
-    imageContainer: {
-      marginRight: 16,
-    },
-    image: {
-      width: 80,
-      height: 80,
-      borderRadius: 12,
-      backgroundColor: theme.background,
-    },
-    placeholderImage: {
-      width: 80,
-      height: 80,
-      borderRadius: 12,
-      backgroundColor: theme.background,
-    },
-    content: {
-      flex: 1,
-      paddingRight: 8,
-    },
-    name: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 16,
-      color: theme.text,
-      marginBottom: 4,
-    },
-    description: {
-      fontFamily: 'Jost_400Regular',
-      fontSize: 13,
-      color: theme.text,
-      opacity: 0.6,
-      marginBottom: 8,
-      lineHeight: 18,
-    },
-    price: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 16,
-      color: theme.text,
-    },
-    verticalDivider: {
-      width: 1,
-      height: '60%',
-      borderLeftWidth: 1,
-      borderColor: theme.background,
-      borderStyle: 'dashed',
-      marginHorizontal: 12,
-    },
-    editBtn: {
-      width: 44,
-      height: 44,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-  });
 }

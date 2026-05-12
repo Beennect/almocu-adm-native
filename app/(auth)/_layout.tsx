@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 import { Slot } from 'expo-router';
 import { Navbar } from '@/components/shared/navbar/Navbar';
 import { useAppTheme } from '@/themes/colors';
@@ -11,19 +11,19 @@ export default function AuthLayout() {
   const theme = useAppTheme();
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView className="flex-1" style={{ backgroundColor: theme.background }}>
       {isWeb ? (
-        <View style={styles.webWrapper}>
+        <View className="flex-1 flex-row">
           <Navbar />
-          <View style={styles.webContentArea}>
-            <View style={styles.maxContentWidth}>
+          <View className="flex-1 p-8 items-center">
+            <View className="flex-1 w-full max-w-[1200px]">
               <Slot />
             </View>
           </View>
         </View>
       ) : (
-        <View style={styles.mobileWrapper}>
-          <View style={styles.mobileSlot}>
+        <View className="flex-1">
+          <View className="flex-1 px-4 pt-4">
             <Slot />
           </View>
           <Navbar />
@@ -32,31 +32,3 @@ export default function AuthLayout() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  webWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  webContentArea: {
-    flex: 1,
-    padding: 32,
-    alignItems: 'center', // Centro para aplicar o maxWidth
-  },
-  maxContentWidth: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 1200, // Max width apenas no conteúdo principal
-  },
-  mobileWrapper: {
-    flex: 1,
-  },
-  mobileSlot: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-});

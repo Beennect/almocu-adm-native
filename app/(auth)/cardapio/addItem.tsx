@@ -2,7 +2,6 @@ import { useAppTheme } from '@/themes/colors';
 import React, { useState } from 'react';
 import {
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -33,7 +32,6 @@ export default function AddItemScreen() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
   const theme = useAppTheme();
-  const styles = makeStyles(theme, isWeb);
 
   const [formData, setFormData] = useState<AddItemFormData>({
     name: '',
@@ -58,26 +56,29 @@ export default function AddItemScreen() {
     }));
   };
 
+  const buttonClass = `flex-grow ${isWeb ? 'flex-1 min-w-0' : 'min-w-[140px]'} bg-foreground rounded-xl px-4 py-3 flex-row items-center justify-center gap-2 border border-transparent`;
+  const activeBtnClass = "bg-contrast/20 border-contrast";
+
   return (
-    <View style={styles.container}>
+    <View className={`flex-1 bg-background ${isWeb ? 'pt-8 px-8' : 'pt-5 px-4'}`}>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Adicionar Item</Text>
-          <View style={styles.headerLine} />
+        <View className="flex-row items-center mb-8">
+          <Text className="font-[Jost_600SemiBold] text-sm text-text opacity-60 mr-3">Adicionar Item</Text>
+          <View className="flex-1 h-[1px] bg-background" />
         </View>
 
         {/* Form Section */}
-        <View style={styles.formSection}>
+        <View className="mb-6 gap-4">
           {/* Row 1: Name and Category */}
-          <View style={styles.row}>
-            <View style={styles.inputWrapper}>
+          <View className="flex-row gap-3 items-center flex-wrap">
+            <View className="flex-1 min-w-[140px]">
               <TextInput
-                style={styles.input}
+                className="bg-foreground rounded-[16px] px-4 py-3.5 text-text text-sm font-[Jost_400Regular] outline-none"
                 placeholder="Nome do item"
                 placeholderTextColor={theme.text + '80'}
                 value={formData.name}
@@ -88,23 +89,23 @@ export default function AddItemScreen() {
             </View>
 
             <TouchableOpacity
-              style={styles.pickerContainer}
+              className="bg-foreground rounded-[16px] px-4 py-3.5 flex-row items-center justify-between min-w-[100px]"
               activeOpacity={0.7}
             >
-              <Text style={styles.pickerText}>
+              <Text className="text-text text-sm font-[Jost_400Regular] mr-2">
                 {formData.category || 'Categoria'}
               </Text>
-              <View style={styles.pickerIconContainer}>
+              <View className="ml-1">
                 <ChevronDownIcon color={theme.text} size={20} />
               </View>
             </TouchableOpacity>
           </View>
 
           {/* Row 2: Value and Serves */}
-          <View style={styles.row}>
-            <View style={styles.inputWrapper}>
+          <View className="flex-row gap-3 items-center flex-wrap">
+            <View className="flex-1 min-w-[140px]">
               <TextInput
-                style={styles.input}
+                className="bg-foreground rounded-[16px] px-4 py-3.5 text-text text-sm font-[Jost_400Regular] outline-none"
                 placeholder="Valor do item"
                 placeholderTextColor={theme.text + '80'}
                 keyboardType="decimal-pad"
@@ -115,9 +116,9 @@ export default function AddItemScreen() {
               />
             </View>
 
-            <View style={styles.inputWrapper}>
+            <View className="flex-1 min-w-[140px]">
               <TextInput
-                style={styles.input}
+                className="bg-foreground rounded-[16px] px-4 py-3.5 text-text text-sm font-[Jost_400Regular] outline-none"
                 placeholder="Serve quantas pessoas"
                 placeholderTextColor={theme.text + '80'}
                 keyboardType="number-pad"
@@ -129,27 +130,28 @@ export default function AddItemScreen() {
             </View>
             {/* Photo Button */}
             <TouchableOpacity
-                style={styles.button}
+                className={buttonClass}
                 activeOpacity={0.7}
                 onPress={() => setFormData(prev => ({ ...prev, photo: !prev.photo }))}
             >
-                <CameraIcon style={styles.buttonIcon} />
-                <Text style={styles.buttonText}>Adicionar Foto</Text>
+                <CameraIcon color={theme.text} size={18} />
+                <Text className="text-text text-sm font-[Jost_400Regular] font-medium">Adicionar Foto</Text>
             </TouchableOpacity>
           </View>
 
           {/* Add Ingredient Button */}
           <TouchableOpacity
-            style={styles.button}
+            className={buttonClass}
             activeOpacity={0.7}
           >
-            <ClocheIcon style={styles.buttonIcon}/>
-            <Text style={styles.buttonText}>Adicionar Ingrediente</Text>
+            <ClocheIcon color={theme.text} size={18} />
+            <Text className="text-text text-sm font-[Jost_400Regular] font-medium">Adicionar Ingrediente</Text>
           </TouchableOpacity>
 
           {/* Additional Info */}
           <TextInput
-            style={styles.textArea}
+            className="bg-foreground rounded-[16px] px-4 py-3.5 text-text text-sm font-[Jost_400Regular] min-h-[120px]"
+            style={{ textAlignVertical: 'top' }}
             placeholder="Informações adicionais"
             placeholderTextColor={theme.text + '80'}
             multiline
@@ -161,187 +163,39 @@ export default function AddItemScreen() {
           />
 
           {/* Divider */}
-          <View style={styles.divider} />
+          <View className="h-[1px] bg-text/20 my-2" />
         </View>
 
         {/* Footer Buttons */}
-        <View style={styles.buttonContainer}>
+        <View className="flex-row gap-3 mt-6 flex-wrap">
           <TouchableOpacity
-            style={[
-              styles.button,
-              formData.hasRemovals && styles.buttonActive,
-            ]}
+            className={`${buttonClass} ${formData.hasRemovals ? activeBtnClass : ""}`}
             activeOpacity={0.7}
             onPress={() => toggleFeature('hasRemovals')}
           >
-            <MapPointIcon style={styles.buttonIcon}/>
-            <Text style={styles.buttonText}>Habilitar Remoções</Text>
+            <MapPointIcon color={theme.text} size={18} />
+            <Text className="text-text text-sm font-[Jost_400Regular] font-medium">Habilitar Remoções</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.button,
-              formData.hasAdditionals && styles.buttonActive,
-            ]}
+            className={`${buttonClass} ${formData.hasAdditionals ? activeBtnClass : ""}`}
             activeOpacity={0.7}
             onPress={() => toggleFeature('hasAdditionals')}
           >
-            <FileTextIcon style={styles.buttonIcon}/>
-            <Text style={styles.buttonText}>Habilitar Adicionais</Text>
+            <FileTextIcon color={theme.text} size={18} />
+            <Text className="text-text text-sm font-[Jost_400Regular] font-medium">Habilitar Adicionais</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={{...styles.button, ...styles.primaryButton}}
+            className={`${buttonClass} bg-contrast`}
             activeOpacity={0.8}
             onPress={handleAddItem}
           >
-            <FoodStoreIcon style={styles.primaryButtonIcon}/>
-            <Text style={styles.primaryButtonText}>Adicionar Item</Text>
+            <FoodStoreIcon color={theme.foreground} size={16} />
+            <Text className="text-foreground text-[12px] font-[Jost_400Regular] font-semibold">Adicionar Item</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
   );
-}
-
-function makeStyles(theme: any, isWeb: boolean) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.background,
-      paddingTop: isWeb ? 32 : 20,
-      paddingHorizontal: isWeb ? 32 : 16,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingBottom: 32,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 32,
-    },
-    headerTitle: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 14,
-      color: theme.text,
-      opacity: 0.6,
-      marginRight: 12,
-    },
-    headerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: theme.background,
-    },
-    formSection: {
-      marginBottom: 24,
-      gap: 16,
-    },
-    row: {
-      flexDirection: 'row',
-      gap: 12,
-      alignItems: 'center',
-      flexWrap: 'wrap',
-    },
-    inputWrapper: {
-      flex: 1,
-      minWidth: 140,
-    },
-    input: {
-      backgroundColor: theme.foreground,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      color: theme.text,
-      fontSize: 14,
-      fontFamily: 'Jost_400Regular',
-    },
-    pickerContainer: {
-      backgroundColor: theme.foreground,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      minWidth: 100,
-    },
-    pickerText: {
-      color: theme.text,
-      fontSize: 14,
-      fontFamily: 'Jost_400Regular',
-      marginRight: 8,
-    },
-    pickerIconContainer: {
-      marginLeft: 4,
-      color: theme.text,
-    },
-
-    buttonIcon: {
-      fontSize: 18,
-      color: theme.text,
-    },
-    buttonText: {
-      color: theme.text,
-      fontSize: 14,
-      fontFamily: 'Jost_400Regular',
-      fontWeight: '500',
-    },
-    textArea: {
-      backgroundColor: theme.foreground,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      color: theme.text,
-      fontSize: 14,
-      fontFamily: 'Jost_400Regular',
-      textAlignVertical: 'top',
-      minHeight: 120,
-    },
-    divider: {
-      height: 1,
-      backgroundColor: theme.text + '20',
-      marginVertical: 8,
-    },
-    buttonContainer: {
-      flexDirection: 'row',
-      gap: 12,
-      marginTop: 24,
-      flexWrap: 'wrap',
-    },
-    button: {
-      flex: isWeb ? 1 : undefined,
-      flexGrow: 1,
-      minWidth: isWeb ? 'auto' : 140,
-      backgroundColor: theme.foreground,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      borderWidth: 1,
-      borderColor: 'transparent',
-    },
-    buttonActive: {
-      backgroundColor: theme.contrast + '20',
-      borderColor: theme.contrast,
-    },
-    primaryButton: {
-      backgroundColor: theme.contrast,
-    },
-    primaryButtonIcon: {
-      fontSize: 16,
-      color: theme.foreground,
-    },
-    primaryButtonText: {
-      color: theme.foreground,
-      fontSize: 12,
-      fontFamily: 'Jost_400Regular',
-      fontWeight: '600',
-    },
-  });
 }

@@ -1,7 +1,7 @@
 import { useAppTheme } from '@/themes/colors';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { MenuCard, MenuItem } from '../../../components/menu/MenuCard';
 import { UserHeader } from '../../../components/shared/UserHeader';
 
@@ -31,55 +31,54 @@ export default function CardapioScreen() {
   const isWeb = width >= 768;
   const theme = useAppTheme();
   const router = useRouter();
-  const styles = makeStyles(theme, isWeb);
 
   return (
-    <View style={styles.container}>
+    <View className={`flex-1 ${isWeb ? 'pt-0' : 'pt-5'}`}>
       {/* User Header Component - Apenas Mobile */}
       {!isWeb && <UserHeader userName="GABRIEL MAGINA" />}
 
       {/* Top Bar / Search Row */}
-      <View style={styles.topBar}>
-        <View style={styles.searchContainer}>
+      <View className="flex-row items-center justify-between mb-6 gap-4">
+        <View className="flex-1 flex-row items-center bg-foreground rounded-[20px] px-4 h-14">
           <TextInput
-            style={styles.searchInput}
+            className="flex-1 font-[Jost_400Regular] text-base text-text outline-none"
             placeholder="Nome do prato"
             placeholderTextColor={theme.text + '80'}
           />
         </View>
-        <View style={styles.actionsRight}>
+        <View className="flex-row items-center gap-3">
           {isWeb ? (
             <TouchableOpacity
-              style={styles.createBtn}
+              className="bg-contrast rounded-[20px] px-8 h-14 items-center justify-center"
               activeOpacity={0.8}
               onPress={() => router.push('cardapio/addItem')}
             >
-              <Text style={styles.createBtnText}>Novo Item</Text>
+              <Text className="font-[Jost_700Bold] text-base text-white">Novo Item</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={styles.plusBtn}
+              className="bg-contrast rounded-[20px] w-14 h-14 items-center justify-center"
               activeOpacity={0.8}
               onPress={() => router.push('cardapio/addItem')}
             >
-              <Text style={styles.plusBtnText}>+</Text>
+              <Text className="font-[Jost_700Bold] text-2xl text-white mt-[-2px]">+</Text>
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
+      <View className={isWeb ? "flex-1" : "flex-1"}>
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Section Divider */}
-          <View style={styles.sectionDivider}>
-            <Text style={styles.sectionText}>Pratos Principais</Text>
-            <View style={styles.dividerLine} />
+          <View className="flex-row items-center mb-5">
+            <Text className="font-[Jost_600SemiBold] text-sm text-text opacity-60 mr-3">Pratos Principais</Text>
+            <View className="flex-1 h-[1px] bg-background" />
           </View>
 
           {/* Grid of Cards */}
-          <View style={styles.grid}>
+          <View className="flex-row flex-wrap mx-[-10px]">
             {MOCK_ITEMS.map((item) => (
-              <View key={item.id} style={styles.gridItem}>
+              <View key={item.id} className={`${isWeb ? 'w-1/2' : 'w-full'} px-[10px]`}>
                 <MenuCard {...item} />
               </View>
             ))}
@@ -88,97 +87,4 @@ export default function CardapioScreen() {
       </View>
     </View>
   );
-}
-
-function makeStyles(theme: any, isWeb: boolean) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      paddingTop: isWeb ? 0 : 20,
-    },
-    topBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 24,
-      gap: 16,
-    },
-    searchContainer: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.foreground,
-      borderRadius: 20,
-      paddingHorizontal: 16,
-      height: 56,
-    },
-    searchInput: {
-      flex: 1,
-      fontFamily: 'Jost_400Regular',
-      fontSize: 16,
-      color: theme.text,
-      outlineStyle: 'none',
-    } as any,
-    actionsRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    createBtn: {
-      backgroundColor: theme.contrast,
-      borderRadius: 20,
-      paddingHorizontal: 32,
-      height: 56,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    createBtnText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 16,
-      color: '#FFFFFF',
-    },
-    plusBtn: {
-      backgroundColor: theme.contrast,
-      borderRadius: 20,
-      width: 56,
-      height: 56,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    plusBtnText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 24,
-      color: '#FFFFFF',
-      marginTop: -2,
-    },
-    webListContainer: {
-      flex: 1,
-    },
-    sectionDivider: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 20,
-    },
-    sectionText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 14,
-      color: theme.text,
-      opacity: 0.6,
-      marginRight: 12,
-    },
-    dividerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: theme.background,
-    },
-    grid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginHorizontal: -10,
-    },
-    gridItem: {
-      width: isWeb ? '50%' : '100%',
-      paddingHorizontal: 10,
-    },
-  });
 }
