@@ -1,6 +1,6 @@
-import React from 'react';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
 import { useAppTheme } from '@/themes/colors';
+import React from 'react';
+import { Pressable, Text, View } from 'react-native';
 
 interface NavButtonProps {
   active?: boolean;
@@ -12,62 +12,24 @@ interface NavButtonProps {
 
 export function NavButton({ active, onPress, icon, label, isWeb = false }: NavButtonProps) {
   const theme = useAppTheme();
-  const styles = makeStyles(theme, !!active);
 
   if (isWeb) {
     return (
-      <Pressable 
-        onPress={onPress} 
-        style={styles.webBtn}
-        activeOpacity={0.7}
-      >
-        <View style={styles.iconContainer}>
-          {icon}
-        </View>
-        <Text style={styles.webLabel}>
+      <Pressable onPress={onPress} className="flex-row items-center py-3 my-1" activeOpacity={0.7}>
+        <View className="w-8 items-center justify-center">{icon}</View>
+        <Text
+          className="text-base font-[Jost_600SemiBold] ml-3"
+          style={{ color: active ? theme.contrast : theme.text, opacity: active ? 1 : 0.6 }}
+        >
           {label}
         </Text>
       </Pressable>
     );
   }
 
-  // Mobile layout
   return (
-    <Pressable 
-      onPress={onPress}
-      style={styles.mobileBtn}
-    >
+    <Pressable onPress={onPress} className="flex-1 h-full items-center justify-center z-10">
       {icon}
     </Pressable>
   );
-}
-
-function makeStyles(theme: any, active: boolean) {
-  return StyleSheet.create({
-    webBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 12,
-      marginVertical: 4,
-    },
-    iconContainer: {
-      width: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    webLabel: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 16,
-      marginLeft: 12,
-      color: active ? theme.contrast : theme.text,
-      opacity: active ? 1 : 0.6,
-    },
-    mobileBtn: {
-      flex: 1,
-      height: '100%',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 10,
-    },
-  });
 }

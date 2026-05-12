@@ -1,7 +1,7 @@
 import { usePathname, useRouter } from "expo-router";
 import { observer } from "mobx-react-lite";
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useDerivedValue, withTiming } from 'react-native-reanimated';
 import { useAppTheme } from "../../../themes/colors";
 import {
@@ -33,32 +33,28 @@ export const Navbar = observer(function Navbar() {
 
   const isWeb = width >= 768;
   
-  // Logic to determine active tab from pathname
   const active = pathname.includes('cardapio') ? 'cardapio' : 
                  pathname.includes('pedidos') ? 'pedidos' : 
                  pathname.includes('dashboard') ? 'dashboard' : 'pedidos';
 
   const setActive = (tab: string) => {
-    router.push(`/(auth)/${tab}` as any);
+    router.push(`/${tab}` as any);
   };
-
-  const styles = makeStyles(theme, isWeb);
 
   if (isWeb) {
     return (
-      <View style={styles.webContainer}>
-        {/* Logo */}
-        <View style={styles.logoRow}>
+      <View className="w-[280px] h-full rounded-tr-[32px] rounded-br-[32px] pt-8 pb-6 px-6 border-r" style={{ backgroundColor: theme.foreground, borderColor: theme.background }}>
+        <View className="flex-row items-center mb-6 pl-2">
           <AlmocuIcon color={theme.contrast} size={128} />
         </View>
-        
+
         <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
-          <View style={styles.divider } />
-          {/* Adquiridos Section */}
-          <Text style={styles.sectionTitle}>
+          <View className="h-px w-full mb-8" style={{ backgroundColor: theme.background }} />
+
+          <Text className="font-[Jost_700Bold] text-lg mb-6 pl-2 opacity-80" style={{ color: theme.text }}>
             Adquiridos
           </Text>
-          <View style={styles.navGroup}>
+          <View className="mb-6 space-y-1">
             <NavButton
               isWeb
               active={active === "dashboard"}
@@ -89,13 +85,12 @@ export const Navbar = observer(function Navbar() {
             />
           </View>
 
-          <View style={styles.divider} />
+          <View className="h-px w-full mb-8" style={{ backgroundColor: theme.background }} />
 
-          {/* Bloqueados Section */}
-          <Text style={styles.sectionTitle}>
+          <Text className="font-[Jost_700Bold] text-lg mb-6 pl-2 opacity-80" style={{ color: theme.text }}>
             Bloqueados
           </Text>
-          <View style={styles.navGroup}>
+          <View className="mb-6 space-y-1">
             {[1, 2, 3, 4].map((i) => (
               <NavButton
                 key={i}
@@ -109,16 +104,16 @@ export const Navbar = observer(function Navbar() {
           </View>
         </ScrollView>
 
-        
-        {/* Bottom Actions */}
         <View>
-          <View style={styles.divider} />
-          <View style={styles.footerButtons}>
-            <Pressable style={styles.logoutBtn}>
+          <View className="h-px w-full mb-6" style={{ backgroundColor: theme.background }} />
+          <View className="flex-row items-center justify-between">
+            <Pressable className="flex-1 flex-row items-center justify-center bg-background py-3 rounded-[16px] mr-4" style={{ backgroundColor: theme.background }}>
               <LogOutIcon color={theme.text} opacity={0.7} size={24} />
-              <Text style={styles.logoutText}>Sair</Text>
+              <Text className="font-[Jost_700Bold] text-base ml-3 opacity-80" style={{ color: theme.text }}>
+                Sair
+              </Text>
             </Pressable>
-            <Pressable style={styles.themeBtn}>
+            <Pressable className="bg-background w-12 h-12 rounded-[16px] items-center justify-center" style={{ backgroundColor: theme.background }}>
               <MoonIcon color={theme.text} opacity={0.7} size={24} />
             </Pressable>
           </View>
@@ -127,146 +122,38 @@ export const Navbar = observer(function Navbar() {
     );
   }
 
-  // Mobile layout
   const iconSize = 28;
   const activeIndex = TABS.findIndex(t => t.id === active);
-  const tabWidth = (width - 16) / TABS.length; // 16 is px-2 padding
+  const tabWidth = (width - 16) / TABS.length;
 
   const position = useDerivedValue(() => {
-    return withTiming(activeIndex * tabWidth, { 
+    return withTiming(activeIndex * tabWidth, {
       duration: 300,
       easing: Easing.bezier(0.33, 1, 0.68, 1),
     });
   });
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      left: position.value + 8,
-      width: tabWidth,
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    left: position.value + 8,
+    width: tabWidth,
+  }));
 
   return (
-    <View style={[styles.mobileContainer, { backgroundColor: theme.background }]}>
-      {/* Animated Liquid Indicator */}
-      <Animated.View 
-        style={[
-          styles.mobileIndicator,
-          { backgroundColor: theme.foreground },
-          animatedStyle
-        ]} 
+    <View className="flex-row items-center w-full px-2 h-[70px] relative rounded-t-[24px]" style={{ backgroundColor: theme.background }}>
+      <Animated.View
+        className="absolute top-0 bottom-0 rounded-b-[20px] z-0 shadow-sm elevation-3"
+        style={[{ backgroundColor: theme.foreground }, animatedStyle]}
       />
 
       {TABS.map((tab) => (
-        <NavButton 
+        <NavButton
           key={tab.id}
-          active={active === tab.id} 
-          onPress={() => setActive(tab.id)} 
-          label={tab.label} 
-          icon={<tab.icon color={active === tab.id ? theme.contrast : theme.text} opacity={active === tab.id ? 1 : 0.5} size={iconSize} />} 
+          active={active === tab.id}
+          onPress={() => setActive(tab.id)}
+          label={tab.label}
+          icon={<tab.icon color={active === tab.id ? theme.contrast : theme.text} opacity={active === tab.id ? 1 : 0.5} size={iconSize} />}
         />
       ))}
     </View>
   );
 });
-
-function makeStyles(theme: any, isWeb: boolean) {
-  return StyleSheet.create({
-    webContainer: {
-      width: 280,
-      backgroundColor: theme.foreground,
-      borderTopRightRadius: 32,
-      borderBottomRightRadius: 32,
-      paddingTop: 32,
-      paddingBottom: 24,
-      paddingHorizontal: 24,
-      height: '100%',
-      borderRightWidth: 1,
-      borderColor: theme.background,
-      zIndex: 10,
-    },
-    logoRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 24,
-      paddingLeft: 8,
-    },
-    logoText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 24,
-      color: theme.contrast,
-      marginLeft: 12,
-    },
-    divider: {
-      height: 1,
-      backgroundColor: theme.background,
-      width: '100%',
-      marginBottom: 32,
-    },
-    sectionTitle: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 18,
-      color: theme.text,
-      marginBottom: 24,
-      paddingLeft: 8,
-      opacity: 0.8,
-    },
-    navGroup: {
-      marginBottom: 24,
-      gap: 4,
-    },
-    footerButtons: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    logoutBtn: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.background,
-      paddingVertical: 12,
-      borderRadius: 16,
-      marginRight: 16,
-    },
-    logoutText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 16,
-      color: theme.text,
-      marginLeft: 12,
-      opacity: 0.8,
-    },
-    themeBtn: {
-      backgroundColor: theme.background,
-      width: 48,
-      height: 48,
-      borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    mobileContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      width: '100%',
-      paddingHorizontal: 8,
-      height: 70,
-      position: 'relative',
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-    },
-    mobileIndicator: {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      borderBottomLeftRadius: 20, 
-      borderBottomRightRadius: 20, 
-      zIndex: 0,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-  });
-}
