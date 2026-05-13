@@ -1,18 +1,52 @@
 import { EmailIcon, KeyIcon, ShieldCheckIcon, UserIcon } from '@/components/shared/Icons';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/themes/colors';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FormButton } from '../shared/FormButton';
 import { FormInput } from '../shared/FormInput';
 
 export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [nome, setNome] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const theme = useAppTheme();
+  const { register } = useAuth();
 
   const styles = makeStyles(theme.text);
+
+  const handleRegister = async () => {
+    if (!nome.trim() || !username.trim() || !email.trim() || !senha.trim() || !confirmarSenha.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (senha !== confirmarSenha) {
+      Alert.alert('Erro', 'As senhas não coincidem.');
+      return;
+    }
+
+    if (senha.length < 6) {
+      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await register(nome.trim(), email.trim(), username.trim(), senha);
+      router.replace('/(auth)/dashboard');
+    } catch (error: any) {
+      console.error('Erro no registro:', error);
+      const message = error.response?.data?.message || 'Erro ao criar conta. Tente novamente.';
+      Alert.alert('Erro', message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -29,6 +63,15 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           placeholder="Nome"
           value={nome}
           onChangeText={setNome}
+          editable={!isLoading}
+        />
+        <FormInput
+          Icon={UserIcon}
+          placeholder="Nome de usuário"
+          autoCapitalize="none"
+          value={username}
+          onChangeText={setUsername}
+          editable={!isLoading}
         />
         <FormInput
           Icon={EmailIcon}
@@ -37,6 +80,7 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
+          editable={!isLoading}
         />
         <FormInput
           Icon={KeyIcon}
@@ -44,6 +88,7 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           secureTextEntry
           value={senha}
           onChangeText={setSenha}
+          editable={!isLoading}
         />
         <FormInput
           Icon={ShieldCheckIcon}
@@ -51,14 +96,27 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           secureTextEntry
           value={confirmarSenha}
           onChangeText={setConfirmarSenha}
+          editable={!isLoading}
         />
       </View>
 
       {/* Primary CTA */}
-      <FormButton title="CRIE A SUA CONTA" variant="primary" />
+      <FormButton
+        title={isLoading ? "" : "CRIE A SUA CONTA"}
+        variant="primary"
+        onPress={handleRegister}
+        disabled={isLoading}
+      >
+        {isLoading && <ActivityIndicator color="#1A1A1A" />}
+      </FormButton>
 
       {/* Link para Login */}
-      <TouchableOpacity style={styles.linkRow} activeOpacity={0.7} onPress={onToggleForm}>
+      <TouchableOpacity
+        style={styles.linkRow}
+        activeOpacity={0.7}
+        onPress={onToggleForm}
+        disabled={isLoading}
+      >
         <Text style={styles.linkText}>Entrar na conta</Text>
       </TouchableOpacity>
 

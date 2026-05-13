@@ -1,16 +1,39 @@
 import { EmailIcon, KeyIcon } from '@/components/shared/Icons';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/themes/colors';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FormButton } from '../shared/FormButton';
 import { FormInput } from '../shared/FormInput';
 
 export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const theme = useAppTheme();
+  const { login } = useAuth();
 
   const styles = makeStyles(theme.text);
+
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await login(email.trim(), password.trim());
+      router.replace('/(auth)/dashboard');
+    } catch (error: any) {
+      console.error('Erro no login:', error);
+      const message = error.response?.data?.message || 'Erro ao fazer login. Verifique suas credenciais.';
+      Alert.alert('Erro', message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -29,6 +52,7 @@ export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
+          editable={!isLoading}
         />
         <FormInput
           Icon={KeyIcon}
@@ -36,14 +60,27 @@ export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          editable={!isLoading}
         />
       </View>
 
       {/* Primary CTA */}
-      <FormButton title="ACESSE SUA CONTA" variant="primary" />
+      <FormButton
+        title={isLoading ? "" : "ACESSE SUA CONTA"}
+        variant="primary"
+        onPress={handleLogin}
+        disabled={isLoading}
+      >
+        {isLoading && <ActivityIndicator color="#1A1A1A" />}
+      </FormButton>
 
       {/* Criar conta link */}
-      <TouchableOpacity style={styles.linkRow} activeOpacity={0.7} onPress={onToggleForm}>
+      <TouchableOpacity
+        style={styles.linkRow}
+        activeOpacity={0.7}
+        onPress={onToggleForm}
+        disabled={isLoading}
+      >
         <Text style={styles.linkText}>Criar conta</Text>
       </TouchableOpacity>
 
