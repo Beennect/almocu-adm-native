@@ -1,30 +1,10 @@
 import { useAppTheme } from '@/themes/colors';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View, RefreshControl } from 'react-native';
 import { MenuCard, MenuItem } from '../../../components/menu/MenuCard';
 import { UserHeader } from '../../../components/shared/UserHeader';
-
-const MOCK_ITEMS: MenuItem[] = [
-  {
-    id: '1',
-    name: 'Canoa Sushi Grande',
-    description: '30 Unidades de sushi contendo 6 camarões crocantes, 6 niguiri de salmão, 6 urama...',
-    price: 140.00,
-  },
-  {
-    id: '2',
-    name: 'Temaki Salmão Especial',
-    description: 'Salmão fresco em cubos, cebolinha, cream cheese e arroz envoltos em alga crocante.',
-    price: 32.90,
-  },
-  {
-    id: '3',
-    name: 'Uramaki Philadelphia',
-    description: '8 unidades de uramaki com salmão e cream cheese, coberto com gergelim.',
-    price: 28.00,
-  }
-];
+import { productService, Product } from '../../../services/api-product-service';
 
 export default function CardapioScreen() {
   const { width } = useWindowDimensions();
@@ -33,18 +13,66 @@ export default function CardapioScreen() {
   const router = useRouter();
   const styles = makeStyles(theme, isWeb);
 
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchName, setSearchName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProducts = useCallback(async () => {
+    try {
+      const data = await productService.getProducts();
+      const mappedProducts = data.map(productService.mapProductFromBackend);
+      setProducts(mappedProducts);
+      setError(null);
+    } catch (err) {
+      console.error('Erro ao buscar produtos:', err);
+      setError('Erro ao carregar produtos');
+      setProducts([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchProducts();
+  };
+
+  const filteredItems = products
+    .filter(p => p.name.toLowerCase().includes(searchName.toLowerCase()))
+    .map(p => ({
+      id: p.id,
+      name: p.name,
+      description: p.description || '',
+      price: p.price,
+    }));
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={theme.contrast} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* User Header Component - Apenas Mobile */}
       {!isWeb && <UserHeader userName="GABRIEL MAGINA" />}
 
-      {/* Top Bar / Search Row */}
       <View style={styles.topBar}>
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
             placeholder="Nome do prato"
             placeholderTextColor={theme.text + '80'}
+            value={searchName}
+            onChangeText={setSearchName}
           />
         </View>
         <View style={styles.actionsRight}>
@@ -52,7 +80,7 @@ export default function CardapioScreen() {
             <TouchableOpacity
               style={styles.createBtn}
               activeOpacity={0.8}
-              onPress={() => router.push('cardapio/addItem')}
+              onPress={() => router.push('/(auth)/cardapio/addItem')}
             >
               <Text style={styles.createBtnText}>Novo Item</Text>
             </TouchableOpacity>
@@ -60,7 +88,7 @@ export default function CardapioScreen() {
             <TouchableOpacity
               style={styles.plusBtn}
               activeOpacity={0.8}
-              onPress={() => router.push('cardapio/addItem')}
+              onPress={() => router.push('/(auth)/cardapio/addItem')}
             >
               <Text style={styles.plusBtnText}>+</Text>
             </TouchableOpacity>
@@ -69,21 +97,30 @@ export default function CardapioScreen() {
       </View>
 
       <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Section Divider */}
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+        >
           <View style={styles.sectionDivider}>
-            <Text style={styles.sectionText}>Pratos Principais</Text>
+            <Text style={styles.sectionText}>Cardápio</Text>
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Grid of Cards */}
           <View style={styles.grid}>
-            {MOCK_ITEMS.map((item) => (
+            {filteredItems.map((item) => (
               <View key={item.id} style={styles.gridItem}>
                 <MenuCard {...item} />
               </View>
             ))}
           </View>
+
+          {filteredItems.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Nenhum item encontrado</Text>
+            </View>
+          )}
         </ScrollView>
       </View>
     </View>
@@ -95,6 +132,10 @@ function makeStyles(theme: any, isWeb: boolean) {
     container: {
       flex: 1,
       paddingTop: isWeb ? 0 : 20,
+    },
+    loadingContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     topBar: {
       flexDirection: 'row',
@@ -166,6 +207,16 @@ function makeStyles(theme: any, isWeb: boolean) {
       opacity: 0.6,
       marginRight: 12,
     },
+    fallbackBadge: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 10,
+      color: theme.foreground,
+      backgroundColor: theme.contrast,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 10,
+      overflow: 'hidden',
+    },
     dividerLine: {
       flex: 1,
       height: 1,
@@ -179,6 +230,18 @@ function makeStyles(theme: any, isWeb: boolean) {
     gridItem: {
       width: isWeb ? '50%' : '100%',
       paddingHorizontal: 10,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 60,
+    },
+    emptyText: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 16,
+      color: theme.text,
+      opacity: 0.6,
     },
   });
 }

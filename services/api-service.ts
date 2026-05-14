@@ -1,24 +1,40 @@
 import axios from 'axios';
+import { getApiUrl, API_ENDPOINTS } from './api-config';
+import { authService } from './auth-service';
 
-// Configure sua URL base aqui (ex: http://192.168.1.10:3000)
-const API_URL = 'https://sturdy-cod-wr9p9jvv7q76f5p5-3000.app.github.dev'; 
+const createApiInstance = (service: keyof typeof API_ENDPOINTS) => {
+  const instance = axios.create({
+    baseURL: getApiUrl(service),
+    timeout: 10000,
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+  });
 
-const api = axios.create({
-  baseURL: API_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  },
-});
+  instance.interceptors.request.use(
+    async (config) => {
+      try {
+        const token = await authService.getToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (error) {
+        console.warn('[API] Erro ao obter token:', error);
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
 
-// Interceptor opcional (ex: para logs ou adicionar tokens)
-api.interceptors.request.use(
-  (config) => {
-    // console.log('Request:', config.url);
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+  return instance;
+};
+
+export const authApi = createApiInstance('auth');
+export const menuApi = createApiInstance('menu');
+export const stockApi = createApiInstance('stock');
+export const orderApi = createApiInstance('order');
+
+const api = createApiInstance('auth');
 
 export default api;

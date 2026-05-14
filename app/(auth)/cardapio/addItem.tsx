@@ -1,4 +1,5 @@
 import { useAppTheme } from '@/themes/colors';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ScrollView,
@@ -8,7 +9,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -21,6 +22,8 @@ import {
   TrashIcon
 } from '../../../components/shared/Icons';
 import { SelectModal } from '../../../components/shared/SelectModal';
+import { useToast } from '../../../components/shared/Toast';
+import { productService } from '../../../services/api-product-service';
 
 interface Ingredient {
   id: string;
@@ -44,6 +47,8 @@ export default function AddItemScreen() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
   const theme = useAppTheme();
+  const router = useRouter();
+  const { showToast } = useToast();
   const styles = makeStyles(theme, isWeb);
 
   const [formData, setFormData] = useState<AddItemFormData>({
@@ -66,55 +71,29 @@ export default function AddItemScreen() {
 
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [ingredientModalVisible, setIngredientModalVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const categoryOptions = ["Entradas", "Pratos Principais", "Sobremesas", "Bebidas", "Combos"];
   const ingredientOptions = ["Camarões", "Salmão", "Arroz", "Nori", "Cream Cheese", "Atum", "Shoyu", "Niguiri de salmão"];
 
   const handlePickImage = async () => {
-    Alert.alert(
-      "Adicionar Foto",
-      "Escolha uma opção",
-      [
-        {
-          text: "Câmera",
-          onPress: async () => {
-            const permission = await ImagePicker.requestCameraPermissionsAsync();
-            if (permission.granted) {
-              const result = await ImagePicker.launchCameraAsync({
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 1,
-              });
-              if (!result.canceled) {
-                setFormData(prev => ({ ...prev, photo: result.assets[0].uri }));
-              }
-            }
-          }
-        },
-        {
-          text: "Galeria",
-          onPress: async () => {
-            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (permission.granted) {
-              const result = await ImagePicker.launchImageLibraryAsync({
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 1,
-              });
-              if (!result.canceled) {
-                setFormData(prev => ({ ...prev, photo: result.assets[0].uri }));
-              }
-            }
-          }
-        },
-        { text: "Cancelar", style: "cancel" }
-      ]
-    );
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+      if (!result.canceled) {
+        setFormData(prev => ({ ...prev, photo: result.assets[0].uri }));
+      }
+    } catch (error) {
+      showToast({ message: 'Erro ao selecionar imagem', type: 'error' });
+    }
   };
 
   const handleAddIngredient = () => {
     if (!newIngredient.name || !newIngredient.quantity) {
-      Alert.alert("Erro", "Selecione um ingrediente e informe a quantidade.");
+      showToast({ message: 'Selecione um ingrediente e informe a quantidade', type: 'error' });
       return;
     }
 
@@ -133,9 +112,39 @@ export default function AddItemScreen() {
     setIngredients(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleAddItem = () => {
-    console.log('Item adicionado:', { ...formData, ingredients });
-    // TODO: Integrar com API
+  const handleAddItem = async () => {
+    if (!formData.name.trim()) {
+      showToast({ message: 'Informe o nome do item', type: 'error' });
+      return;
+    }
+
+    if (!formData.value.trim()) {
+      showToast({ message: 'Informe o valor do item', type: 'error' });
+      return;
+    }
+
+    const price = parseFloat(formData.value.replace(',', '.'));
+    if (isNaN(price) || price <= 0) {
+      showToast({ message: 'Valor inválido', type: 'error' });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await productService.createProduct({
+        name: formData.name.trim(),
+        price,
+        description: formData.additionalInfo.trim() || undefined,
+      });
+
+      showToast({ message: 'Item adicionado ao cardápio!', type: 'success' });
+      setTimeout(() => router.back(), 1500);
+    } catch (error: any) {
+      console.error('Erro ao criar produto:', error);
+      showToast({ message: error.response?.data?.message || 'Falha ao criar item', type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const toggleFeature = (feature: 'hasRemovals' | 'hasAdditionals') => {
@@ -333,9 +342,16 @@ export default function AddItemScreen() {
             style={{...styles.button, ...styles.primaryButton}}
             activeOpacity={0.8}
             onPress={handleAddItem}
+            disabled={submitting}
           >
-            <FoodStoreIcon style={styles.primaryButtonIcon}/>
-            <Text style={styles.primaryButtonText}>Adicionar Item</Text>
+            {submitting ? (
+              <ActivityIndicator size="small" color={theme.foreground} />
+            ) : (
+              <>
+                <FoodStoreIcon style={styles.primaryButtonIcon}/>
+                <Text style={styles.primaryButtonText}>Adicionar Item</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>

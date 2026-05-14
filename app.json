@@ -18,6 +18,13 @@
       "expo-web-browser",
       "expo-font"
     ],
+    "extra": {
+      "API_URL": "https://url",
+      "AUTH_PORT": "0000",
+      "MENU_PORT": "0000",
+      "STOCK_PORT": "0000",
+      "ORDER_PORT": "0000"
+    },
     "experiments": {
       "typedRoutes": true
     }

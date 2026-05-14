@@ -12,6 +12,7 @@ interface OrderItem {
 }
 
 interface OrderCardProps {
+  id?: string;
   orderNumber: string;
   customerName: string;
   status: OrderStatus;
@@ -20,7 +21,7 @@ interface OrderCardProps {
   items: OrderItem[];
 }
 
-export function OrderCard({ orderNumber, customerName, status, total, elapsedTime, items }: OrderCardProps) {
+export function OrderCard({ id, orderNumber, customerName, status, total, elapsedTime, items }: OrderCardProps) {
   const theme = useAppTheme();
   const styles = makeStyles(theme, status);
 

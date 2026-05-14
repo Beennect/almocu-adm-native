@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from './api-service';
+import { authApi } from './api-service';
 
 export interface User {
   id: string;
@@ -56,7 +56,7 @@ class AuthService {
         ...(credentials.restaurantId && { restaurantId: credentials.restaurantId }),
       };
       
-      const response = await api.post<any>('/auth/login', loginPayload);
+      const response = await authApi.post<any>('/auth/login', loginPayload);
       console.log('[Auth] Resposta do backend:', response.data);
       
       // Suportar diferentes formatos de resposta
@@ -101,7 +101,7 @@ class AuthService {
       };
       console.log('[Auth] Tentando registro com:', { username: registerPayload.username, email: registerPayload.email });
       
-      const response = await api.post<any>('/auth/register', registerPayload);
+      const response = await authApi.post<any>('/auth/register', registerPayload);
       console.log('[Auth] Resposta do registro:', response.data);
       
       // O register retorna apenas o usuário, não o token
@@ -140,7 +140,7 @@ class AuthService {
       console.log('[AuthService] Token encontrado:', !!token);
       if (token) {
         // Chamar endpoint de logout da API
-        await api.post('/auth/logout', {}, {
+        await authApi.post('/auth/logout', {}, {
           headers: { Authorization: `Bearer ${token}` }
         });
         console.log('[AuthService] Logout na API realizado');
@@ -185,11 +185,11 @@ class AuthService {
   }
 
   setAuthToken(token: string): void {
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    authApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
   private removeAuthToken(): void {
-    delete api.defaults.headers.common['Authorization'];
+    delete authApi.defaults.headers.common['Authorization'];
   }
 
   // Método para verificar se o token ainda é válido
@@ -200,7 +200,7 @@ class AuthService {
 
       // Você pode implementar uma chamada para verificar se o token é válido
       // Por exemplo, uma rota protegida que retorna 200 se válido
-      await api.get('/auth/verify');
+      await authApi.get('/auth/verify');
       return true;
     } catch (error) {
       // Token inválido ou expirado

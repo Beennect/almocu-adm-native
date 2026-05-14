@@ -10,6 +10,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ToastProvider } from "@/components/shared/Toast";
 import "./global.css";
 
 const queryClient = new QueryClient({
@@ -37,12 +38,14 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SafeAreaProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="login" />
-            <Stack.Screen name="register" />
-            <Stack.Screen name="(auth)" />
-          </Stack>
-          <StatusBar style="auto" />
+          <ToastProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="login" />
+              <Stack.Screen name="register" />
+              <Stack.Screen name="(auth)" />
+            </Stack>
+            <StatusBar style="auto" />
+          </ToastProvider>
         </SafeAreaProvider>
       </AuthProvider>
     </QueryClientProvider>

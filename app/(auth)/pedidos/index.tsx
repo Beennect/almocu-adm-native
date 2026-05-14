@@ -1,36 +1,10 @@
 import { useAppTheme } from '@/themes/colors';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View, RefreshControl } from 'react-native';
 import { OrderCard, OrderStatus } from '../../../components/orders/OrderCard';
 import { UserHeader } from '../../../components/shared/UserHeader';
-
-const MOCK_ORDERS = [
-  {
-    id: '1',
-    orderNumber: '7362',
-    customerName: 'Raquel Lais',
-    status: 'Preparando' as OrderStatus,
-    total: 140.00,
-    elapsedTime: '00:10:41',
-    items: [
-      { id: 'i1', quantity: 1, name: 'Canoa de Sushi', price: 120.00 },
-      { id: 'i2', quantity: 2, name: 'Suco Natural', price: 20.00 },
-    ]
-  },
-  {
-    id: '2',
-    orderNumber: '7362',
-    customerName: 'Raquel Lais',
-    status: 'Preparando' as OrderStatus,
-    total: 140.00,
-    elapsedTime: '00:10:41',
-    items: [
-      { id: 'i1', quantity: 1, name: 'Canoa de Sushi', price: 120.00 },
-      { id: 'i2', quantity: 2, name: 'Suco Natural', price: 20.00 },
-    ]
-  },
-];
+import { orderService, Order } from '../../../services/api-order-service';
 
 export default function PedidosScreen() {
   const { width } = useWindowDimensions();
@@ -39,18 +13,70 @@ export default function PedidosScreen() {
   const router = useRouter();
   const styles = makeStyles(theme, isWeb);
 
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchName, setSearchName] = useState('');
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      const data = await orderService.getOrders();
+      const mappedOrders = data.map(orderService.mapOrderFromBackend);
+      setOrders(mappedOrders);
+    } catch (error) {
+      console.error('Erro ao buscar pedidos:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchOrders();
+  };
+
+  const filteredOrders = searchName
+    ? orders.filter(order => 
+        order.customerName?.toLowerCase().includes(searchName.toLowerCase())
+      )
+    : orders;
+
+  const groupedOrders = filteredOrders.reduce((groups: Record<string, Order[]>, order) => {
+    const date = order.createdAt 
+      ? new Date(order.createdAt).toLocaleDateString('pt-BR')
+      : new Date().toLocaleDateString('pt-BR');
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(order);
+    return groups;
+  }, {});
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={theme.contrast} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* User Header Component - Apenas Mobile */}
       {!isWeb && <UserHeader userName="GABRIEL MAGINA" />}
 
-      {/* Top Bar / Search Row */}
       <View style={styles.topBar}>
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
             placeholder="Nome"
             placeholderTextColor={theme.text + '80'}
+            value={searchName}
+            onChangeText={setSearchName}
           />
         </View>
         <View style={styles.actionsRight}>
@@ -59,11 +85,11 @@ export default function PedidosScreen() {
           </TouchableOpacity>
 
           {isWeb ? (
-            <TouchableOpacity style={styles.createBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido')}>
+            <TouchableOpacity style={styles.createBtn} activeOpacity={0.8} onPress={() => router.push('/(auth)/pedidos/addPedido')}>
               <Text style={styles.createBtnText}>Criar Pedido</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido')}>
+            <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8} onPress={() => router.push('/(auth)/pedidos/addPedido')}>
               <Text style={styles.plusBtnText}>+</Text>
             </TouchableOpacity>
           )}
@@ -71,21 +97,47 @@ export default function PedidosScreen() {
       </View>
 
       <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Date Divider */}
-          <View style={styles.dateDivider}>
-            <Text style={styles.dateText}>05/03/2026</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Grid of Cards */}
-          <View style={styles.grid}>
-            {MOCK_ORDERS.map((order) => (
-              <View key={order.id} style={styles.gridItem}>
-                <OrderCard {...order} />
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+        >
+          {Object.entries(groupedOrders).map(([date, dateOrders]) => (
+            <View key={date}>
+              <View style={styles.dateDivider}>
+                <Text style={styles.dateText}>{date}</Text>
+                <View style={styles.dividerLine} />
               </View>
-            ))}
-          </View>
+
+              <View style={styles.grid}>
+                {dateOrders.map((order) => (
+                  <View key={order.id} style={styles.gridItem}>
+                    <OrderCard
+                      id={order.id}
+                      orderNumber={order.orderNumber || '0000'}
+                      customerName={order.customerName || 'Cliente'}
+                      status={orderService.mapStatusToFrontend(order.status) as OrderStatus}
+                      total={order.total || order.totalValue}
+                      elapsedTime={order.elapsedTime || '00:00:00'}
+                      items={order.items.map((item, idx) => ({
+                        id: item.productId || idx.toString(),
+                        quantity: item.quantity,
+                        name: item.name || 'Item',
+                        price: item.price || 0,
+                      }))}
+                    />
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))}
+
+          {filteredOrders.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Nenhum pedido encontrado</Text>
+            </View>
+          )}
         </ScrollView>
       </View>
     </View>
@@ -198,6 +250,22 @@ function makeStyles(theme: any, isWeb: boolean) {
     gridItem: {
       width: isWeb ? '50%' : '100%',
       paddingHorizontal: 10,
+    },
+    loadingContainer: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 60,
+    },
+    emptyText: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 16,
+      color: theme.text,
+      opacity: 0.6,
     },
   });
 }
