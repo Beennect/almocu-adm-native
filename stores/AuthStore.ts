@@ -1,0 +1,294 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { makeAutoObservable } from "mobx";
+import { Platform } from "react-native";
+import api from "../services/api-service";
+import { dataStore } from "./DataStore";
+
+function mapBackendRoleToFrontend(role: string): 'GERENTE' | 'GARCOM' | 'COZINHA' | 'INDEFINIDO' {
+  switch (role) {
+    case 'OWNER':
+    case 'MANAGER':
+      return 'GERENTE';
+    case 'WAITER':
+      return 'GARCOM';
+    case 'KITCHEN':
+      return 'COZINHA';
+    default:
+      return 'INDEFINIDO';
+  }
+}
+
+class AuthStore {
+  isAuthenticated: boolean = false;
+  user: any = null; // { email, name, accountType, restaurantId, restaurantRoles }
+  isInitialized: boolean = false;
+  users: any[] = [];
+
+  constructor() {
+    makeAutoObservable(this);
+    this.init();
+  }
+
+  async init() {
+    try {
+      const storedToken = await AsyncStorage.getItem('auth_token');
+      if (storedToken) {
+        const storedUser = await AsyncStorage.getItem('user');
+        if (storedUser) {
+          this.user = JSON.parse(storedUser);
+          this.isAuthenticated = true;
+        }
+      }
+      const storedUsers = await AsyncStorage.getItem('users');
+      if (storedUsers) {
+        this.users = JSON.parse(storedUsers);
+      } else if (Platform.OS === 'web') {
+        const localUsers = localStorage.getItem('users');
+        if (localUsers) {
+          this.users = JSON.parse(localUsers);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load auth state", e);
+    } finally {
+      this.isInitialized = true;
+      if (this.isAuthenticated) {
+        dataStore.init();
+      }
+    }
+  }
+
+  get activeRole(): 'GERENTE' | 'GARCOM' | 'COZINHA' | 'INDEFINIDO' {
+    if (!this.user || !this.user.restaurantId) return 'INDEFINIDO';
+    return this.user.restaurantRoles?.[this.user.restaurantId] || 'INDEFINIDO';
+  }
+
+  async register(email: string, pass: string, name: string, accountType: 'client' | 'business' = 'business') {
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Chamada real de registro para o backend
+    const response = await api.post('/auth/register', {
+      username: normalizedEmail,
+      email: normalizedEmail,
+      password: pass,
+      name,
+    });
+
+    // Track locally in users array for forgot-password / edit profile simulation matching
+    const newUser = { email: normalizedEmail, password: pass, name };
+    this.users.push(newUser);
+    await AsyncStorage.setItem('users', JSON.stringify(this.users));
+    if (Platform.OS === 'web') {
+      localStorage.setItem('users', JSON.stringify(this.users));
+    }
+
+    return response.data;
+  }
+
+  async login(email: string, pass: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Chamada real de login no microserviço do backend
+    const response = await api.post('/auth/login', {
+      username: normalizedEmail,
+      password: pass,
+    });
+
+    const { access_token, user: backendUser } = response.data;
+
+    // Converter as roles do backend para o formato reativo do frontend
+    const restaurantRoles: Record<string, string> = {};
+    if (backendUser.restaurants) {
+      backendUser.restaurants.forEach((r: any) => {
+        restaurantRoles[r.id] = mapBackendRoleToFrontend(r.role);
+      });
+    }
+
+    this.isAuthenticated = true;
+    this.user = {
+      id: backendUser.id,
+      email: backendUser.email,
+      name: backendUser.name,
+      accountType: 'business',
+      restaurantRoles,
+      restaurantId: backendUser.activeRestaurantId || '',
+    };
+
+    // Ensure user is tracked in local users list for profile password validation
+    if (!this.users.some(u => u.email === normalizedEmail)) {
+      this.users.push({ email: normalizedEmail, password: pass, name: backendUser.name });
+      await AsyncStorage.setItem('users', JSON.stringify(this.users));
+      if (Platform.OS === 'web') {
+        localStorage.setItem('users', JSON.stringify(this.users));
+      }
+    }
+
+    // Salvar token e estado da sessão
+    await AsyncStorage.setItem('auth_token', access_token);
+    await AsyncStorage.setItem('user', JSON.stringify(this.user));
+    
+    if (this.user.restaurantId) {
+      await AsyncStorage.setItem('selected_restaurant_id', this.user.restaurantId);
+    } else {
+      await AsyncStorage.removeItem('selected_restaurant_id');
+    }
+
+    await dataStore.init();
+  }
+
+  async logout() {
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {
+      console.warn("Backend logout request failed, clearing local session anyway.", e);
+    }
+
+    this.isAuthenticated = false;
+    this.user = null;
+
+    // Limpar o AsyncStorage completamente
+    await AsyncStorage.removeItem('auth_token');
+    await AsyncStorage.removeItem('user');
+    await AsyncStorage.removeItem('selected_restaurant_id');
+
+    dataStore.clear();
+  }
+
+  async createRestaurantWorkspace(
+    name: string,
+    cnpj: string,
+    phone: string,
+    category: string,
+    address: string,
+    deliveryFee: number,
+    operatingHours: string
+  ) {
+    if (!this.user) return;
+
+    // Criar o restaurante master no backend
+    const response = await api.post('/restaurants', {
+      name,
+      cnpj,
+    });
+
+    const newRestaurant = response.data; // { _id, name, cnpj, inviteCode, plan... }
+    const newRestaurantId = newRestaurant._id;
+
+    // Atualizar dados locais do usuário
+    this.user.restaurantId = newRestaurantId;
+    if (!this.user.restaurantRoles) this.user.restaurantRoles = {};
+    this.user.restaurantRoles[newRestaurantId] = 'GERENTE';
+
+    await AsyncStorage.setItem('user', JSON.stringify(this.user));
+    await AsyncStorage.setItem('selected_restaurant_id', newRestaurantId);
+
+    // Salvar informações detalhadas do restaurante na store de dados
+    await dataStore.createRestaurantDetails({
+      id: newRestaurantId,
+      name: newRestaurant.name,
+      cnpj: newRestaurant.cnpj,
+      phone: phone || '(11) 3456-7890',
+      category: category || 'Geral',
+      address: address || 'Endereço Principal',
+      deliveryFee: deliveryFee || 0,
+      operatingHours: operatingHours || 'Sempre Aberto',
+      inviteCode: newRestaurant.inviteCode,
+    });
+  }
+
+  async joinRestaurantWorkspace(inviteCode: string) {
+    if (!this.user) return;
+
+    // Participar do restaurante via código de convite no backend
+    const response = await api.post('/restaurants/join', {
+      inviteCode: inviteCode.trim().toUpperCase(),
+    });
+
+    const joinResult = response.data; // { userId, restaurantId, role, status }
+    const targetRestId = joinResult.restaurantId;
+
+    // Recarregar os restaurantes do usuário
+    const myRestResponse = await api.get('/restaurants/my');
+    const myRestaurants = myRestResponse.data;
+
+    // Atualizar as roles e o ID ativo
+    const restaurantRoles: Record<string, string> = {};
+    myRestaurants.forEach((r: any) => {
+      if (r.restaurantId) {
+        restaurantRoles[r.restaurantId._id] = mapBackendRoleToFrontend(r.role);
+      }
+    });
+
+    this.user.restaurantId = targetRestId;
+    this.user.restaurantRoles = restaurantRoles;
+
+    await AsyncStorage.setItem('user', JSON.stringify(this.user));
+    await AsyncStorage.setItem('selected_restaurant_id', targetRestId);
+
+    await dataStore.init();
+  }
+
+  async selectRestaurantWorkspace(restaurantId: string) {
+    if (!this.user) return;
+    this.user.restaurantId = restaurantId;
+
+    await AsyncStorage.setItem('user', JSON.stringify(this.user));
+    await AsyncStorage.setItem('selected_restaurant_id', restaurantId);
+
+    await dataStore.init();
+  }
+
+  async removeRestaurantWorkspace(restaurantId: string) {
+    if (!this.user) return;
+
+    // Limpar workspace no backend removendo o vínculo do usuário com o restaurante
+    try {
+      await api.delete(`/restaurants/${restaurantId}/staff/${this.user.id}`);
+    } catch (e) {
+      console.warn("Failed to delete staff link from backend", e);
+    }
+
+    if (this.user.restaurantRoles) {
+      delete this.user.restaurantRoles[restaurantId];
+    }
+
+    const remainingIds = Object.keys(this.user.restaurantRoles || {});
+    if (this.user.restaurantId === restaurantId) {
+      this.user.restaurantId = remainingIds.length > 0 ? remainingIds[0] : null;
+    }
+
+    await AsyncStorage.setItem('user', JSON.stringify(this.user));
+    if (this.user.restaurantId) {
+      await AsyncStorage.setItem('selected_restaurant_id', this.user.restaurantId);
+    } else {
+      await AsyncStorage.removeItem('selected_restaurant_id');
+    }
+
+    await dataStore.init();
+  }
+
+  async updateProfile(name: string, email: string, newPass?: string) {
+    if (!this.user) return;
+    // Mudar perfil no banco de dados do backend se aplicável
+    // Nota: Como não há um endpoint explícito de /users/update no escopo inicial do auth controller,
+    // atualizamos apenas localmente ou através do modelo local.
+    this.user.name = name;
+    this.user.email = email;
+    await AsyncStorage.setItem('user', JSON.stringify(this.user));
+
+    const emailLower = email.toLowerCase().trim();
+    const userIndex = this.users.findIndex(u => u.email === emailLower);
+    if (userIndex !== -1) {
+      this.users[userIndex].name = name;
+      if (newPass) {
+        this.users[userIndex].password = newPass;
+      }
+      await AsyncStorage.setItem('users', JSON.stringify(this.users));
+      if (Platform.OS === 'web') {
+        localStorage.setItem('users', JSON.stringify(this.users));
+      }
+    }
+  }
+}
+
+export const authStore = new AuthStore();

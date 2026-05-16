@@ -1,14 +1,18 @@
+import { observer } from 'mobx-react-lite';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MenuIcon } from '@/components/shared/Icons';
 import { useAppTheme } from '@/themes/colors';
+import { authStore } from '@/stores/AuthStore';
 
-interface UserHeaderProps {
-  userName: string;
-}
-
-export function UserHeader({ userName }: UserHeaderProps) {
+export const UserHeader = observer(() => {
   const theme = useAppTheme();
+  
+  let userName = 'Visitante';
+  if (authStore.user && authStore.user.name) {
+    userName = authStore.user.name;
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.foreground }]}>
       <Text style={[styles.userName, { color: theme.text }]}>Olá {userName.toUpperCase()}</Text>
@@ -17,7 +21,7 @@ export function UserHeader({ userName }: UserHeaderProps) {
       </TouchableOpacity>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

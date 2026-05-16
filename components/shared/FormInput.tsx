@@ -8,7 +8,7 @@ interface FormInputProps extends TextInputProps {
 
 export function FormInput({ Icon, ...rest }: FormInputProps) {
   const theme = useAppTheme();
-  const styles = makeStyles(theme.text, theme.foreground);
+  const styles = makeStyles(theme);
 
   return (
     <View style={styles.wrapper}>
@@ -22,17 +22,23 @@ export function FormInput({ Icon, ...rest }: FormInputProps) {
   );
 }
 
-function makeStyles(textColor: string, foreground: string) {
+function makeStyles(theme: any) {
+  // In light mode, use a visible dark border; in dark mode a subtle white border
+  const borderColor = theme.text === '#303030'
+    ? 'rgba(0, 0, 0, 0.18)'
+    : 'rgba(255, 255, 255, 0.15)';
+
   return StyleSheet.create({
     wrapper: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: foreground,
+      backgroundColor: theme.foreground,
       borderRadius: 50,
       height: 48,
       paddingHorizontal: 16,
       marginBottom: 12,
-      // shadow
+      borderWidth: 1.5,
+      borderColor,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.08,
@@ -43,7 +49,7 @@ function makeStyles(textColor: string, foreground: string) {
       flex: 1,
       fontFamily: 'Jost_400Regular',
       fontSize: 14,
-      color: textColor,
+      color: theme.text,
       marginLeft: 10,
       outlineStyle: 'none',
     } as any,

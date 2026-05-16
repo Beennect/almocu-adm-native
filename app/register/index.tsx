@@ -1,188 +1,296 @@
-import { Feather, FontAwesome } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  useWindowDimensions,
+  Platform,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { FormInput } from '@/components/shared/FormInput';
+import { FormButton } from '@/components/shared/FormButton';
+import { useAppTheme } from '@/themes/colors';
+import {
+  AlmocuIcon,
+  EmailIcon,
+  KeyIcon,
+  UserIcon,
+  ShieldCheckIcon,
+} from '@/components/shared/Icons';
+import { toastStore } from '@/stores/ToastStore';
+import { authStore } from '@/stores/AuthStore';
 
 export default function RegisterScreen() {
+  const { width } = useWindowDimensions();
+  const theme = useAppTheme();
+  const { background, foreground, contrast, text } = theme;
+  const isWeb = width >= 768;
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState('');
-  
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [confirmError, setConfirmError] = useState('');
-  const [nameError, setNameError] = useState('');
 
-  const validateForm = () => {
-    let isValid = true;
-    
-    // Validar nome
-    if (name.trim() === '') {
-      setNameError('Por favor, informe seu nome');
-      isValid = false;
-    } else {
-      setNameError('');
+  // Seleção de Tipo de Conta: 'client' | 'business'
+  const [accountType, setAccountType] = useState<'client' | 'business'>('business');
+
+  // Campos de Usuário
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
+
+  const styles = makeStyles(background, foreground, contrast, text, isWeb);
+
+  const validate = () => {
+    if (!nome || !email || !senha || !confirmarSenha) {
+      toastStore.show('Por favor, preencha todos os campos.', 'error');
+      return false;
     }
-    
-    // Validar e-mail
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /\S+@\S+\.\S+/;
     if (!emailRegex.test(email)) {
-      setEmailError('Informe um e-mail válido');
-      isValid = false;
-    } else {
-      setEmailError('');
+      toastStore.show('Por favor, insira um e-mail válido.', 'error');
+      return false;
     }
-    
-    // Validar senha
-    if (password.length < 6) {
-      setPasswordError('A senha deve ter pelo menos 6 caracteres');
-      isValid = false;
-    } else if (password !== confirmPassword) {
-      setConfirmError('As senhas não coincidem');
-      isValid = false;
-    } else {
-      setPasswordError('');
-      setConfirmError('');
+    if (senha.length < 6) {
+      toastStore.show('A senha deve conter ao menos 6 caracteres.', 'error');
+      return false;
     }
-    
-    return isValid;
+    if (senha !== confirmarSenha) {
+      toastStore.show('As senhas não coincidem.', 'error');
+      return false;
+    }
+    return true;
   };
 
   const handleRegister = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validate()) return;
 
-    // Aqui você faria o cadastro real
-    console.log('Cadastrando usuário:', { name, email, password });
-    Alert.alert('Sucesso', 'Cadastro realizado com sucesso!');
-    router.push('/login');
+    try {
+      await authStore.register(email, senha, nome, accountType);
+      await authStore.login(email, senha);
+
+      toastStore.show('Conta criada com sucesso!', 'success');
+      router.replace('/(auth)/dashboard' as any);
+    } catch (err: any) {
+      toastStore.show(err.message || 'Erro ao efetuar cadastro.', 'error');
+    }
   };
 
   return (
-    <View className="flex-1 bg-white">
-      <LinearGradient
-        colors={['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        className="py-8 items-center justify-center"
-      >
-        <Text className="text-white text-3xl font-bold">Crie sua conta</Text>
-        <Text className="text-blue-100 text-base text-center mt-2">
-          Comece sua jornada conosco hoje
-        </Text>
-      </LinearGradient>
+    <View style={styles.root}>
+      {/* Design blobs for Web Layout */}
+      {isWeb && (
+        <>
+          <LinearGradient colors={['transparent', contrast]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={[styles.blob, styles.blobTopRight]} />
+          <LinearGradient colors={['transparent', contrast]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={[styles.blob, styles.blobBottomLeft]} />
+        </>
+      )}
 
-      <ScrollView className="flex-1 px-5 py-5">
-        <View className="px-5">
-          {/* Nome */}
-          <View className="flex-row items-center bg-gray-100 rounded-2xl px-3 py-3 mb-4 border border-gray-300">
-            <Feather name="user" size={20} color="#667eea" />
-            <TextInput
-              className="flex-1 ml-3 text-base"
-              placeholder="Seu nome completo"
-              placeholderTextColor="#999"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {nameError && <Text className="text-red-600 text-xs ml-3">{nameError}</Text>}
-          </View>
-
-          {/* E-mail */}
-          <View className="flex-row items-center bg-gray-100 rounded-2xl px-3 py-3 mb-4 border border-gray-300">
-            <Feather name="mail" size={20} color="#667eea" />
-            <TextInput
-              className="flex-1 ml-3 text-base"
-              placeholder="Seu e-mail"
-              placeholderTextColor="#999"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoCorrect={false}
-            />
-            {emailError && <Text className="text-red-600 text-xs ml-3">{emailError}</Text>}
-          </View>
-
-          {/* Senha */}
-          <View className="flex-row items-center bg-gray-100 rounded-2xl px-3 py-3 mb-4 border border-gray-300">
-            <Feather name="lock" size={20} color="#667eea" />
-            <TextInput
-              className="flex-1 ml-3 text-base"
-              placeholder="Sua senha"
-              placeholderTextColor="#999"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-            {passwordError && <Text className="text-red-600 text-xs ml-3">{passwordError}</Text>}
-          </View>
-
-          {/* Confirmar Senha */}
-          <View className="flex-row items-center bg-gray-100 rounded-2xl px-3 py-3 mb-4 border border-gray-300">
-            <Feather name="shield" size={20} color="#667eea" />
-            <TextInput
-              className="flex-1 ml-3 text-base"
-              placeholder="Confirmar senha"
-              placeholderTextColor="#999"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-            />
-            {confirmError && <Text className="text-red-600 text-xs ml-3">{confirmError}</Text>}
-          </View>
-
-          {/* Botão de Registro */}
-          <TouchableOpacity
-            className="bg-blue-500 py-4 rounded-2xl items-center mb-6"
-            style={!validateForm() ? { opacity: 0.5 } : {}}
-            onPress={handleRegister}
-          >
-            <Text className="text-white text-lg font-bold">Cadastrar</Text>
+      {/* Web Header */}
+      {isWeb && (
+        <View style={styles.webHeader}>
+          <AlmocuIcon color={contrast} size={128} />
+          <TouchableOpacity style={styles.loginBtn} activeOpacity={0.8} onPress={() => router.push('/login' as any)}>
+            <Text style={styles.loginBtnText}>Já tenho uma conta</Text>
           </TouchableOpacity>
-
-          <Text className="text-center text-gray-500 mb-4">Ou cadastre-se com</Text>
-
-          {/* Botões sociais */}
-          <View className="flex-row justify-center gap-4 mb-8">
-            <TouchableOpacity
-              className="flex-row items-center bg-white px-4 py-3 rounded-2xl border border-gray-300"
-              onPress={() => Alert.alert('Google', 'Funcionalidade em desenvolvimento')}
-            >
-              <FontAwesome name="google" size={24} color="#667eea" />
-              <Text className="ml-2 text-gray-700 text-base font-semibold">Google</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center bg-white px-4 py-3 rounded-2xl border border-gray-300"
-              onPress={() => Alert.alert('Facebook', 'Funcionalidade em desenvolvimento')}
-            >
-              <FontAwesome name="facebook" size={24} color="#4267B2" />
-              <Text className="ml-2 text-gray-700 text-base font-semibold">Facebook</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Já tem conta */}
-          <View className="flex-row justify-center items-center">
-            <Text className="text-gray-600 text-sm">Já tem uma conta? </Text>
-            <TouchableOpacity onPress={() => router.push('/login')}>
-              <Text className="text-blue-600 text-sm font-bold">Faça login</Text>
-            </TouchableOpacity>
-          </View>
         </View>
+      )}
+
+      <ScrollView className="flex-1" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {!isWeb && (
+          <View style={styles.mobileHeader}>
+            <AlmocuIcon color={contrast} size={90} />
+          </View>
+        )}
+
+        <View style={[styles.card, { backgroundColor: foreground }]}>
+          <View style={styles.headingBlock}>
+            <Text style={styles.subtitle}>Comece agora mesmo</Text>
+            <Text style={styles.title}>CRIE SUA CONTA NO ALMOCU</Text>
+            <Text style={styles.description}>Escolha o tipo de conta ideal e preencha os dados abaixo.</Text>
+          </View>
+
+          {/* Abas Simples para Seleção de Tipo de Conta */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
+                accountType === 'business' && styles.tabBtnActive,
+                { borderBottomColor: accountType === 'business' ? contrast : 'transparent' }
+              ]}
+              onPress={() => setAccountType('business')}
+            >
+              <Text style={[styles.tabText, { color: text }, accountType === 'business' && { color: contrast, fontWeight: '700' }]}>
+                Conta Business
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabBtn,
+                accountType === 'client' && styles.tabBtnActive,
+                { borderBottomColor: accountType === 'client' ? contrast : 'transparent' }
+              ]}
+              onPress={() => setAccountType('client')}
+            >
+              <Text style={[styles.tabText, { color: text }, accountType === 'client' && { color: contrast, fontWeight: '700' }]}>
+                Conta Cliente
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputBlock}>
+            <FormInput Icon={UserIcon} placeholder="Seu Nome Completo" value={nome} onChangeText={setNome} />
+            <FormInput Icon={EmailIcon} placeholder="Seu Melhor E-mail" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+            <FormInput Icon={KeyIcon} placeholder="Senha de Acesso" secureTextEntry value={senha} onChangeText={setSenha} />
+            <FormInput Icon={ShieldCheckIcon} placeholder="Confirmar Senha" secureTextEntry value={confirmarSenha} onChangeText={setConfirmarSenha} />
+          </View>
+
+          <FormButton 
+            title={accountType === 'business' ? "CRIAR CONTA BUSINESS" : "CRIAR CONTA CLIENTE"} 
+            variant="primary" 
+            onPress={handleRegister} 
+          />
+        </View>
+
+        {/* Mobile footer links */}
+        {!isWeb && (
+          <View style={styles.mobileFooter}>
+            <Text style={{ color: text, opacity: 0.6, fontSize: 14 }}>Já tem uma conta? </Text>
+            <TouchableOpacity onPress={() => router.push('/login' as any)}>
+              <Text style={{ color: contrast, fontFamily: 'Jost_700Bold', fontSize: 14 }}>Faça Login</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
+}
+
+function makeStyles(background: string, foreground: string, contrast: string, text: string, isWeb: boolean) {
+  const isMobile = !isWeb;
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: background,
+      minHeight: Platform.OS === 'web' ? '100vh' : '100%' as any,
+    },
+    blob: {
+      position: 'absolute',
+      width: 1000,
+      height: 860,
+      borderRadius: 500,
+      opacity: 0.15,
+    },
+    blobTopRight: {
+      top: -480,
+      right: -500,
+    },
+    blobBottomLeft: {
+      bottom: -480,
+      left: -500,
+    },
+    webHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 40,
+      paddingTop: 32,
+      paddingBottom: 8,
+      zIndex: 10,
+    },
+    loginBtn: {
+      backgroundColor: contrast,
+      borderRadius: 50,
+      paddingHorizontal: 28,
+      paddingVertical: 12,
+    },
+    loginBtnText: {
+      fontFamily: 'Jost_700Bold',
+      color: '#FFFFFF',
+      fontSize: 15,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: isWeb ? 40 : 20,
+      paddingVertical: 40,
+    },
+    mobileHeader: {
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    card: {
+      borderRadius: 30,
+      borderWidth: 1,
+      borderColor: background,
+      paddingVertical: 40,
+      paddingHorizontal: isWeb ? 36 : 24,
+      width: '100%',
+      maxWidth: 500,
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 25,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 4,
+      zIndex: 10,
+    },
+    headingBlock: {
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    subtitle: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 14,
+      color: text,
+      opacity: 0.6,
+      marginBottom: 4,
+    },
+    title: {
+      fontFamily: 'Khand_700Bold',
+      fontSize: isMobile ? 26 : 30,
+      fontWeight: '700',
+      color: text,
+      textAlign: 'center',
+      textTransform: 'uppercase',
+      lineHeight: isMobile ? 26 : 30,
+      marginBottom: 6,
+    },
+    description: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 14,
+      color: text,
+      opacity: 0.6,
+      textAlign: 'center',
+      paddingHorizontal: 16,
+    },
+    tabContainer: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: text + '15',
+      marginBottom: 24,
+    },
+    tabBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderBottomWidth: 2,
+    },
+    tabBtnActive: {
+      borderBottomWidth: 2,
+    },
+    tabText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 15,
+    },
+    inputBlock: {
+      marginBottom: 24,
+    },
+    mobileFooter: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 24,
+    },
+  });
 }

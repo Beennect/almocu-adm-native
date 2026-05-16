@@ -19,7 +19,6 @@ export function NavButton({ active, onPress, icon, label, isWeb = false }: NavBu
       <Pressable 
         onPress={onPress} 
         style={styles.webBtn}
-        activeOpacity={0.7}
       >
         <View style={styles.iconContainer}>
           {icon}

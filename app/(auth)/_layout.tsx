@@ -1,14 +1,30 @@
 import React from 'react';
 import { View, StyleSheet, useWindowDimensions } from 'react-native';
-import { Slot } from 'expo-router';
+import { Redirect, Slot } from 'expo-router';
+import { authStore } from '../../stores/AuthStore';
+import { observer } from 'mobx-react-lite';
 import { Navbar } from '@/components/shared/navbar/Navbar';
 import { useAppTheme } from '@/themes/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect } from 'react';
+import { dataStore } from '@/stores/DataStore';
 
-export default function AuthLayout() {
+export default observer(function AuthLayout() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
   const theme = useAppTheme();
+
+  useEffect(() => {
+    if (authStore.isAuthenticated) {
+      dataStore.init();
+    }
+  }, [authStore.isAuthenticated]);
+
+  if (!authStore.isInitialized) return null;
+
+  if (!authStore.isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -31,7 +47,7 @@ export default function AuthLayout() {
       )}
     </SafeAreaView>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

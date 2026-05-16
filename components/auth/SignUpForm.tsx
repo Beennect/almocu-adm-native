@@ -4,6 +4,10 @@ import React, { useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FormButton } from '../shared/FormButton';
 import { FormInput } from '../shared/FormInput';
+import { authStore } from '../../stores/AuthStore';
+import { useRouter } from 'expo-router';
+
+import { toastStore } from '@/stores/ToastStore';
 
 export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [nome, setNome] = useState('');
@@ -11,8 +15,51 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const theme = useAppTheme();
+  const router = useRouter();
 
   const styles = makeStyles(theme.text);
+
+  const validateEmail = (email: string) => {
+    return /\S+@\S+\.\S+/.test(email);
+  };
+
+  const validatePassword = (pass: string) => {
+    // Letters, numbers, and symbols
+    const hasLetters = /[a-zA-Z]/.test(pass);
+    const hasNumbers = /[0-9]/.test(pass);
+    const hasSymbols = /[^a-zA-Z0-9]/.test(pass);
+    return hasLetters && hasNumbers && hasSymbols;
+  };
+
+  const handleRegister = () => {
+    if (!nome || !email || !senha || !confirmarSenha) {
+      toastStore.show('Por favor, preencha todos os campos.', 'error');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      toastStore.show('Por favor, insira um e-mail válido.', 'error');
+      return;
+    }
+
+    if (!validatePassword(senha)) {
+      toastStore.show('A senha deve conter letras, números e símbolos.', 'error');
+      return;
+    }
+
+    if (senha !== confirmarSenha) {
+      toastStore.show('As senhas não coincidem.', 'error');
+      return;
+    }
+
+    try {
+      authStore.register(email, senha, nome);
+      toastStore.show('Conta criada com sucesso! Faça login para continuar.', 'success');
+      onToggleForm();
+    } catch (err: any) {
+      toastStore.show(err.message || 'Erro ao realizar cadastro.', 'error');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -51,11 +98,12 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           secureTextEntry
           value={confirmarSenha}
           onChangeText={setConfirmarSenha}
+          onSubmitEditing={handleRegister}
         />
       </View>
 
       {/* Primary CTA */}
-      <FormButton title="CRIE A SUA CONTA" variant="primary" />
+      <FormButton title="CRIE A SUA CONTA" variant="primary" onPress={handleRegister} />
 
       {/* Link para Login */}
       <TouchableOpacity style={styles.linkRow} activeOpacity={0.7} onPress={onToggleForm}>
@@ -78,6 +126,20 @@ function makeStyles(textColor: string) {
     container: {
       width: '100%',
       alignSelf: 'center',
+    },
+    errorContainer: {
+      backgroundColor: '#fee2e2',
+      padding: 12,
+      borderRadius: 12,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: '#fecaca',
+    },
+    errorText: {
+      color: '#dc2626',
+      fontSize: 14,
+      fontFamily: 'Jost_600SemiBold',
+      textAlign: 'center',
     },
     headingBlock: {
       alignItems: 'center',

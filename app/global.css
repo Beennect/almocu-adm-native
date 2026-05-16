@@ -17,3 +17,22 @@
     --text: #ffffff; /* Texto Branco no Escuro */
   }
 }
+
+/* Custom Scrollbar for Web */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(150, 150, 150, 0.3);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--contrast);
+}

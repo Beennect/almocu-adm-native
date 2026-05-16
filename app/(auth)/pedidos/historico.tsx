@@ -6,23 +6,20 @@ import { observer } from 'mobx-react-lite';
 import { OrderCard } from '../../../components/orders/OrderCard';
 import { UserHeader } from '../../../components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
-import { authStore } from '@/stores/AuthStore';
-import { toastStore } from '@/stores/ToastStore';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
 
 const ITEMS_PER_PAGE = 6;
 
-type SortMode = 'newest' | 'oldest' | 'status';
+type SortMode = 'newest' | 'oldest' | 'highest' | 'lowest';
 
 const SORT_LABELS: Record<SortMode, string> = {
   newest: 'Mais recente ↓',
   oldest: 'Mais antigo ↑',
-  status: 'Status ↕',
+  highest: 'Maior valor ↓',
+  lowest: 'Menor valor ↑',
 };
 
-const STATUS_ORDER = ['PENDENTE', 'PREPARANDO', 'CONCLUIDO', 'CANCELADO'];
-
-export default observer(function PedidosScreen() {
+export default observer(function HistoricoScreen() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
   const theme = useAppTheme();
@@ -40,42 +37,46 @@ export default observer(function PedidosScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [searchTerm, sortMode]);
 
-  const activeRole = authStore.activeRole;
+  const allOrders = dataStore.orders || [];
+  
+  // Filter for CONCLUIDO and CANCELADO status
+  const historyOrders = allOrders.filter(
+    order => order.status === 'CONCLUIDO' || order.status === 'CANCELADO'
+  );
 
-  // Only active orders for active dashboard, with KDS filters if Kitchen staff
-  const allOrders = (dataStore.orders || []).filter(order => {
-    if (order.status === 'CONCLUIDO' || order.status === 'CANCELADO') return false;
-    
-    if (activeRole === 'COZINHA') {
-      return order.status === 'PENDENTE' || order.status === 'PREPARANDO';
-    }
-    
-    return true;
-  });
-
-  // Filter
-  const filtered = allOrders.filter(order =>
+  // Filter based on search keyword
+  const filtered = historyOrders.filter(order =>
     order.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.id.slice(-4).toUpperCase().includes(searchTerm.toUpperCase())
   );
 
-  // Sort
+  // Sort based on chosen mode
   const sorted = [...filtered].sort((a, b) => {
     if (sortMode === 'newest') {
       return new Date(b.createdAt || b.time).getTime() - new Date(a.createdAt || a.time).getTime();
     } else if (sortMode === 'oldest') {
       return new Date(a.createdAt || a.time).getTime() - new Date(b.createdAt || b.time).getTime();
+    } else if (sortMode === 'highest') {
+      return b.total - a.total;
     } else {
-      return STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+      return a.total - b.total;
     }
   });
+
+  // Calculate Metrics
+  const completedOrders = historyOrders.filter(o => o.status === 'CONCLUIDO');
+  const cancelledOrders = historyOrders.filter(o => o.status === 'CANCELADO');
+
+  const faturamentoTotal = completedOrders.reduce((sum, o) => sum + o.total, 0);
+  const ticketMedio = completedOrders.length > 0 ? faturamentoTotal / completedOrders.length : 0;
+  const taxaCancelamento = historyOrders.length > 0 ? (cancelledOrders.length / historyOrders.length) * 100 : 0;
 
   // Paginate
   const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
   const paginated = sorted.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const cycleSortMode = () => {
-    const modes: SortMode[] = ['newest', 'oldest', 'status'];
+    const modes: SortMode[] = ['newest', 'oldest', 'highest', 'lowest'];
     const next = modes[(modes.indexOf(sortMode) + 1) % modes.length];
     setSortMode(next);
   };
@@ -87,54 +88,52 @@ export default observer(function PedidosScreen() {
       {/* Header and Switch tab */}
       <View style={styles.headerTabRow}>
         <View style={styles.tabButtons}>
-          <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
-            <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
+          <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(auth)/pedidos')}>
+            <Text style={styles.tabBtnText}>Ativos</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(auth)/pedidos/historico' as any)}>
-            <Text style={styles.tabBtnText}>Histórico</Text>
+          <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
+            <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Histórico</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Emergency Panel for Kitchen */}
-      {activeRole === 'COZINHA' && (
-        <View style={[styles.emergencyContainer, { backgroundColor: theme.foreground }]}>
-          <Text style={styles.emergencyTitle}>🚨 Painel de Emergência KDS</Text>
-          <Text style={styles.emergencySub}>Toque em um prato para alternar a disponibilidade e evitar novos pedidos.</Text>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emergencyScroll}>
-            {dataStore.menuItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.emergencyItemCard,
-                  { backgroundColor: theme.background },
-                  !item.available && { borderColor: '#EF4444', borderWidth: 1 }
-                ]}
-                onPress={() => {
-                  dataStore.toggleMenuItemAvailability(item.id);
-                  toastStore.show(`${item.name} marcado como ${item.available ? 'Disponível' : 'ESGOTADO'}!`, 'info');
-                }}
-              >
-                <Text style={styles.emergencyItemName}>{item.name}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: item.available ? '#10B981' : '#EF4444' }} />
-                  <Text style={[styles.emergencyItemStatus, { color: item.available ? '#10B981' : '#EF4444' }]}>
-                    {item.available ? 'Disponível' : 'ESGOTADO'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+      {/* Metrics Row */}
+      <View style={styles.metricsContainer}>
+        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+          <Text style={[styles.metricLabel, { color: theme.text }]}>Faturamento</Text>
+          <Text style={[styles.metricValue, { color: theme.contrast }]}>
+            R$ {faturamentoTotal.toFixed(2).replace('.', ',')}
+          </Text>
         </View>
-      )}
+
+        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+          <Text style={[styles.metricLabel, { color: theme.text }]}>Ticket Médio</Text>
+          <Text style={[styles.metricValue, { color: theme.text }]}>
+            R$ {ticketMedio.toFixed(2).replace('.', ',')}
+          </Text>
+        </View>
+
+        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+          <Text style={[styles.metricLabel, { color: theme.text }]}>Concluídos</Text>
+          <Text style={[styles.metricValue, { color: theme.text }]}>
+            {completedOrders.length}
+          </Text>
+        </View>
+
+        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+          <Text style={[styles.metricLabel, { color: theme.text }]}>Cancelamentos</Text>
+          <Text style={[styles.metricValue, { color: '#EF4444' }]}>
+            {taxaCancelamento.toFixed(1)}%
+          </Text>
+        </View>
+      </View>
 
       {/* Top Bar / Search Row */}
       <View style={styles.topBar}>
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar..."
+            placeholder="Buscar por cliente ou código..."
             placeholderTextColor={theme.text + '80'}
             value={searchTerm}
             onChangeText={setSearchTerm}
@@ -144,16 +143,6 @@ export default observer(function PedidosScreen() {
           <TouchableOpacity style={styles.orderBtn} activeOpacity={0.7} onPress={cycleSortMode}>
             <Text style={styles.orderBtnText}>{SORT_LABELS[sortMode]}</Text>
           </TouchableOpacity>
-
-          {isWeb ? (
-            <TouchableOpacity style={styles.createBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
-              <Text style={styles.createBtnText}>Criar Pedido</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
-              <Text style={styles.plusBtnText}>+</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
@@ -161,13 +150,6 @@ export default observer(function PedidosScreen() {
         <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
           {paginated.length > 0 ? (
             <>
-              {/* Date Divider */}
-              <View style={styles.dateDivider}>
-                <Text style={styles.dateText}>{new Date().toLocaleDateString('pt-BR')}</Text>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dateCount}>{sorted.length} pedido{sorted.length !== 1 ? 's' : ''}</Text>
-              </View>
-
               {/* Grid of Cards */}
               <View style={styles.grid}>
                 {paginated.map((order) => (
@@ -218,10 +200,10 @@ export default observer(function PedidosScreen() {
           ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                {searchTerm ? 'Nenhum pedido encontrado.' : 'Nenhum pedido hoje.'}
+                {searchTerm ? 'Nenhum pedido histórico encontrado.' : 'Nenhum pedido finalizado.'}
               </Text>
               <Text style={styles.emptySubtext}>
-                {searchTerm ? 'Tente buscar por outro nome ou código.' : 'Crie um novo pedido para começar!'}
+                {searchTerm ? 'Tente refinar sua busca por outro termo.' : 'Pedidos concluídos ou cancelados aparecerão aqui.'}
               </Text>
             </View>
           )}
@@ -270,6 +252,31 @@ function makeStyles(theme: any, isWeb: boolean) {
     tabBtnTextActive: {
       opacity: 1,
     },
+    metricsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      marginBottom: 24,
+    },
+    metricCard: {
+      flex: 1,
+      minWidth: isWeb ? 150 : '45%',
+      borderRadius: 20,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: theme.background,
+    },
+    metricLabel: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 12,
+      opacity: 0.5,
+      marginBottom: 4,
+      textTransform: 'uppercase',
+    },
+    metricValue: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 20,
+    },
     topBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -313,60 +320,10 @@ function makeStyles(theme: any, isWeb: boolean) {
       fontSize: 14,
       color: theme.text,
     },
-    createBtn: {
-      backgroundColor: theme.contrast,
-      borderRadius: 20,
-      paddingHorizontal: 32,
-      height: 56,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    createBtnText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 16,
-      color: '#FFFFFF',
-    },
-    plusBtn: {
-      backgroundColor: theme.contrast,
-      borderRadius: 20,
-      width: 56,
-      height: 56,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    plusBtnText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 24,
-      color: '#FFFFFF',
-      marginTop: -2,
-    },
     webListContainer: {
       flex: 1,
       backgroundColor: 'transparent',
       borderRadius: 32,
-    },
-    dateDivider: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 24,
-      gap: 12,
-    },
-    dateText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 14,
-      color: theme.text,
-      opacity: 0.6,
-    },
-    dividerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: theme.background,
-    },
-    dateCount: {
-      fontFamily: 'Jost_400Regular',
-      fontSize: 13,
-      color: theme.text,
-      opacity: 0.4,
     },
     grid: {
       flexDirection: 'row',
@@ -434,42 +391,6 @@ function makeStyles(theme: any, isWeb: boolean) {
       fontFamily: 'Jost_700Bold',
       fontSize: 14,
       color: theme.text,
-    },
-    emergencyContainer: {
-      borderRadius: 24,
-      padding: 16,
-      marginBottom: 20,
-    },
-    emergencyTitle: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 15,
-      color: '#EF4444',
-    },
-    emergencySub: {
-      fontFamily: 'Jost_400Regular',
-      fontSize: 12,
-      color: theme.text,
-      opacity: 0.6,
-      marginTop: 2,
-      marginBottom: 12,
-    },
-    emergencyScroll: {
-      gap: 10,
-    },
-    emergencyItemCard: {
-      borderRadius: 14,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      minWidth: 120,
-    },
-    emergencyItemName: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 13,
-      color: theme.text,
-    },
-    emergencyItemStatus: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 11,
     },
   });
 }

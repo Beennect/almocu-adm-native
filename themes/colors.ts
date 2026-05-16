@@ -1,4 +1,6 @@
-import { useColorScheme } from "react-native";
+import { autorun } from 'mobx';
+import { useEffect, useState } from 'react';
+import { themeStore } from '@/stores/ThemeStore';
 
 export const colors = {
   light: {
@@ -17,6 +19,15 @@ export const colors = {
 };
 
 export function useAppTheme() {
-  const scheme = useColorScheme();
-  return scheme === 'dark' ? colors.dark : colors.light;
+  const [isDark, setIsDark] = useState(themeStore.isDark);
+
+  useEffect(() => {
+    // autorun re-runs whenever themeStore.isDark changes, triggering re-render
+    const dispose = autorun(() => {
+      setIsDark(themeStore.isDark);
+    });
+    return dispose;
+  }, []);
+
+  return isDark ? colors.dark : colors.light;
 }

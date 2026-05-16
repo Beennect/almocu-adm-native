@@ -1,7 +1,8 @@
 import { usePathname, useRouter } from "expo-router";
 import { observer } from "mobx-react-lite";
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ConfirmModal } from "../ConfirmModal";
 import Animated, { Easing, useAnimatedStyle, useDerivedValue, withTiming } from 'react-native-reanimated';
 import { useAppTheme } from "../../../themes/colors";
 import {
@@ -13,17 +14,29 @@ import {
     LockIcon,
     LogOutIcon,
     MoonIcon,
-    SettingsIcon
+    SettingsIcon,
+    SunIcon,
+    FileTextIcon,
+    ShieldCheckIcon,
+    PinIcon,
+    FoodStoreIcon
 } from "../Icons";
+import { themeStore } from "../../../stores/ThemeStore";
+import { authStore } from "../../../stores/AuthStore";
+import { dataStore } from "../../../stores/DataStore";
 import { NavButton } from "./NavButton";
 
-const TABS = [
-  { id: 'dashboard', label: 'Dashboard', icon: DashboardIcon },
-  { id: 'cardapio', label: 'Cardápio', icon: CardapioIcon },
-  { id: 'pedidos', label: 'Pedidos', icon: BagIcon },
-  { id: 'ingredientes', label: 'Ingredientes', icon: ClocheIcon },
-  { id: 'config', label: 'Config', icon: SettingsIcon },
-];
+const ICON_COMPONENTS: Record<string, React.FC<any>> = {
+  DashboardIcon,
+  CardapioIcon,
+  BagIcon, // pedidos
+  ClocheIcon, // ingredientes
+  FileTextIcon, // financeiro
+  ShieldCheckIcon, // fidelidade
+  PinIcon, // mesas
+  FoodStoreIcon, // delivery
+  SettingsIcon,
+};
 
 export const Navbar = observer(function Navbar() {
   const { width } = useWindowDimensions();
@@ -32,16 +45,54 @@ export const Navbar = observer(function Navbar() {
   const router = useRouter();
 
   const isWeb = width >= 768;
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const allModules = dataStore.modules || [];
+  const activeRole = authStore.activeRole;
+  const hasRestaurant = !!authStore.user?.restaurantId;
   
+  // Active acquired modules filtered by role permissions
+  const activeModules = allModules.filter(m => {
+    if (!hasRestaurant || activeRole === 'INDEFINIDO') return false;
+    
+    if (activeRole === 'GARCOM') {
+      return m.id === 'cardapio' || m.id === 'pedidos';
+    }
+    
+    if (activeRole === 'COZINHA') {
+      return m.id === 'pedidos' || m.id === 'ingredientes' || m.id === 'cardapio';
+    }
+    
+    return m.acquired && m.showInNavbar;
+  });
+
+  const blockedModules = activeRole === 'GERENTE' 
+    ? allModules.filter(m => !m.acquired) 
+    : [];
+
   // Logic to determine active tab from pathname
-  const active = pathname.includes('cardapio') ? 'cardapio' : 
-                 pathname.includes('pedidos') ? 'pedidos' : 
-                 pathname.includes('dashboard') ? 'dashboard' : 
-                 pathname.includes('ingredientes') ? 'ingredientes' : 
-                 pathname.includes('config') ? 'config' : 'pedidos';
+  let active = 'config';
+  for (const m of allModules) {
+    if (pathname.includes(m.id)) {
+      active = m.id;
+      break;
+    }
+  }
+  if (pathname.includes('/config')) {
+    active = 'config';
+  }
 
   const setActive = (tab: string) => {
-    router.push(`/(auth)/${tab}` as any);
+    if (tab === 'config') {
+      router.push('/(auth)/config' as any);
+    } else {
+      router.push(`/(auth)/${tab}` as any);
+    }
+  };
+
+  const handleLogout = () => {
+    authStore.logout();
+    router.replace('/login');
   };
 
   const styles = makeStyles(theme, isWeb);
@@ -56,86 +107,117 @@ export const Navbar = observer(function Navbar() {
         
         <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
           <View style={styles.divider } />
+          
           {/* Adquiridos Section */}
-          <Text style={styles.sectionTitle}>
-            Adquiridos
-          </Text>
+          <Text style={styles.sectionTitle}>Adquiridos</Text>
           <View style={styles.navGroup}>
-            <NavButton
-              isWeb
-              active={active === "dashboard"}
-              onPress={() => setActive("dashboard")}
-              label="Dashboard"
-              icon={<DashboardIcon color={active === "dashboard" ? theme.contrast : theme.text} opacity={active === "dashboard" ? 1 : 0.4} size={22} />}
-            />
-            <NavButton
-              isWeb
-              active={active === "cardapio"}
-              onPress={() => setActive("cardapio")}
-              label="Cardápio"
-              icon={<CardapioIcon color={active === "cardapio" ? theme.contrast : theme.text} opacity={active === "cardapio" ? 1 : 0.4} size={22} />}
-            />
-            <NavButton
-              isWeb
-              active={active === "pedidos"}
-              onPress={() => setActive("pedidos")}
-              label="Pedidos"
-              icon={<BagIcon color={active === "pedidos" ? theme.contrast : theme.text} opacity={active === "pedidos" ? 1 : 0.4} size={22} />}
-            />
-            <NavButton
-              isWeb
-              active={active === "ingredientes"}
-              onPress={() => setActive("ingredientes")}
-              label="Ingredientes"
-              icon={<ClocheIcon color={active === "ingredientes" ? theme.contrast : theme.text} opacity={active === "ingredientes" ? 1 : 0.4} size={22} />}
-            />
+            {activeModules.map(module => {
+              const IconComp = ICON_COMPONENTS[module.icon] || DashboardIcon;
+              const isActiveTab = active === module.id;
+              return (
+                <NavButton
+                  key={module.id}
+                  isWeb
+                  active={isActiveTab}
+                  onPress={() => setActive(module.id)}
+                  label={module.name}
+                  icon={
+                    <IconComp 
+                      color={isActiveTab ? theme.contrast : theme.text} 
+                      opacity={isActiveTab ? 1 : 0.4} 
+                      size={22} 
+                    />
+                  }
+                />
+              );
+            })}
           </View>
 
-          <View style={styles.divider} />
-
-          {/* Bloqueados Section */}
-          <Text style={styles.sectionTitle}>
-            Bloqueados
-          </Text>
-          <View style={styles.navGroup}>
-            {[1, 2, 3, 4].map((i) => (
-              <NavButton
-                key={i}
-                isWeb
-                active={false}
-                onPress={() => {}}
-                label="Bloqueado"
-                icon={<LockIcon color={theme.text} opacity={0.3} size={22} />}
-              />
-            ))}
-          </View>
+          {blockedModules.length > 0 && (
+            <>
+              <View style={styles.divider} />
+              {/* Bloqueados Section */}
+              <Text style={styles.sectionTitle}>Bloqueados</Text>
+              <View style={styles.navGroup}>
+                {blockedModules.map((module) => {
+                  const IconComp = ICON_COMPONENTS[module.icon] || DashboardIcon;
+                  return (
+                    <NavButton
+                      key={module.id}
+                      isWeb
+                      active={false}
+                      onPress={() => router.push(`/(auth)/modulos/${module.id}` as any)}
+                      label={module.name}
+                      icon={
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <IconComp color={theme.text} opacity={0.3} size={22} />
+                          <LockIcon color={theme.contrast} opacity={0.7} size={12} />
+                        </View>
+                      }
+                    />
+                  );
+                })}
+              </View>
+            </>
+          )}
         </ScrollView>
 
-        
         {/* Bottom Actions */}
         <View>
           <View style={styles.divider} />
           <View style={styles.footerButtons}>
-            <Pressable style={styles.logoutBtn}>
-              <LogOutIcon color={theme.text} opacity={0.7} size={24} />
-              <Text style={styles.logoutText}>Sair</Text>
+            <Pressable style={styles.footerBtn} onPress={() => setShowLogoutConfirm(true)}>
+              <LogOutIcon color={theme.text} opacity={0.7} size={22} />
+              <Text style={styles.footerBtnText}>Sair</Text>
             </Pressable>
-            <Pressable style={styles.themeBtn}>
-              <MoonIcon color={theme.text} opacity={0.7} size={24} />
+            <Pressable
+              style={[styles.footerBtn, active === 'config' && { backgroundColor: theme.contrast + '22' }]}
+              onPress={() => setActive('config')}
+            >
+              <SettingsIcon color={active === 'config' ? theme.contrast : theme.text} opacity={active === 'config' ? 1 : 0.7} size={22} />
+              <Text style={[styles.footerBtnText, active === 'config' && { color: theme.contrast, opacity: 1 }]}>Config</Text>
+            </Pressable>
+            <Pressable style={styles.footerBtn} onPress={() => themeStore.toggle()}>
+              {themeStore.isDark
+                ? <SunIcon color={theme.text} opacity={0.7} size={22} />
+                : <MoonIcon color={theme.text} opacity={0.7} size={22} />
+              }
+              <Text style={styles.footerBtnText}>{themeStore.isDark ? 'Claro' : 'Escuro'}</Text>
             </Pressable>
           </View>
         </View>
+
+        <ConfirmModal
+          visible={showLogoutConfirm}
+          onClose={() => setShowLogoutConfirm(false)}
+          onConfirm={handleLogout}
+          title="Sair da Conta"
+          message="Tem certeza que deseja encerrar sua sessão?"
+          confirmText="Sair"
+        />
       </View>
     );
   }
 
-  // Mobile layout
-  const iconSize = 28;
-  const activeIndex = TABS.findIndex(t => t.id === active);
-  const tabWidth = (width - 16) / TABS.length; // 16 is px-2 padding
+  // Mobile navigation tabs definition
+  const mobileTabs = [
+    ...activeModules.map(m => ({
+      id: m.id,
+      label: m.name,
+      icon: ICON_COMPONENTS[m.icon] || DashboardIcon,
+    })),
+    { id: 'config', label: 'Ajustes', icon: SettingsIcon },
+  ];
+
+  const iconSize = 24;
+  const activeIndex = mobileTabs.findIndex(t => t.id === active);
+  
+  // Safeguard index fallback
+  const safeActiveIndex = activeIndex === -1 ? mobileTabs.length - 1 : activeIndex;
+  const tabWidth = (width - 16) / mobileTabs.length; 
 
   const position = useDerivedValue(() => {
-    return withTiming(activeIndex * tabWidth, { 
+    return withTiming(safeActiveIndex * tabWidth, { 
       duration: 300,
       easing: Easing.bezier(0.33, 1, 0.68, 1),
     });
@@ -159,7 +241,7 @@ export const Navbar = observer(function Navbar() {
         ]} 
       />
 
-      {TABS.map((tab) => (
+      {mobileTabs.map((tab) => (
         <NavButton 
           key={tab.id}
           active={active === tab.id} 
@@ -220,7 +302,22 @@ function makeStyles(theme: any, isWeb: boolean) {
     footerButtons: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      gap: 8,
+    },
+    footerBtn: {
+      flex: 1,
+      height: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.background,
+      borderRadius: 16,
+      gap: 4,
+    },
+    footerBtnText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 11,
+      color: theme.text,
+      opacity: 0.7,
     },
     logoutBtn: {
       flex: 1,

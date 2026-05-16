@@ -10,30 +10,42 @@ interface FormButtonProps extends TouchableOpacityProps {
   className?: string;
 }
 
+const SOCIAL_COLORS: Record<string, string> = {
+  'facebook-f': '#1877F2',
+  'google': '#DB4437',
+};
+
 export function FormButton({ title, variant = 'primary', socialIcon, style, className, ...rest }: FormButtonProps) {
   const theme = useAppTheme();
   const isPrimary = variant === 'primary';
 
+  const socialBg = socialIcon ? SOCIAL_COLORS[socialIcon] : undefined;
+
   return (
     <TouchableOpacity
       className={`flex-row items-center justify-center h-12 rounded-full mb-3 px-4 shadow-sm elevation-2 ${
-        isPrimary ? 'bg-contrast' : 'bg-foreground'
+        isPrimary ? 'bg-contrast' : ''
       } ${className || ''}`}
-      style={style}
+      style={[
+        style,
+        !isPrimary && {
+          backgroundColor: socialBg,
+        }
+      ]}
       activeOpacity={0.8}
       {...rest}
     >
       {!isPrimary && socialIcon && (
-        <View className={`mr-3 w-5 items-center ${!title ? 'mr-0' : ''}`}>
-          <FontAwesome5 name={socialIcon} size={16} color={theme.text} />
+        <View style={title ? { marginRight: 12, width: 20, alignItems: 'center' } : {}}>
+          <FontAwesome5 name={socialIcon} size={16} color="#FFFFFF" />
         </View>
       )}
       {title && (
-        <Text 
+        <Text
           className={`text-sm ${
-            isPrimary 
-              ? 'font-[Jost_700Bold] text-white uppercase tracking-[0.5px]' 
-              : 'font-[Jost_600SemiBold] text-text'
+            isPrimary
+              ? 'font-[Jost_700Bold] text-white uppercase tracking-[0.5px]'
+              : 'font-[Jost_600SemiBold] text-white'
           }`}
         >
           {title}
