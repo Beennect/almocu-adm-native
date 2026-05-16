@@ -1,7 +1,9 @@
 import { EmailIcon, KeyIcon, ShieldCheckIcon, UserIcon } from '@/components/shared/Icons';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/themes/colors';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FormButton } from '../shared/FormButton';
 import { FormInput } from '../shared/FormInput';
 import { authStore } from '../../stores/AuthStore';
@@ -11,53 +13,42 @@ import { toastStore } from '@/stores/ToastStore';
 
 export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [nome, setNome] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const theme = useAppTheme();
-  const router = useRouter();
+  const { register } = useAuth();
 
   const styles = makeStyles(theme.text);
 
-  const validateEmail = (email: string) => {
-    return /\S+@\S+\.\S+/.test(email);
-  };
-
-  const validatePassword = (pass: string) => {
-    // Letters, numbers, and symbols
-    const hasLetters = /[a-zA-Z]/.test(pass);
-    const hasNumbers = /[0-9]/.test(pass);
-    const hasSymbols = /[^a-zA-Z0-9]/.test(pass);
-    return hasLetters && hasNumbers && hasSymbols;
-  };
-
-  const handleRegister = () => {
-    if (!nome || !email || !senha || !confirmarSenha) {
-      toastStore.show('Por favor, preencha todos os campos.', 'error');
-      return;
-    }
-
-    if (!validateEmail(email)) {
-      toastStore.show('Por favor, insira um e-mail válido.', 'error');
-      return;
-    }
-
-    if (!validatePassword(senha)) {
-      toastStore.show('A senha deve conter letras, números e símbolos.', 'error');
+  const handleRegister = async () => {
+    if (!nome.trim() || !username.trim() || !email.trim() || !senha.trim() || !confirmarSenha.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
       return;
     }
 
     if (senha !== confirmarSenha) {
-      toastStore.show('As senhas não coincidem.', 'error');
+      Alert.alert('Erro', 'As senhas não coincidem.');
+      return;
+    }
+
+    if (senha.length < 6) {
+      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres.');
       return;
     }
 
     try {
-      authStore.register(email, senha, nome);
-      toastStore.show('Conta criada com sucesso! Faça login para continuar.', 'success');
-      onToggleForm();
-    } catch (err: any) {
-      toastStore.show(err.message || 'Erro ao realizar cadastro.', 'error');
+      setIsLoading(true);
+      await register(nome.trim(), email.trim(), username.trim(), senha);
+      router.replace('/(auth)/dashboard');
+    } catch (error: any) {
+      console.error('Erro no registro:', error);
+      const message = error.response?.data?.message || 'Erro ao criar conta. Tente novamente.';
+      Alert.alert('Erro', message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -76,6 +67,15 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           placeholder="Nome"
           value={nome}
           onChangeText={setNome}
+          editable={!isLoading}
+        />
+        <FormInput
+          Icon={UserIcon}
+          placeholder="Nome de usuário"
+          autoCapitalize="none"
+          value={username}
+          onChangeText={setUsername}
+          editable={!isLoading}
         />
         <FormInput
           Icon={EmailIcon}
@@ -84,6 +84,7 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
+          editable={!isLoading}
         />
         <FormInput
           Icon={KeyIcon}
@@ -91,6 +92,7 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           secureTextEntry
           value={senha}
           onChangeText={setSenha}
+          editable={!isLoading}
         />
         <FormInput
           Icon={ShieldCheckIcon}
@@ -98,15 +100,27 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           secureTextEntry
           value={confirmarSenha}
           onChangeText={setConfirmarSenha}
-          onSubmitEditing={handleRegister}
+          editable={!isLoading}
         />
       </View>
 
       {/* Primary CTA */}
-      <FormButton title="CRIE A SUA CONTA" variant="primary" onPress={handleRegister} />
+      <FormButton
+        title={isLoading ? "" : "CRIE A SUA CONTA"}
+        variant="primary"
+        onPress={handleRegister}
+        disabled={isLoading}
+      >
+        {isLoading && <ActivityIndicator color="#1A1A1A" />}
+      </FormButton>
 
       {/* Link para Login */}
-      <TouchableOpacity style={styles.linkRow} activeOpacity={0.7} onPress={onToggleForm}>
+      <TouchableOpacity
+        style={styles.linkRow}
+        activeOpacity={0.7}
+        onPress={onToggleForm}
+        disabled={isLoading}
+      >
         <Text style={styles.linkText}>Entrar na conta</Text>
       </TouchableOpacity>
 

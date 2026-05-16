@@ -425,38 +425,21 @@ export const CameraIcon = ({ color = "currentColor", size = 24, ...props }) => (
   </Svg>
 );
 
-export const InfoIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <Circle cx="12" cy="12" r="10" />
-    <Line x1="12" y1="16" x2="12" y2="12" />
-    <Line x1="12" y1="8" x2="12.01" y2="8" />
-  </Svg>
-);
-
-export const CheckIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <Polyline points="20 6 9 17 4 12" />
-  </Svg>
-);
-
-export const TrashIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <Polyline points="3 6 5 6 21 6" />
-    <Path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    <Line x1="10" y1="11" x2="10" y2="17" />
-    <Line x1="14" y1="11" x2="14" y2="17" />
-  </Svg>
-);
-
-export const EyeIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-    <Circle cx="12" cy="12" r="3" />
-  </Svg>
-);
-
-export const EyeOffIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <Path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />
+export const TrashIcon = ({ color = "currentColor", size = 24, ...props }) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <Path
+      d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </Svg>
 );

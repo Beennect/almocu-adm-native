@@ -1,7 +1,9 @@
 import { EmailIcon, KeyIcon } from '@/components/shared/Icons';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/themes/colors';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FormButton } from '../shared/FormButton';
 import { FormInput } from '../shared/FormInput';
 import { useRouter } from 'expo-router';
@@ -13,32 +15,28 @@ import { toastStore } from '@/stores/ToastStore';
 export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const theme = useAppTheme();
-  const router = useRouter();
+  const { login } = useAuth();
 
   const styles = makeStyles(theme.text);
 
-  const validateEmail = (email: string) => {
-    return /\S+@\S+\.\S+/.test(email);
-  };
-
-  const handleLogin = () => {
-    if (!email || !password) {
-      toastStore.show('Por favor, preencha todos os campos.', 'error');
-      return;
-    }
-
-    if (!validateEmail(email)) {
-      toastStore.show('Por favor, insira um e-mail válido.', 'error');
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
       return;
     }
 
     try {
-      authStore.login(email, password);
-      toastStore.show('Bem-vindo de volta!', 'success');
+      setIsLoading(true);
+      await login(email.trim(), password.trim());
       router.replace('/(auth)/dashboard');
-    } catch (err: any) {
-      toastStore.show(err.message || 'Erro ao realizar login.', 'error');
+    } catch (error: any) {
+      console.error('Erro no login:', error);
+      const message = error.response?.data?.message || 'Erro ao fazer login. Verifique suas credenciais.';
+      Alert.alert('Erro', message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -59,6 +57,7 @@ export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
+          editable={!isLoading}
         />
         <FormInput
           Icon={KeyIcon}
@@ -66,7 +65,7 @@ export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          onSubmitEditing={handleLogin}
+          editable={!isLoading}
         />
       </View>
 
@@ -80,10 +79,22 @@ export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
       </TouchableOpacity>
 
       {/* Primary CTA */}
-      <FormButton title="ACESSE SUA CONTA" variant="primary" onPress={handleLogin} />
+      <FormButton
+        title={isLoading ? "" : "ACESSE SUA CONTA"}
+        variant="primary"
+        onPress={handleLogin}
+        disabled={isLoading}
+      >
+        {isLoading && <ActivityIndicator color="#1A1A1A" />}
+      </FormButton>
 
       {/* Criar conta link */}
-      <TouchableOpacity style={styles.linkRow} activeOpacity={0.7} onPress={() => router.push('/register' as any)}>
+      <TouchableOpacity
+        style={styles.linkRow}
+        activeOpacity={0.7}
+        onPress={onToggleForm}
+        disabled={isLoading}
+      >
         <Text style={styles.linkText}>Criar conta</Text>
       </TouchableOpacity>
 

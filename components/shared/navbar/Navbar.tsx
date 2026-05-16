@@ -1,9 +1,9 @@
 import { usePathname, useRouter } from "expo-router";
 import { observer } from "mobx-react-lite";
-import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { ConfirmModal } from "../ConfirmModal";
+import React from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useDerivedValue, withTiming } from 'react-native-reanimated';
+import { useAuth } from "../../../contexts/AuthContext";
 import { useAppTheme } from "../../../themes/colors";
 import {
     AlmocuIcon,
@@ -38,11 +38,12 @@ const ICON_COMPONENTS: Record<string, React.FC<any>> = {
   SettingsIcon,
 };
 
-export const Navbar = observer(function Navbar() {
+export const Navbar = observer(function Navbar({ onLogoutPress }: { onLogoutPress?: () => void }) {
   const { width } = useWindowDimensions();
   const theme = useAppTheme();
   const pathname = usePathname();
   const router = useRouter();
+  const { logout, user } = useAuth();
 
   const isWeb = width >= 768;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -83,16 +84,11 @@ export const Navbar = observer(function Navbar() {
   }
 
   const setActive = (tab: string) => {
-    if (tab === 'config') {
-      router.push('/(auth)/config' as any);
-    } else {
-      router.push(`/(auth)/${tab}` as any);
-    }
+    router.push(`/(auth)/${tab}` as any);
   };
 
   const handleLogout = () => {
-    authStore.logout();
-    router.replace('/login');
+    onLogoutPress ? onLogoutPress() : console.log('Logout');
   };
 
   const styles = makeStyles(theme, isWeb);
@@ -166,16 +162,9 @@ export const Navbar = observer(function Navbar() {
         <View>
           <View style={styles.divider} />
           <View style={styles.footerButtons}>
-            <Pressable style={styles.footerBtn} onPress={() => setShowLogoutConfirm(true)}>
-              <LogOutIcon color={theme.text} opacity={0.7} size={22} />
-              <Text style={styles.footerBtnText}>Sair</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.footerBtn, active === 'config' && { backgroundColor: theme.contrast + '22' }]}
-              onPress={() => setActive('config')}
-            >
-              <SettingsIcon color={active === 'config' ? theme.contrast : theme.text} opacity={active === 'config' ? 1 : 0.7} size={22} />
-              <Text style={[styles.footerBtnText, active === 'config' && { color: theme.contrast, opacity: 1 }]}>Config</Text>
+            <Pressable style={styles.logoutBtn} onPress={handleLogout}>
+              <LogOutIcon color={theme.text} opacity={0.7} size={24} />
+              <Text style={styles.logoutText}>Sair</Text>
             </Pressable>
             <Pressable style={styles.footerBtn} onPress={() => themeStore.toggle()}>
               {themeStore.isDark
@@ -369,3 +358,43 @@ function makeStyles(theme: any, isWeb: boolean) {
     },
   });
 }
+
+export function LogoutModal({ visible, onCancel }: { visible: boolean; onCancel: () => void }) {
+  const theme = useAppTheme();
+  const router = useRouter();
+  const { logout } = useAuth();
+  
+  if (!visible) return null;
+  
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <Pressable 
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}
+        onPress={onCancel}
+      >
+        <Pressable 
+          style={{ backgroundColor: theme.foreground, padding: 24, borderRadius: 16, minWidth: 300 }} 
+          onPress={e => e.stopPropagation()}
+        >
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: theme.text, marginBottom: 12, textAlign: 'center' }}>Sair</Text>
+          <Text style={{ fontSize: 14, color: theme.text, opacity: 0.7, marginBottom: 24, textAlign: 'center' }}>Tem certeza que deseja sair da sua conta?</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
+            <Pressable onPress={onCancel}>
+              <Text style={{ fontSize: 16, padding: 12, color: theme.text, opacity: 0.6 }}>Cancelar</Text>
+            </Pressable>
+            <Pressable 
+              onPress={async () => {
+                await logout();
+                router.replace('/login');
+              }}
+              style={{ backgroundColor: '#dc2626', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#fff' }}>Sair</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </View>
+  );
+}
+
