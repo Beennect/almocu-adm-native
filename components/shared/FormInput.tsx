@@ -1,12 +1,14 @@
 import React from 'react';
-import { View, TextInput, TextInputProps, StyleSheet } from 'react-native';
+import { View, TextInput, TextInputProps, TouchableOpacity, StyleSheet } from 'react-native';
 import { useAppTheme } from '@/themes/colors';
 
 interface FormInputProps extends TextInputProps {
   Icon?: React.FC<{ color: string; size: number }>;
+  RightIcon?: React.FC<{ color: string; size: number }>;
+  onRightIconPress?: () => void;
 }
 
-export function FormInput({ Icon, ...rest }: FormInputProps) {
+export function FormInput({ Icon, RightIcon, onRightIconPress, ...rest }: FormInputProps) {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
 
@@ -18,6 +20,15 @@ export function FormInput({ Icon, ...rest }: FormInputProps) {
         placeholderTextColor="#AAAAAA"
         {...rest}
       />
+      {RightIcon && (
+        <TouchableOpacity
+          onPress={onRightIconPress}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+        >
+          <RightIcon color={theme.text} size={20} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

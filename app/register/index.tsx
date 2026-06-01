@@ -10,12 +10,15 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FormInput } from '@/components/shared/FormInput';
 import { FormButton } from '@/components/shared/FormButton';
 import { useAppTheme } from '@/themes/colors';
 import {
   AlmocuIcon,
   EmailIcon,
+  EyeIcon,
+  EyeOffIcon,
   KeyIcon,
   UserIcon,
   ShieldCheckIcon,
@@ -31,14 +34,15 @@ export default function RegisterScreen() {
   const isWeb = width >= 768;
   const router = useRouter();
 
-  // Seleção de Tipo de Conta: 'client' | 'business'
-  const [accountType, setAccountType] = useState<'client' | 'business'>('business');
-
   // Campos de Usuário
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
+
+  // Visibilidade das senhas (default: escondidas)
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const styles = makeStyles(background, foreground, contrast, text, isWeb);
 
@@ -69,7 +73,7 @@ export default function RegisterScreen() {
     try {
       await withLoading(
         async () => {
-          await authStore.register(email, senha, nome, accountType);
+          await authStore.register(email, senha, nome);
           await authStore.login(email, senha);
           router.replace('/(auth)/dashboard' as any);
         },
@@ -80,103 +84,108 @@ export default function RegisterScreen() {
     }
   };
 
-  return (
-    <View style={styles.root}>
-      {/* Design blobs for Web Layout */}
-      {isWeb && (
-        <>
-          <LinearGradient colors={['transparent', contrast]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={[styles.blob, styles.blobTopRight]} />
-          <LinearGradient colors={['transparent', contrast]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={[styles.blob, styles.blobBottomLeft]} />
-        </>
-      )}
+  const formHeading = (
+    <View style={styles.headingBlock}>
+      <Text style={styles.subtitle}>Comece agora mesmo</Text>
+      <Text style={styles.title}>CRIE SUA CONTA NO ALMOCU</Text>
+      <Text style={styles.description}>Preencha os dados abaixo para criar sua conta empresarial.</Text>
+    </View>
+  );
 
-      {/* Web Header */}
-      {isWeb && (
+  const formFields = (
+    <View style={styles.inputBlock}>
+      <FormInput Icon={UserIcon} placeholder="Seu Nome Completo" value={nome} onChangeText={setNome} />
+      <FormInput Icon={EmailIcon} placeholder="Seu Melhor E-mail" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+      <FormInput
+        Icon={KeyIcon}
+        placeholder="Senha de Acesso"
+        secureTextEntry={!showPassword}
+        value={senha}
+        onChangeText={setSenha}
+        RightIcon={showPassword ? EyeOffIcon : EyeIcon}
+        onRightIconPress={() => setShowPassword((prev) => !prev)}
+      />
+      <FormInput
+        Icon={ShieldCheckIcon}
+        placeholder="Confirmar Senha"
+        secureTextEntry={!showConfirmPassword}
+        value={confirmarSenha}
+        onChangeText={setConfirmarSenha}
+        RightIcon={showConfirmPassword ? EyeOffIcon : EyeIcon}
+        onRightIconPress={() => setShowConfirmPassword((prev) => !prev)}
+      />
+    </View>
+  );
+
+  // ── Web: layout com card centralizado e blobs decorativos ──────────────
+  if (isWeb) {
+    return (
+      <View style={styles.webRoot}>
+        <LinearGradient colors={['transparent', contrast]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={[styles.blob, styles.blobTopRight]} />
+        <LinearGradient colors={['transparent', contrast]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={[styles.blob, styles.blobBottomLeft]} />
+
         <View style={styles.webHeader}>
           <AlmocuIcon color={contrast} size={128} />
           <TouchableOpacity style={styles.loginBtn} activeOpacity={0.8} onPress={() => router.push('/login' as any)}>
             <Text style={styles.loginBtnText}>Já tenho uma conta</Text>
           </TouchableOpacity>
         </View>
-      )}
 
-      <ScrollView className="flex-1" contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {!isWeb && (
-          <View style={styles.mobileHeader}>
-            <AlmocuIcon color={contrast} size={90} />
+        <ScrollView className="flex-1" contentContainerStyle={styles.webScrollContent} showsVerticalScrollIndicator={false}>
+          <View style={[styles.webCard, { backgroundColor: foreground }]}>
+            {formHeading}
+            {formFields}
+            <FormButton
+              title="CRIAR CONTA BUSINESS"
+              variant="primary"
+              onPress={handleRegister}
+            />
           </View>
-        )}
+        </ScrollView>
+      </View>
+    );
+  }
 
-        <View style={[styles.card, { backgroundColor: foreground }]}>
-          <View style={styles.headingBlock}>
-            <Text style={styles.subtitle}>Comece agora mesmo</Text>
-            <Text style={styles.title}>CRIE SUA CONTA NO ALMOCU</Text>
-            <Text style={styles.description}>Escolha o tipo de conta ideal e preencha os dados abaixo.</Text>
-          </View>
+  // ── Mobile: layout full-screen, sem aparência de modal ─────────────────
+  return (
+    <SafeAreaView style={styles.mobileRoot}>
+      <View style={styles.mobileHeader}>
+        <AlmocuIcon color={contrast} size={90} />
+      </View>
 
-          {/* Abas Simples para Seleção de Tipo de Conta */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[
-                styles.tabBtn,
-                accountType === 'business' && styles.tabBtnActive,
-                { borderBottomColor: accountType === 'business' ? contrast : 'transparent' }
-              ]}
-              onPress={() => setAccountType('business')}
-            >
-              <Text style={[styles.tabText, { color: text }, accountType === 'business' && { color: contrast, fontWeight: '700' }]}>
-                Conta Business
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tabBtn,
-                accountType === 'client' && styles.tabBtnActive,
-                { borderBottomColor: accountType === 'client' ? contrast : 'transparent' }
-              ]}
-              onPress={() => setAccountType('client')}
-            >
-              <Text style={[styles.tabText, { color: text }, accountType === 'client' && { color: contrast, fontWeight: '700' }]}>
-                Conta Cliente
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.inputBlock}>
-            <FormInput Icon={UserIcon} placeholder="Seu Nome Completo" value={nome} onChangeText={setNome} />
-            <FormInput Icon={EmailIcon} placeholder="Seu Melhor E-mail" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
-            <FormInput Icon={KeyIcon} placeholder="Senha de Acesso" secureTextEntry value={senha} onChangeText={setSenha} />
-            <FormInput Icon={ShieldCheckIcon} placeholder="Confirmar Senha" secureTextEntry value={confirmarSenha} onChangeText={setConfirmarSenha} />
-          </View>
-
-          <FormButton 
-            title={accountType === 'business' ? "CRIAR CONTA BUSINESS" : "CRIAR CONTA CLIENTE"} 
-            variant="primary" 
-            onPress={handleRegister} 
-          />
-        </View>
-
-        {/* Mobile footer links */}
-        {!isWeb && (
-          <View style={styles.mobileFooter}>
-            <Text style={{ color: text, opacity: 0.6, fontSize: 14 }}>Já tem uma conta? </Text>
-            <TouchableOpacity onPress={() => router.push('/login' as any)}>
-              <Text style={{ color: contrast, fontFamily: 'Jost_700Bold', fontSize: 14 }}>Faça Login</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+      <ScrollView
+        contentContainerStyle={styles.mobileScrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {formHeading}
+        {formFields}
+        <FormButton
+          title="CRIAR CONTA BUSINESS"
+          variant="primary"
+          onPress={handleRegister}
+        />
       </ScrollView>
-    </View>
+
+      <View style={styles.mobileFooter}>
+        <Text style={{ color: text, opacity: 0.6, fontSize: 14 }}>Já tem uma conta? </Text>
+        <TouchableOpacity onPress={() => router.push('/login' as any)}>
+          <Text style={{ color: contrast, fontFamily: 'Jost_700Bold', fontSize: 14 }}>Faça Login</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 function makeStyles(background: string, foreground: string, contrast: string, text: string, isWeb: boolean) {
   const isMobile = !isWeb;
   return StyleSheet.create({
-    root: {
+    // ── Web ──────────────────────────────────────────────────────────────
+    webRoot: {
       flex: 1,
       backgroundColor: background,
       minHeight: Platform.OS === 'web' ? '100vh' : '100%' as any,
+      overflow: 'hidden',
     },
     blob: {
       position: 'absolute',
@@ -213,23 +222,19 @@ function makeStyles(background: string, foreground: string, contrast: string, te
       color: '#FFFFFF',
       fontSize: 15,
     },
-    scrollContent: {
+    webScrollContent: {
       flexGrow: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      paddingHorizontal: isWeb ? 40 : 20,
+      paddingHorizontal: 40,
       paddingVertical: 40,
     },
-    mobileHeader: {
-      alignItems: 'center',
-      marginBottom: 20,
-    },
-    card: {
+    webCard: {
       borderRadius: 30,
       borderWidth: 1,
       borderColor: background,
       paddingVertical: 40,
-      paddingHorizontal: isWeb ? 36 : 24,
+      paddingHorizontal: 36,
       width: '100%',
       maxWidth: 500,
       shadowColor: '#000',
@@ -239,6 +244,30 @@ function makeStyles(background: string, foreground: string, contrast: string, te
       elevation: 4,
       zIndex: 10,
     },
+    // ── Mobile ───────────────────────────────────────────────────────────
+    mobileRoot: {
+      flex: 1,
+      backgroundColor: background,
+    },
+    mobileHeader: {
+      alignItems: 'center',
+      paddingTop: 8,
+      paddingBottom: 16,
+    },
+    mobileScrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 8,
+      paddingBottom: 24,
+      justifyContent: 'center',
+    },
+    mobileFooter: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingBottom: 16,
+    },
+    // ── Compartilhado (heading, inputs) ──────────────────────────────────
     headingBlock: {
       alignItems: 'center',
       marginBottom: 24,
@@ -268,33 +297,8 @@ function makeStyles(background: string, foreground: string, contrast: string, te
       textAlign: 'center',
       paddingHorizontal: 16,
     },
-    tabContainer: {
-      flexDirection: 'row',
-      borderBottomWidth: 1,
-      borderBottomColor: text + '15',
-      marginBottom: 24,
-    },
-    tabBtn: {
-      flex: 1,
-      paddingVertical: 12,
-      alignItems: 'center',
-      borderBottomWidth: 2,
-    },
-    tabBtnActive: {
-      borderBottomWidth: 2,
-    },
-    tabText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 15,
-    },
     inputBlock: {
       marginBottom: 24,
-    },
-    mobileFooter: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginTop: 24,
     },
   });
 }

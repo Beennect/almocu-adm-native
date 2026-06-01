@@ -3,13 +3,13 @@
 [X] O Toast acaba ficando atrás de modal, tem que deixar ele sempre acima
 
 # Forms de Login
-[ ] Fazer o entrar com o google e facebook funcionar
+[O] Fazer o entrar com o google e facebook funcionar
 
 # Esqueceu a Senha
 [ ] Não sei se está funcionando
 
 # Forms de cadastro de conta
-[ ] Vai ter apenas o Business
+[X] Vai ter apenas o Business
 [ ] Adicionar botão para visualizar senha
 [ ] Tem que realizar validação com email de verificação
 

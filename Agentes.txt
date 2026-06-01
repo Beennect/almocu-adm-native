@@ -1,12 +1,31 @@
-Agentes:
+# Agentes:
 - Orquestrador: Entende tudo sobre o projeto, e vai reger os outros agentes para realizar as ações, ele é o cabeça que vai realizar as operações (Deep Seek)
 - Coder (Sub Agente) (local): Especializado na linguagem daquele projeto, após cada alteração vai criar um documento markdown sobre cada alteração que foi feita, e o mótivo (MiniMax)
 - Code Reviewer (Sub Agente) (local): Analisa(MiniMax)
 - Documentação (Sub Agente) (global): Ele vê as alterações que foram feitas e atualiza a documentação que é o AGENTS.MD
 - Tester (Sub Agente)
 
+
+# Fluxo de Trabalho
+## Agentes
+Discution: Agente para poder debater e discutir sobre o ideias e implementações do projeto, ele vai ter conhecimento completo do projeto, eu vou perguntar para ele as coisas e ele vai me responder, vou dar ideias e ele vai falar se é viavel implementar
+
+PropostSolution:
+	1. Analisa o problema e as possiveis causas
+	2. Monta as melhores soluções para aquele projeto seguindo padrões de projetos e boas práticas
+	3. Apresenta para o usuário as possiveis soluções e pergunta qual opção ele quer
+	4. Monta o plano de implementação em um arquivo markdown conforme a escolha do usuário e apresenta ao usuário
+	5. Espera aprovação ou pedido de alteração do usuário
+SolutionImplementation:
+	1. Após aprovação começa a realizar o desenvolvimento conforme os passos do plano de implementação
+	2. Após implementação realiza um build para ver se não tem erros de syntaxe
+	3. Um tester de código se aplicavel
+	4. Documentação das alterações
+	5. Apresentar em um arquivo para o usuário de maneira resumida o que foi feito
+
 Super Agentes:
 (Obs: sempre no primeiro prompt, se eles não tiverem contexto de nada, eles primeiro vão analisar o projeto como um todo, a documentação AGENTS.MD para poder entender melhor o projeto, e posteriormente vão continuar a realizar o fluxo de desenvolvimento proposto)
+
 - Builder: Feito para realizar a implementação de novos recursos e funcionalidades na aplicação
 	1. Recebe o Prompt do usuário para compreender o que ele deseja que seja implementado (pergunta ao usuário mais sobre se necessário)
 	2. Analisa viabilidade de implementação
@@ -15,12 +34,14 @@ Super Agentes:
 	5. Implementa
 	
 - ProblemSolver:
-	ProblemIdentifier:
+	1. ProblemIdentifier:
 		1. Recebe o prompt compreendendo qual é o problema que o usuário está reclamando (se necessário pedir mais informações)
 		2. Analisar o contexto do código para se necessário compreender como está o código
 		3. Após o código analisado identificar qual é o problema, pensar quais são os possiveis problemas, confirmando isso no código
 		4. após montar as hipoteses, se possivel realizar testes para confirmar as hipoteses
 		5. com isso decidir os problemas, e montar um arquivo markdown apresentando quais são as possiveis causas do problema
+	2. PropostSolution()
+	3. 
 PropostSolution:
 	1. Analisa o problema e as possiveis causas
 	2. Monta as melhores soluções para aquele projeto seguindo padrões de projetos e boas práticas

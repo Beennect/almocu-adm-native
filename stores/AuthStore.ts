@@ -67,7 +67,7 @@ class AuthStore {
     return this.user.restaurantRoles?.[this.user.restaurantId] || 'INDEFINIDO';
   }
 
-  async register(email: string, pass: string, name: string, accountType: 'client' | 'business' = 'business') {
+  async register(email: string, pass: string, name: string) {
     const normalizedEmail = email.toLowerCase().trim();
     
     // Chamada real de registro para o backend
