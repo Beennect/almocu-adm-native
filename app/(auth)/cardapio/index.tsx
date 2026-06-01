@@ -47,12 +47,19 @@ const FILTER_LABELS: Record<FilterMode, string> = {
   antigos: 'Mais Antigos ↑',
 };
 
+const getGridColumns = (width: number) => {
+  if (width >= 1440) return 3;
+  if (width >= 1024) return 2;
+  return 1;
+};
+
 export default observer(function CardapioScreen() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
   const theme = useAppTheme();
   const router = useRouter();
-  const styles = makeStyles(theme, isWeb);
+  const gridColumns = getGridColumns(width);
+  const styles = makeStyles(theme, isWeb, gridColumns);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('todos');
@@ -104,7 +111,7 @@ export default observer(function CardapioScreen() {
 
   let currentPageData: { category: string, items: typeof processedItems }[] = [];
   let currentProductCount = 0;
-  const ITEMS_PER_PAGE = 9;
+  const ITEMS_PER_PAGE = gridColumns * 3;
 
   Object.entries(groupedItems).forEach(([category, catItems]) => {
     let remainingItems = [...catItems];
@@ -287,7 +294,7 @@ export default observer(function CardapioScreen() {
   );
 });
 
-function makeStyles(theme: any, isWeb: boolean) {
+function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -393,7 +400,7 @@ function makeStyles(theme: any, isWeb: boolean) {
       marginHorizontal: -10,
     },
     gridItem: {
-      width: isWeb ? '33.33%' : '100%',
+      width: `${100 / gridColumns}%`,
       paddingHorizontal: 10,
       marginBottom: 16,
     },

@@ -120,11 +120,18 @@ const FILTER_LABELS: Record<FilterMode, string> = {
   antigos: 'Mais Antigos ↑',
 };
 
-export default observer(function IngredientesScreen() {
+const getGridColumns = (width: number) => {
+  if (width >= 1440) return 3;
+  if (width >= 1024) return 2;
+  return 1;
+};
+
+export default observer(function EstoqueScreen() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
   const theme = useAppTheme();
-  const styles = makeStyles(theme, isWeb);
+  const gridColumns = getGridColumns(width);
+  const styles = makeStyles(theme, isWeb, gridColumns);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [unitModalVisible, setUnitModalVisible] = useState(false);
@@ -140,7 +147,7 @@ export default observer(function IngredientesScreen() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('todos');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = isWeb ? 9 : 6;
+  const itemsPerPage = isWeb ? 12 : 6;
 
   // Filter and Sort logic
   const processIngredients = () => {
@@ -478,7 +485,7 @@ export default observer(function IngredientesScreen() {
   );
 });
 
-function makeStyles(theme: any, isWeb: boolean) {
+function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -571,7 +578,7 @@ function makeStyles(theme: any, isWeb: boolean) {
       marginHorizontal: -10,
     },
     gridItem: {
-      width: isWeb ? '33.33%' : '100%',
+      width: `${100 / gridColumns}%`,
       paddingHorizontal: 10,
       marginBottom: 16,
     },

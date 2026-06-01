@@ -121,7 +121,7 @@ const DEFAULT_MODULES: ModuleItem[] = [
   { id: 'dashboard', name: 'Dashboard', description: 'Visão geral de vendas, faturamento e desempenho comercial.', price: 0, icon: 'DashboardIcon', acquired: true, showInNavbar: true },
   { id: 'cardapio', name: 'Cardápio', description: 'Cadastro e gestão completa do menu de refeições e distribuidores.', price: 0, icon: 'CardapioIcon', acquired: true, showInNavbar: true },
   { id: 'pedidos', name: 'Pedidos', description: 'Acompanhamento de pedidos em tempo real com alertas sonoros.', price: 0, icon: 'BagIcon', acquired: true, showInNavbar: true },
-  { id: 'ingredientes', name: 'Estoque', description: 'Controle inteligente de insumos e matérias-primas com alerta.', price: 0, icon: 'ClocheIcon', acquired: true, showInNavbar: true },
+  { id: 'estoque', name: 'Estoque', description: 'Controle inteligente de insumos e matérias-primas com alerta.', price: 0, icon: 'ClocheIcon', acquired: true, showInNavbar: true },
   { id: 'funcionarios', name: 'Funcionários', description: 'Gestão da equipe, atribuição de cargos e códigos de convites.', price: 0, icon: 'UsersIcon', acquired: true, showInNavbar: false },
 ];
 
