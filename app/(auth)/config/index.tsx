@@ -24,10 +24,24 @@ import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
 import { InlineAlert } from '@/components/shared/InlineAlert';
 import {
+  BellIcon,
+  BriefcaseIcon,
+  BuildingIcon,
+  CardapioIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ClipboardIcon,
+  FoodStoreIcon,
+  LightbulbIcon,
+  LinkIcon,
   LogOutIcon,
+  ModulesIcon,
   MoonIcon,
+  PlusIcon,
+  SpoonIcon,
   SunIcon,
   TrashIcon,
+  UserIcon,
 } from '@/components/shared/Icons';
 
 // ─── Row components ───────────────────────────────────────────────────────────
@@ -366,7 +380,7 @@ export default observer(function ConfigScreen() {
             onPress={() => { setWorkspaceModalError(''); setShowWorkspaceModal(true); }}
           >
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Text style={{ fontSize: 20 }}>💼</Text>
+              <BriefcaseIcon color={theme.contrast} size={20} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: 'Jost_700Bold', fontSize: 15, color: theme.text }} numberOfLines={1}>
                   {dataStore.restaurantDetails?.name || 'Selecione ou Crie um Workspace'}
@@ -376,20 +390,26 @@ export default observer(function ConfigScreen() {
                 </Text>
               </View>
             </View>
-            <Text style={{ fontSize: 16, color: theme.text, opacity: 0.5, marginLeft: 8 }}>▼</Text>
+            <ChevronDownIcon color={theme.text} size={16} style={{ opacity: 0.5, marginLeft: 8 }} />
           </TouchableOpacity>
 
           {!hasRestaurant && (
-            <Text style={{ color: theme.text, opacity: 0.5, fontSize: 12, fontFamily: 'Jost_400Regular', marginTop: 8 }}>
-              💡 Você não possui um restaurante ativo. Clique acima para selecionar, cadastrar ou ingressar.
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 8 }}>
+              <LightbulbIcon color={theme.text} size={14} style={{ opacity: 0.5, marginTop: 2 }} />
+              <Text style={{ flex: 1, color: theme.text, opacity: 0.5, fontSize: 12, fontFamily: 'Jost_400Regular' }}>
+                Você não possui um restaurante ativo. Clique acima para selecionar, cadastrar ou ingressar.
+              </Text>
+            </View>
           )}
 
           {hasRestaurant && activeRole === 'INDEFINIDO' && (
             <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: '#EF444415', borderWidth: 1, borderColor: '#EF444430' }}>
-              <Text style={{ fontFamily: 'Jost_600SemiBold', fontSize: 13, color: '#EF4444', textAlign: 'center' }}>
-                ⏳ Aguardando Ativação
-              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
+                <BellIcon color="#EF4444" size={14} />
+                <Text style={{ fontFamily: 'Jost_600SemiBold', fontSize: 13, color: '#EF4444' }}>
+                  Aguardando Ativação
+                </Text>
+              </View>
               <Text style={{ fontFamily: 'Jost_400Regular', fontSize: 11, color: theme.text, opacity: 0.7, textAlign: 'center', marginTop: 4 }}>
                 Peça ao Gerente do restaurante "{dataStore.restaurantDetails?.name}" para ativar seu cargo.
               </Text>
@@ -412,7 +432,7 @@ export default observer(function ConfigScreen() {
               <SettingRow
                 isFirst
                 theme={theme}
-                icon={<Text style={{ fontSize: 18 }}>👤</Text>}
+                icon={<UserIcon color={theme.text} size={18} />}
                 label="Meu Perfil"
                 sublabel="Informações pessoais e plano de assinatura"
                 onPress={() => router.push('/(auth)/config/perfil' as any)}
@@ -421,14 +441,14 @@ export default observer(function ConfigScreen() {
                 <>
                   <SettingRow
                     theme={theme}
-                    icon={<Text style={{ fontSize: 18 }}>🍽️</Text>}
+                    icon={<FoodStoreIcon color={theme.text} size={18} />}
                     label="Informações do Restaurante"
                     sublabel="Endereço, telefone, taxa e horários"
                     onPress={() => router.push('/(auth)/config/restaurante' as any)}
                   />
                   <SettingRow
                     theme={theme}
-                    icon={<Text style={{ fontSize: 18 }}>🏢</Text>}
+                    icon={<BuildingIcon color={theme.text} size={18} />}
                     label="Gerenciar Filiais"
                     sublabel="Cadastrar e alternar entre filiais da rede"
                     onPress={() => router.push('/(auth)/config/filiais' as any)}
@@ -438,7 +458,7 @@ export default observer(function ConfigScreen() {
               <SettingRow
                 isLast
                 theme={theme}
-                icon={<Text style={{ fontSize: 18 }}>📦</Text>}
+                icon={<ModulesIcon color={theme.text} size={18} />}
                 label="Gerenciar Módulos"
                 sublabel="Ativar/desativar abas e atalhos na barra de navegação"
                 onPress={() => router.push('/(auth)/modulos/gerenciar' as any)}
@@ -475,20 +495,20 @@ export default observer(function ConfigScreen() {
               <SettingRow
                 isFirst
                 theme={theme}
-                icon={<Text style={{ fontSize: 18 }}>📋</Text>}
+                icon={<ClipboardIcon color={theme.text} size={18} />}
                 label="Total de Pedidos"
                 sublabel={`${dataStore.orders.length} registrado${dataStore.orders.length !== 1 ? 's' : ''}`}
               />
               <SettingRow
                 theme={theme}
-                icon={<Text style={{ fontSize: 18 }}>🍽️</Text>}
+                icon={<CardapioIcon color={theme.text} size={18} />}
                 label="Itens no Cardápio"
                 sublabel={`${dataStore.menuItems.length} item${dataStore.menuItems.length !== 1 ? 's' : ''}`}
               />
               <SettingRow
                 isLast
                 theme={theme}
-                icon={<Text style={{ fontSize: 18 }}>🥄</Text>}
+                icon={<SpoonIcon color={theme.text} size={18} />}
                 label="Ingredientes"
                 sublabel={`${dataStore.ingredients.length} no estoque`}
               />
@@ -623,7 +643,7 @@ export default observer(function ConfigScreen() {
                               }
                             }}
                           >
-                            <Text style={{ fontSize: 20 }}>🏪</Text>
+                            <FoodStoreIcon color={theme.text} size={20} />
                             <View style={{ flex: 1 }}>
                               <Text style={[styles.workspaceItemText, { color: theme.text }, isActive && { fontWeight: '700', color: theme.contrast }]} numberOfLines={1}>
                                 {item.name}
@@ -632,7 +652,7 @@ export default observer(function ConfigScreen() {
                                 ID: {item.id}
                               </Text>
                             </View>
-                            {isActive && <Text style={{ color: theme.contrast, fontWeight: '700', fontSize: 14, marginRight: 4 }}>✓</Text>}
+                            {isActive && <CheckIcon color={theme.contrast} size={16} style={{ marginRight: 4 }} />}
                           </TouchableOpacity>
                           
                           {/* Remove button */}
@@ -646,7 +666,7 @@ export default observer(function ConfigScreen() {
                               setTimeout(() => setConfirmRemoveWorkspace(true), 300);
                             }}
                           >
-                            <Text style={{ fontSize: 16 }}>🗑️</Text>
+                            <TrashIcon color="#EF4444" size={16} />
                           </TouchableOpacity>
                         </View>
                       );
@@ -671,7 +691,7 @@ export default observer(function ConfigScreen() {
                     setTimeout(() => setShowCreateModal(true), 300);
                   }}
                 >
-                  <Text style={{ fontSize: 16, marginRight: 10 }}>➕</Text>
+                  <PlusIcon color={theme.text} size={16} style={{ marginRight: 10 }} />
                   <Text style={{ fontFamily: 'Jost_600SemiBold', fontSize: 14, color: theme.text }}>
                     Criar Novo Restaurante
                   </Text>
@@ -686,7 +706,7 @@ export default observer(function ConfigScreen() {
                     setTimeout(() => setShowJoinModal(true), 300);
                   }}
                 >
-                  <Text style={{ fontSize: 16, marginRight: 10 }}>🔗</Text>
+                  <LinkIcon color={theme.text} size={16} style={{ marginRight: 10 }} />
                   <Text style={{ fontFamily: 'Jost_600SemiBold', fontSize: 14, color: theme.text }}>
                     Ingressar via Código
                   </Text>

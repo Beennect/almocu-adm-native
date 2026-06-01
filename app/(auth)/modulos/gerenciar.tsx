@@ -5,18 +5,30 @@ import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore, ModuleItem } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
-import { ChevronLeftIcon } from '@/components/shared/Icons';
+import {
+  BagIcon,
+  CardapioIcon,
+  ChevronLeftIcon,
+  ClocheIcon,
+  DashboardIcon,
+  FileTextIcon,
+  FoodStoreIcon,
+  ModulesIcon,
+  PinIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+} from '@/components/shared/Icons';
 
-// Mapping icons by name
-const MODULE_ICONS: Record<string, string> = {
-  DashboardIcon: '📊',
-  CardapioIcon: '🍔',
-  BagIcon: '🛍️',
-  ClocheIcon: '📦',
-  FileTextIcon: '💵',
-  ShieldCheckIcon: '🛡️',
-  PinIcon: '📍',
-  FoodStoreIcon: '🌐',
+const MODULE_ICONS: Record<string, React.FC<any>> = {
+  DashboardIcon,
+  CardapioIcon,
+  BagIcon,
+  ClocheIcon,
+  FileTextIcon,
+  ShieldCheckIcon,
+  PinIcon,
+  FoodStoreIcon,
+  UsersIcon,
 };
 
 export default observer(function ModulosGerenciarScreen() {
@@ -69,13 +81,13 @@ export default observer(function ModulosGerenciarScreen() {
 
         <View style={styles.list}>
           {acquiredModules.map((module) => {
-            const icon = MODULE_ICONS[module.icon] || '🧩';
+            const Icon = MODULE_ICONS[module.icon] || ModulesIcon;
             const isCore = ['dashboard', 'cardapio', 'pedidos'].includes(module.id);
 
             return (
               <View key={module.id} style={[styles.itemCard, { backgroundColor: theme.foreground }]}>
                 <View style={[styles.iconBox, { backgroundColor: theme.background }]}>
-                  <Text style={styles.iconText}>{icon}</Text>
+                  <Icon color={theme.text} size={20} />
                 </View>
                 
                 <View style={{ flex: 1 }}>
@@ -159,9 +171,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconText: {
-    fontSize: 20,
   },
   name: {
     fontFamily: 'Jost_700Bold',

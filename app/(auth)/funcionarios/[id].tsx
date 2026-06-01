@@ -11,7 +11,18 @@ import { observer } from 'mobx-react-lite';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
-import { ChevronLeftIcon } from '@/components/shared/Icons';
+import {
+  AlertIcon,
+  ChevronLeftIcon,
+  ClockIcon,
+  FoodStoreIcon,
+  LogoPotIcon,
+  MoneyIcon,
+  NoteIcon,
+  ShieldCheckIcon,
+  StarIcon,
+  UsersIcon,
+} from '@/components/shared/Icons';
 
 export default observer(function FuncionarioPerformanceScreen() {
   const { width } = useWindowDimensions();
@@ -33,7 +44,7 @@ export default observer(function FuncionarioPerformanceScreen() {
   if (!employee) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ fontSize: 44 }}>👥</Text>
+        <UsersIcon color={theme.contrast} size={44} />
         <Text style={{ fontFamily: 'Jost_700Bold', fontSize: 18, color: theme.text, marginTop: 12 }}>Colaborador não encontrado</Text>
         <TouchableOpacity style={[styles.backBtn, { marginTop: 16 }]} onPress={() => router.back()}>
           <Text style={{ color: theme.text, fontFamily: 'Jost_600SemiBold' }}>Voltar para Lista</Text>
@@ -76,19 +87,19 @@ export default observer(function FuncionarioPerformanceScreen() {
           {role === 'GARCOM' && (
             <>
               <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.statEmoji}>🍽️</Text>
+                <FoodStoreIcon color={theme.contrast} size={32} />
                 <Text style={[styles.statValue, { color: theme.text }]}>{stats.tablesServed || 0}</Text>
                 <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Mesas Atendidas</Text>
               </View>
 
               <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.statEmoji}>⭐</Text>
-                <Text style={[styles.statValue, { color: theme.text }]}>★ {stats.ratingAverage || '5.0'}</Text>
+                <StarIcon color={theme.contrast} size={32} />
+                <Text style={[styles.statValue, { color: theme.text }]}>{stats.ratingAverage || '5.0'}</Text>
                 <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Média de Avaliação</Text>
               </View>
 
               <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.statEmoji}>💰</Text>
+                <MoneyIcon color={theme.contrast} size={32} />
                 <Text style={[styles.statValue, { color: theme.text }]}>
                   R$ {(stats.revenueGenerated || 0).toFixed(2).replace('.', ',')}
                 </Text>
@@ -100,20 +111,20 @@ export default observer(function FuncionarioPerformanceScreen() {
           {role === 'COZINHA' && (
             <>
               <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.statEmoji}>🍳</Text>
+                <LogoPotIcon color={theme.contrast} size={32} />
                 <Text style={[styles.statValue, { color: theme.text }]}>{stats.dishesPrepared || 0}</Text>
                 <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Pratos Preparados</Text>
               </View>
 
               <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.statEmoji}>⏱️</Text>
+                <ClockIcon color={theme.contrast} size={32} />
                 <Text style={[styles.statValue, { color: theme.text }]}>{stats.speedAverageMinutes || 0} min</Text>
                 <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Tempo Médio de Preparo</Text>
               </View>
 
               <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.statEmoji}>⭐</Text>
-                <Text style={[styles.statValue, { color: theme.text }]}>★ {stats.ratingAverage || '5.0'}</Text>
+                <StarIcon color={theme.contrast} size={32} />
+                <Text style={[styles.statValue, { color: theme.text }]}>{stats.ratingAverage || '5.0'}</Text>
                 <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Média de Satisfação</Text>
               </View>
             </>
@@ -122,20 +133,20 @@ export default observer(function FuncionarioPerformanceScreen() {
           {role === 'GERENTE' && (
             <>
               <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.statEmoji}>🛡️</Text>
+                <ShieldCheckIcon color={theme.contrast} size={32} />
                 <Text style={[styles.statValue, { color: theme.text }]}>{stats.tablesServed || 12}</Text>
                 <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Ações de Gestão</Text>
               </View>
 
               <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.statEmoji}>👥</Text>
+                <UsersIcon color={theme.contrast} size={32} />
                 <Text style={[styles.statValue, { color: theme.text }]}>{dataStore.staff.length}</Text>
                 <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Equipe Contratada</Text>
               </View>
 
               <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.statEmoji}>⭐</Text>
-                <Text style={[styles.statValue, { color: theme.text }]}>★ {stats.ratingAverage || '4.9'}</Text>
+                <StarIcon color={theme.contrast} size={32} />
+                <Text style={[styles.statValue, { color: theme.text }]}>{stats.ratingAverage || '4.9'}</Text>
                 <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Nota Geral da Loja</Text>
               </View>
             </>
@@ -150,7 +161,7 @@ export default observer(function FuncionarioPerformanceScreen() {
           {role === 'GARCOM' && (
             <>
               <View style={[styles.historyItem, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.itemIcon}>💰</Text>
+                <MoneyIcon color={theme.contrast} size={20} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.itemTitle, { color: theme.text }]}>Fechamento de Conta - Mesa 05</Text>
                   <Text style={[styles.itemSub, { color: theme.text, opacity: 0.5 }]}>Hoje, 11:15 • Pagamento em PIX</Text>
@@ -159,7 +170,7 @@ export default observer(function FuncionarioPerformanceScreen() {
               </View>
 
               <View style={[styles.historyItem, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.itemIcon}>📝</Text>
+                <NoteIcon color={theme.contrast} size={20} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.itemTitle, { color: theme.text }]}>Registro de Pedido - Mesa 02</Text>
                   <Text style={[styles.itemSub, { color: theme.text, opacity: 0.5 }]}>Hoje, 10:45 • Lasagna Bolognese</Text>
@@ -168,12 +179,16 @@ export default observer(function FuncionarioPerformanceScreen() {
               </View>
 
               <View style={[styles.historyItem, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.itemIcon}>⭐</Text>
+                <StarIcon color={theme.contrast} size={20} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.itemTitle, { color: theme.text }]}>Avaliação 5 Estrelas Recebida</Text>
                   <Text style={[styles.itemSub, { color: theme.text, opacity: 0.5 }]}>Ontem, 20:30 • Atendimento Geral</Text>
                 </View>
-                <Text style={[styles.itemBadge, { color: '#FBBF24' }]}>★★★★★</Text>
+                <View style={{ flexDirection: 'row', gap: 2 }}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <StarIcon key={s} color="#FBBF24" size={12} />
+                  ))}
+                </View>
               </View>
             </>
           )}
@@ -181,7 +196,7 @@ export default observer(function FuncionarioPerformanceScreen() {
           {role === 'COZINHA' && (
             <>
               <View style={[styles.historyItem, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.itemIcon}>🍳</Text>
+                <LogoPotIcon color={theme.contrast} size={20} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.itemTitle, { color: theme.text }]}>Prato Preparado: Risotto ai Funghi</Text>
                   <Text style={[styles.itemSub, { color: theme.text, opacity: 0.5 }]}>Hoje, 11:24 • Tempo de preparo: 12 min</Text>
@@ -190,7 +205,7 @@ export default observer(function FuncionarioPerformanceScreen() {
               </View>
 
               <View style={[styles.historyItem, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.itemIcon}>🍳</Text>
+                <LogoPotIcon color={theme.contrast} size={20} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.itemTitle, { color: theme.text }]}>Prato Preparado: Fettuccine Alfredo</Text>
                   <Text style={[styles.itemSub, { color: theme.text, opacity: 0.5 }]}>Hoje, 10:55 • Tempo de preparo: 15 min</Text>
@@ -199,7 +214,7 @@ export default observer(function FuncionarioPerformanceScreen() {
               </View>
 
               <View style={[styles.historyItem, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.itemIcon}>🚨</Text>
+                <AlertIcon color={theme.contrast} size={20} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.itemTitle, { color: theme.text }]}>Alerta de Cardápio Ativado</Text>
                   <Text style={[styles.itemSub, { color: theme.text, opacity: 0.5 }]}>Ontem, 19:40 • Tocou produto como Esgotado</Text>
@@ -212,7 +227,7 @@ export default observer(function FuncionarioPerformanceScreen() {
           {role === 'GERENTE' && (
             <>
               <View style={[styles.historyItem, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.itemIcon}>👥</Text>
+                <UsersIcon color={theme.contrast} size={20} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.itemTitle, { color: theme.text }]}>Atribuição de Cargo Realizada</Text>
                   <Text style={[styles.itemSub, { color: theme.text, opacity: 0.5 }]}>Hoje, 09:30 • Atribuiu Garçom a colaborador</Text>
@@ -221,7 +236,7 @@ export default observer(function FuncionarioPerformanceScreen() {
               </View>
 
               <View style={[styles.historyItem, { backgroundColor: theme.foreground }]}>
-                <Text style={styles.itemIcon}>🍽️</Text>
+                <FoodStoreIcon color={theme.contrast} size={20} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.itemTitle, { color: theme.text }]}>Criação do Restaurante Workspace</Text>
                   <Text style={[styles.itemSub, { color: theme.text, opacity: 0.5 }]}>15 de Janeiro de 2026 • Registro inicial</Text>
@@ -310,14 +325,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  statEmoji: {
-    fontSize: 28,
-    marginBottom: 8,
-  },
   statValue: {
     fontFamily: 'Jost_700Bold',
     fontSize: 20,
     textAlign: 'center',
+    marginTop: 8,
   },
   statLabel: {
     fontFamily: 'Jost_600SemiBold',
@@ -336,9 +348,6 @@ const styles = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  itemIcon: {
-    fontSize: 20,
   },
   itemTitle: {
     fontFamily: 'Jost_700Bold',

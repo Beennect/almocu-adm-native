@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
-import { ChevronLeftIcon, FoodStoreIcon, PinIcon } from '@/components/shared/Icons';
+import { CameraIcon, ChevronLeftIcon, FoodStoreIcon, PinIcon } from '@/components/shared/Icons';
 import { FormInput } from '@/components/shared/FormInput';
 import { FormButton } from '@/components/shared/FormButton';
 
@@ -102,11 +102,14 @@ export default observer(function RestauranteScreen() {
         {/* Media Block (Banner and Logo dummy representation) */}
         <View style={[styles.mediaCard, { backgroundColor: theme.foreground }]}>
           <View style={[styles.bannerDummy, { backgroundColor: theme.contrast + '20' }]}>
-            <Text style={[styles.cameraText, { color: theme.contrast }]}>📷 Alterar Banner de Fundo</Text>
+            <View style={styles.bannerInner}>
+              <CameraIcon color={theme.contrast} size={20} />
+              <Text style={[styles.cameraText, { color: theme.contrast }]}> Alterar Banner de Fundo</Text>
+            </View>
           </View>
           <View style={styles.logoRow}>
             <View style={[styles.logoDummy, { backgroundColor: theme.contrast, borderColor: theme.foreground }]}>
-              <Text style={styles.logoDummyText}>🍽️</Text>
+              <FoodStoreIcon color="#FFFFFF" size={32} />
             </View>
             <TouchableOpacity style={styles.logoBtn}>
               <Text style={[styles.logoBtnText, { color: theme.text }]}>Alterar Logotipo</Text>
@@ -233,6 +236,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  bannerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   cameraText: {
     fontFamily: 'Jost_700Bold',
     fontSize: 13,
@@ -251,9 +259,6 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  logoDummyText: {
-    fontSize: 28,
   },
   logoBtn: {
     alignSelf: 'flex-end',

@@ -8,7 +8,7 @@ import { UserHeader } from '../../../components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
 import { authStore } from '@/stores/AuthStore';
 import Toast from 'react-native-toast-message';
-import { ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
+import { AlertIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -99,7 +99,10 @@ export default observer(function PedidosScreen() {
       {/* Emergency Panel for Kitchen */}
       {activeRole === 'COZINHA' && (
         <View style={[styles.emergencyContainer, { backgroundColor: theme.foreground }]}>
-          <Text style={styles.emergencyTitle}>🚨 Painel de Emergência KDS</Text>
+          <View style={styles.emergencyTitleRow}>
+            <AlertIcon color="#EF4444" size={18} />
+            <Text style={styles.emergencyTitle}> Painel de Emergência KDS</Text>
+          </View>
           <Text style={styles.emergencySub}>Toque em um prato para alternar a disponibilidade e evitar novos pedidos.</Text>
           
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emergencyScroll}>
@@ -439,6 +442,11 @@ function makeStyles(theme: any, isWeb: boolean) {
       borderRadius: 24,
       padding: 16,
       marginBottom: 20,
+    },
+    emergencyTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6,
     },
     emergencyTitle: {
       fontFamily: 'Jost_700Bold',

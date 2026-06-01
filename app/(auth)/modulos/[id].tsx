@@ -5,18 +5,31 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
-import { ChevronLeftIcon } from '@/components/shared/Icons';
+import {
+  BagIcon,
+  CardapioIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  ClocheIcon,
+  DashboardIcon,
+  FileTextIcon,
+  FoodStoreIcon,
+  ModulesIcon,
+  PinIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+} from '@/components/shared/Icons';
 
-// Mapping icons by name
-const MODULE_ICONS: Record<string, string> = {
-  DashboardIcon: '📊',
-  CardapioIcon: '🍔',
-  BagIcon: '🛍️',
-  ClocheIcon: '📦',
-  FileTextIcon: '💵',
-  ShieldCheckIcon: '🛡️',
-  PinIcon: '📍',
-  FoodStoreIcon: '🌐',
+const MODULE_ICONS: Record<string, React.FC<any>> = {
+  DashboardIcon,
+  CardapioIcon,
+  BagIcon,
+  ClocheIcon,
+  FileTextIcon,
+  ShieldCheckIcon,
+  PinIcon,
+  FoodStoreIcon,
+  UsersIcon,
 };
 
 // Custom detailed benefits for each module
@@ -90,7 +103,7 @@ export default observer(function ModuloDetalhesScreen() {
     );
   }
 
-  const icon = MODULE_ICONS[moduleItem.icon] || '🧩';
+  const Icon = MODULE_ICONS[moduleItem.icon] || ModulesIcon;
   const info = DETAILED_BENEFITS[moduleItem.id] || DEFAULT_BENEFITS;
 
   return (
@@ -119,7 +132,7 @@ export default observer(function ModuloDetalhesScreen() {
         >
           <View style={styles.heroHeader}>
             <View style={styles.heroIconBox}>
-              <Text style={styles.heroIconText}>{icon}</Text>
+              <Icon color="#FFFFFF" size={32} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.heroName}>{moduleItem.name}</Text>
@@ -139,7 +152,7 @@ export default observer(function ModuloDetalhesScreen() {
           <View style={styles.highlightsContainer}>
             {info.highlights.map((highlight, index) => (
               <View key={index} style={styles.highlightRow}>
-                <Text style={[styles.checkText, { color: theme.contrast }]}>✓</Text>
+                <CheckIcon color={theme.contrast} size={16} />
                 <Text style={[styles.highlightText, { color: theme.text }]}>{highlight}</Text>
               </View>
             ))}
@@ -160,9 +173,12 @@ export default observer(function ModuloDetalhesScreen() {
 
           {moduleItem.acquired ? (
             <View style={styles.acquiredBox}>
-              <Text style={styles.acquiredText}>✓ Você já possui este módulo ativo</Text>
-              <TouchableOpacity 
-                style={[styles.gerenciarBtn, { borderColor: theme.contrast }]} 
+              <View style={styles.acquiredRow}>
+                <CheckIcon color="#10B981" size={16} />
+                <Text style={styles.acquiredText}>Você já possui este módulo ativo</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.gerenciarBtn, { borderColor: theme.contrast }]}
                 onPress={() => router.push('/(auth)/modulos/gerenciar' as any)}
               >
                 <Text style={[styles.gerenciarBtnText, { color: theme.contrast }]}>Ir para Gerenciamento</Text>
@@ -228,9 +244,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroIconText: {
-    fontSize: 32,
-  },
   heroName: {
     fontFamily: 'Jost_700Bold',
     fontSize: 20,
@@ -272,11 +285,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-  },
-  checkText: {
-    fontFamily: 'Jost_700Bold',
-    fontSize: 14,
-    lineHeight: 18,
   },
   highlightText: {
     flex: 1,
@@ -327,11 +335,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  acquiredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
   acquiredText: {
     fontFamily: 'Jost_700Bold',
     color: '#10B981',
     fontSize: 14,
-    marginBottom: 12,
   },
   gerenciarBtn: {
     borderWidth: 2,

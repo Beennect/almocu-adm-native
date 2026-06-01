@@ -5,17 +5,30 @@ import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore, ModuleItem } from '@/stores/DataStore';
 import { UserHeader } from '@/components/shared/UserHeader';
+import {
+  BagIcon,
+  CardapioIcon,
+  CheckIcon,
+  ClocheIcon,
+  DashboardIcon,
+  FileTextIcon,
+  FoodStoreIcon,
+  ModulesIcon,
+  PinIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+} from '@/components/shared/Icons';
 
-// Mapping icons by name
-const MODULE_ICONS: Record<string, string> = {
-  DashboardIcon: '📊',
-  CardapioIcon: '🍔',
-  BagIcon: '🛍️',
-  ClocheIcon: '📦',
-  FileTextIcon: '💵',
-  ShieldCheckIcon: '🛡️',
-  PinIcon: '📍',
-  FoodStoreIcon: '🌐',
+const MODULE_ICONS: Record<string, React.FC<any>> = {
+  DashboardIcon,
+  CardapioIcon,
+  BagIcon,
+  ClocheIcon,
+  FileTextIcon,
+  ShieldCheckIcon,
+  PinIcon,
+  FoodStoreIcon,
+  UsersIcon,
 };
 
 export default observer(function ModulosIndexScreen() {
@@ -35,17 +48,17 @@ export default observer(function ModulosIndexScreen() {
   };
 
   const renderModuleCard = (module: ModuleItem) => {
-    const icon = MODULE_ICONS[module.icon] || '🧩';
+    const Icon = MODULE_ICONS[module.icon] || ModulesIcon;
     return (
-      <TouchableOpacity 
-        key={module.id} 
+      <TouchableOpacity
+        key={module.id}
         style={[styles.moduleCard, { backgroundColor: theme.foreground }]}
         onPress={() => handleModuleClick(module)}
         activeOpacity={0.7}
       >
         <View style={styles.cardHeader}>
           <View style={[styles.iconContainer, { backgroundColor: theme.background }]}>
-            <Text style={styles.iconText}>{icon}</Text>
+            <Icon color={theme.text} size={20} />
           </View>
           {module.acquired ? (
             <View style={[styles.statusBadge, { backgroundColor: '#10B98122' }]}>
@@ -110,7 +123,9 @@ export default observer(function ModulosIndexScreen() {
           </View>
         ) : (
           <View style={styles.congratsCard}>
-            <Text style={styles.congratsEmoji}>🎉</Text>
+            <View style={styles.congratsIconBox}>
+              <CheckIcon color={theme.contrast} size={32} />
+            </View>
             <Text style={[styles.congratsText, { color: theme.text }]}>Você possui todos os módulos disponíveis contratados!</Text>
           </View>
         )}
@@ -194,9 +209,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconText: {
-    fontSize: 20,
-  },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -250,9 +262,13 @@ const styles = StyleSheet.create({
     borderColor: '#9CA3AF44',
     opacity: 0.8,
   },
-  congratsEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
+  congratsIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   congratsText: {
     fontFamily: 'Jost_600SemiBold',

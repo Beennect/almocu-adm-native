@@ -1,5 +1,5 @@
 import React from "react";
-import Svg, { Circle, Line, Path, Polyline } from "react-native-svg";
+import Svg, { Circle, Line, Path, Polygon, Polyline, Rect } from "react-native-svg";
 
 export const HomeIcon = ({ color = "currentColor", size = 24, ...props }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
@@ -458,5 +458,128 @@ export const EyeIcon = ({ color = "currentColor", size = 24, ...props }: any) =>
 export const EyeOffIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
     <Path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />
+  </Svg>
+);
+
+// ── Icones que foram adicionados ──────────────────────────────────────────────
+
+export const UsersIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <Circle cx="9" cy="7" r="4" />
+    <Path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <Path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </Svg>
+);
+
+export const StarIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </Svg>
+);
+
+export const MoneyIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Line x1="12" y1="1" x2="12" y2="23" />
+    <Path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </Svg>
+);
+
+export const NoteIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <Polyline points="14 2 14 8 20 8" />
+    <Line x1="16" y1="13" x2="8" y2="13" />
+    <Line x1="16" y1="17" x2="8" y2="17" />
+    <Line x1="10" y1="9" x2="8" y2="9" />
+  </Svg>
+);
+
+export const AlertIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <Line x1="12" y1="9" x2="12" y2="13" />
+    <Line x1="12" y1="17" x2="12.01" y2="17" />
+  </Svg>
+);
+
+export const ClockIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Circle cx="12" cy="12" r="10" />
+    <Polyline points="12 6 12 12 16 14" />
+  </Svg>
+);
+
+export const PhoneIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </Svg>
+);
+
+export const LinkIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+    <Path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </Svg>
+);
+
+export const LightbulbIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M9 18h6" />
+    <Path d="M10 22h4" />
+    <Path d="M12 2a7 7 0 0 0-4 12.73V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.27A7 7 0 0 0 12 2z" />
+  </Svg>
+);
+
+export const BriefcaseIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+    <Path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+  </Svg>
+);
+
+export const BuildingIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+    <Path d="M9 22v-4h6v4" />
+    <Path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01" />
+  </Svg>
+);
+
+export const StoreIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M3 9l1-5h16l1 5" />
+    <Path d="M5 9v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9" />
+    <Path d="M9 22V12h6v10" />
+  </Svg>
+);
+
+export const SpoonIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M5 11a4 4 0 1 1 8 0v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" />
+    <Path d="M11 4a3 3 0 0 0-3 3v4h6V7a3 3 0 0 0-3-3z" />
+    <Path d="M17 3v18" />
+  </Svg>
+);
+
+export const ClipboardIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <Rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+  </Svg>
+);
+
+export const CloseIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Line x1="18" y1="6" x2="6" y2="18" />
+    <Line x1="6" y1="6" x2="18" y2="18" />
+  </Svg>
+);
+
+export const ModulesIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M12 2L2 7l10 5 10-5-10-5z" />
+    <Path d="M2 17l10 5 10-5" />
+    <Path d="M2 12l10 5 10-5" />
   </Svg>
 );

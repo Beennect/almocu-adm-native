@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
-import { ChevronLeftIcon, PinIcon } from '@/components/shared/Icons';
+import { ChevronLeftIcon, CloseIcon, PinIcon } from '@/components/shared/Icons';
 import { FormInput } from '@/components/shared/FormInput';
 import { FormButton } from '@/components/shared/FormButton';
 import { InlineAlert } from '@/components/shared/InlineAlert';
@@ -152,12 +152,12 @@ export default observer(function FiliaisScreen() {
                   <View style={styles.divider} />
 
                   <View style={styles.cardInfoRow}>
-                    <Text style={[styles.infoLabel, { color: theme.text }]}>📞 Telefone</Text>
+                    <Text style={[styles.infoLabel, { color: theme.text }]}>Telefone</Text>
                     <Text style={[styles.infoValue, { color: theme.text }]}>{branch.phone}</Text>
                   </View>
-                  
+
                   <View style={styles.cardInfoRow}>
-                    <Text style={[styles.infoLabel, { color: theme.text }]}>📍 Endereço</Text>
+                    <Text style={[styles.infoLabel, { color: theme.text }]}>Endereço</Text>
                     <Text style={[styles.infoValue, { color: theme.text, flex: 1, textAlign: 'right' }]} numberOfLines={2}>
                       {branch.address}
                     </Text>
@@ -191,7 +191,7 @@ export default observer(function FiliaisScreen() {
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Cadastrar Nova Filial</Text>
               <TouchableOpacity onPress={() => { setModalError(''); setModalVisible(false); }}>
-                <Text style={{ fontSize: 24, color: theme.text, opacity: 0.5 }}>×</Text>
+                <CloseIcon color={theme.text} size={24} style={{ opacity: 0.5 }} />
               </TouchableOpacity>
             </View>
 

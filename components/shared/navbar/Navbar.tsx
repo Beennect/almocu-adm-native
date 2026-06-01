@@ -19,7 +19,8 @@ import {
     FileTextIcon,
     ShieldCheckIcon,
     PinIcon,
-    FoodStoreIcon
+    FoodStoreIcon,
+    UsersIcon
 } from "../Icons";
 import { themeStore } from "../../../stores/ThemeStore";
 import { authStore } from "../../../stores/AuthStore";
@@ -36,6 +37,7 @@ const ICON_COMPONENTS: Record<string, React.FC<any>> = {
   PinIcon, // mesas
   FoodStoreIcon, // delivery
   SettingsIcon,
+  UsersIcon, // funcionarios
 };
 
 export const Navbar = observer(function Navbar() {

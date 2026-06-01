@@ -14,7 +14,7 @@ import { useAppTheme } from '@/themes/colors';
 import { authStore } from '@/stores/AuthStore';
 import { dataStore, StaffMember } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
-import { TrashIcon } from '@/components/shared/Icons';
+import { AlertIcon, CheckIcon, ChevronDownIcon, StarIcon, TrashIcon, UsersIcon } from '@/components/shared/Icons';
 import { InlineAlert } from '@/components/shared/InlineAlert';
 
 export default observer(function FuncionariosScreen() {
@@ -44,7 +44,7 @@ export default observer(function FuncionariosScreen() {
   if (activeRole !== 'GERENTE') {
     return (
       <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ fontSize: 44 }}>🚫</Text>
+        <AlertIcon color={theme.contrast} size={44} />
         <Text style={{ fontFamily: 'Jost_700Bold', fontSize: 18, color: theme.text, marginTop: 12 }}>Acesso Negado</Text>
         <Text style={{ fontFamily: 'Jost_400Regular', fontSize: 14, color: theme.text, opacity: 0.6, marginTop: 6, textAlign: 'center' }}>
           Esta página é restrita apenas para Gerentes do restaurante.
@@ -201,11 +201,11 @@ export default observer(function FuncionariosScreen() {
       {/* Spotlight highlight */}
       {highlightEmployee && (
         <View style={[styles.spotlightCard, { backgroundColor: theme.contrast + '15', borderColor: theme.contrast }]}>
-          <Text style={{ fontSize: 24 }}>🏆</Text>
+          <StarIcon color={theme.contrast} size={24} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.spotlightTitle, { color: theme.text }]}>Colaborador em Destaque</Text>
             <Text style={[styles.spotlightSub, { color: theme.text, opacity: 0.7, marginTop: 2 }]}>
-              {highlightEmployee.name} está com nota média de ★ {highlightEmployee.performanceStats?.ratingAverage || '5.0'} este mês!
+              {highlightEmployee.name} está com nota média de {highlightEmployee.performanceStats?.ratingAverage || '5.0'} este mês!
             </Text>
           </View>
         </View>
@@ -237,7 +237,7 @@ export default observer(function FuncionariosScreen() {
       <View style={styles.staffGrid}>
         {staffFiltered.length === 0 ? (
           <View style={[styles.emptyCard, { backgroundColor: theme.foreground }]}>
-            <Text style={{ fontSize: 32 }}>👥</Text>
+            <UsersIcon color={theme.contrast} size={32} />
             <Text style={[styles.emptyTitle, { color: theme.text, opacity: 0.6, marginTop: 8 }]}>
               Nenhum colaborador nesta categoria.
             </Text>
@@ -288,7 +288,7 @@ export default observer(function FuncionariosScreen() {
                     <Text style={[styles.roleBadgeText, { color: theme.contrast }]}>
                       {roleLabels[member.role] || member.role}
                     </Text>
-                    <Text style={[styles.roleArrow, { color: theme.contrast }]}>▼</Text>
+                    <ChevronDownIcon color={theme.contrast} size={12} style={styles.roleArrow} />
                   </TouchableOpacity>
                 ) : (
                   <View style={[styles.roleBadge, { backgroundColor: theme.contrast + '18' }]}>
@@ -338,7 +338,7 @@ export default observer(function FuncionariosScreen() {
                     {roleLabels[role]}
                   </Text>
                   {roleModalMember?.role === role && (
-                    <Text style={[styles.modalCheck, { color: theme.contrast }]}>✓</Text>
+                    <CheckIcon color={theme.contrast} size={16} />
                   )}
                 </TouchableOpacity>
               ))}
@@ -538,7 +538,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   roleArrow: {
-    fontSize: 8,
     marginTop: 1,
   },
   modalOverlay: {
@@ -585,8 +584,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   modalCheck: {
-    fontFamily: 'Jost_700Bold',
-    fontSize: 16,
   },
   modalCancel: {
     alignItems: 'center',

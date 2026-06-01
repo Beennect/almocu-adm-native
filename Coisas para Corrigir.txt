@@ -10,7 +10,7 @@
 
 # Forms de cadastro de conta
 [X] Vai ter apenas o Business
-[ ] Adicionar botão para visualizar senha
+[X] Adicionar botão para visualizar senha
 [ ] Tem que realizar validação com email de verificação
 
 # Forms criar restaurante

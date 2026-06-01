@@ -1,5 +1,5 @@
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, TrashIcon } from '@/components/shared/Icons';
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
@@ -95,7 +95,7 @@ const IngredientCard = observer(({ item, onRemove, onEdit, theme, styles }: any)
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <TouchableOpacity onPress={onEdit}>
             <View style={{ opacity: 0.6 }}>
-              <Text style={{ fontFamily: 'Jost_600SemiBold', color: theme.text, fontSize: 18 }}>✎</Text>
+              <EditIcon color={theme.text} size={18} />
             </View>
           </TouchableOpacity>
           <TouchableOpacity onPress={onRemove}>

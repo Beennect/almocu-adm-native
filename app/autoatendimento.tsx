@@ -15,6 +15,7 @@ import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
 import { withLoading } from '@/utils/toast';
+import { CheckIcon, ClockIcon, FoodStoreIcon, StarIcon } from '@/components/shared/Icons';
 
 interface SelfCartItem {
   id: string;
@@ -112,7 +113,9 @@ export default observer(function AutoatendimentoScreen() {
       
       {/* Top Welcome Banner */}
       <View style={[styles.welcomeBanner, { backgroundColor: theme.foreground }]}>
-        <Text style={{ fontSize: 36, marginBottom: 8 }}>🍽️</Text>
+        <View style={{ marginBottom: 8 }}>
+          <FoodStoreIcon color={theme.contrast} size={36} />
+        </View>
         <Text style={[styles.welcomeTitle, { color: theme.text }]}>{restName}</Text>
         <View style={[styles.tableBadge, { backgroundColor: theme.contrast }]}>
           <Text style={styles.tableBadgeText}>{activeTable} • Cardápio Digital</Text>
@@ -125,7 +128,10 @@ export default observer(function AutoatendimentoScreen() {
       {/* Real-time Order prep tracker */}
       {tableOrders.length > 0 && (
         <View style={[styles.trackerCard, { backgroundColor: theme.foreground, borderColor: theme.contrast }]}>
-          <Text style={[styles.trackerTitle, { color: theme.text }]}>⏱️ Acompanhe seu Pedido</Text>
+          <View style={styles.trackerTitleRow}>
+            <ClockIcon color={theme.text} size={18} />
+            <Text style={[styles.trackerTitle, { color: theme.text }]}> Acompanhe seu Pedido</Text>
+          </View>
           {tableOrders.map((order) => (
             <View key={order.id} style={styles.trackerRow}>
               <View style={{ flex: 1 }}>
@@ -240,7 +246,7 @@ export default observer(function AutoatendimentoScreen() {
 
         {feedbackSubmitted ? (
           <View style={{ alignItems: 'center', paddingVertical: 12 }}>
-            <Text style={{ fontSize: 32 }}>💖</Text>
+            <CheckIcon color="#10B981" size={32} />
             <Text style={{ fontFamily: 'Jost_700Bold', color: '#10B981', marginTop: 6 }}>Obrigado por nos avaliar!</Text>
           </View>
         ) : (
@@ -248,7 +254,7 @@ export default observer(function AutoatendimentoScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginVertical: 12 }}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <TouchableOpacity key={star} onPress={() => setRating(star)}>
-                  <Text style={{ fontSize: 32, color: star <= rating ? '#FBBF24' : theme.text + '33' }}>★</Text>
+                  <StarIcon color={star <= rating ? '#FBBF24' : theme.text + '33'} size={32} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -309,6 +315,11 @@ const styles = StyleSheet.create({
   trackerTitle: {
     fontFamily: 'Jost_700Bold',
     fontSize: 15,
+  },
+  trackerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   trackerRow: {
     flexDirection: 'row',
