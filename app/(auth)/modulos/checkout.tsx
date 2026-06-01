@@ -4,7 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
 import { ChevronLeftIcon, AlmocuIcon, UserIcon } from '@/components/shared/Icons';
 import { FormInput } from '@/components/shared/FormInput';
 import { FormButton } from '@/components/shared/FormButton';
@@ -61,29 +61,31 @@ export default observer(function CheckoutScreen() {
   const handlePurchase = () => {
     if (paymentMethod === 'card') {
       if (!cardNumber || !cardHolder || !cardExpiry || !cardCvv) {
-        toastStore.show('Por favor, preencha todos os campos do cartão.', 'error');
+        Toast.show({ type: 'error', text1: 'Por favor, preencha todos os campos do cartão.' });
         return;
       }
     }
 
+    Toast.show({ type: 'info', text1: 'Processando pagamento...' });
     setLoading(true);
 
     // Simulated network delay
     setTimeout(() => {
       try {
         dataStore.purchaseModule(moduleItem.id);
-        toastStore.show(`Módulo "${moduleItem.name}" ativado com sucesso!`, 'success');
+        Toast.show({ type: 'success', text1: `Módulo "${moduleItem.name}" ativado com sucesso!` });
         setLoading(false);
         router.push('/(auth)/modulos' as any);
       } catch (err: any) {
-        toastStore.show('Erro ao finalizar transação.', 'error');
+        Toast.show({ type: 'error', text1: 'Erro ao finalizar transação.' });
         setLoading(false);
       }
     }, 1500);
   };
 
   const handleCopyPixKey = () => {
-    toastStore.show('Chave Copia e Cola copiada para a área de transferência!', 'success');
+    Toast.show({ type: 'info', text1: 'Copiando...' });
+    Toast.show({ type: 'success', text1: 'Chave Copia e Cola copiada para a área de transferência!' });
   };
 
   return (

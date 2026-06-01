@@ -1,43 +1,86 @@
 import { EmailIcon, KeyIcon } from '@/components/shared/Icons';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/themes/colors';
-import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FormButton } from '../shared/FormButton';
 import { FormInput } from '../shared/FormInput';
 import { useRouter } from 'expo-router';
 
 import { authStore } from '../../stores/AuthStore';
+import { startGoogleLogin } from '../../services/api-oauth-service';
 
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
+import { withLoading } from '@/utils/toast';
 
 export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const theme = useAppTheme();
-  const { login } = useAuth();
+  const router = useRouter();
 
   const styles = makeStyles(theme.text);
 
+  const validateEmail = (email: string) => {
+    return /\S+@\S+\.\S+/.test(email);
+  };
+
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+    if (!email || !password) {
+      Toast.show({ type: 'error', text1: 'Por favor, preencha todos os campos.' });
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      Toast.show({ type: 'error', text1: 'Por favor, insira um e-mail válido.' });
       return;
     }
 
     try {
-      setIsLoading(true);
-      await login(email.trim(), password.trim());
-      router.replace('/(auth)/dashboard');
-    } catch (error: any) {
-      console.error('Erro no login:', error);
-      const message = error.response?.data?.message || 'Erro ao fazer login. Verifique suas credenciais.';
-      Alert.alert('Erro', message);
-    } finally {
-      setIsLoading(false);
+      await withLoading(
+        async () => {
+          await authStore.login(email, password);
+          router.replace('/(auth)/dashboard');
+        },
+        { loading: 'Entrando...', success: 'Bem-vindo de volta!', error: 'Erro ao realizar login.' }
+      );
+    } catch {
+      // Erro já exibido pelo withLoading
     }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await startGoogleLogin();
+
+      if (result.cancelled) {
+        Toast.show({ type: 'info', text1: 'Login cancelado' });
+        return;
+      }
+
+      if (!result.token) {
+        // Web: a navegação via window.location.href já está em curso.
+        // Nada a fazer aqui; o oauth-callback processa o token.
+        return;
+      }
+
+      await withLoading(
+        async () => {
+          await authStore.loginWithToken(result.token!);
+          router.replace('/(auth)/dashboard');
+        },
+        {
+          loading: 'Conectando com Google...',
+          success: 'Bem-vindo!',
+          error: 'Não foi possível concluir o login com Google.',
+        }
+      );
+    } catch {
+      Toast.show({ type: 'error', text1: 'Erro ao iniciar login com Google' });
+    }
+  };
+
+  const handleFacebookLogin = () => {
+    Toast.show({ type: 'info', text1: 'Login com Facebook em breve' });
   };
 
   return (
@@ -57,7 +100,6 @@ export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
-          editable={!isLoading}
         />
         <FormInput
           Icon={KeyIcon}
@@ -65,7 +107,7 @@ export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          editable={!isLoading}
+          onSubmitEditing={handleLogin}
         />
       </View>
 
@@ -79,29 +121,27 @@ export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
       </TouchableOpacity>
 
       {/* Primary CTA */}
-      <FormButton
-        title={isLoading ? "" : "ACESSE SUA CONTA"}
-        variant="primary"
-        onPress={handleLogin}
-        disabled={isLoading}
-      >
-        {isLoading && <ActivityIndicator color="#1A1A1A" />}
-      </FormButton>
+      <FormButton title="ACESSE SUA CONTA" variant="primary" onPress={handleLogin} />
 
       {/* Criar conta link */}
-      <TouchableOpacity
-        style={styles.linkRow}
-        activeOpacity={0.7}
-        onPress={onToggleForm}
-        disabled={isLoading}
-      >
+      <TouchableOpacity style={styles.linkRow} activeOpacity={0.7} onPress={() => router.push('/register' as any)}>
         <Text style={styles.linkText}>Criar conta</Text>
       </TouchableOpacity>
 
       {/* Social buttons */}
       <View style={styles.socialBlock}>
-        <FormButton title="Entrar com o Facebook" variant="social" socialIcon="facebook-f" />
-        <FormButton title="Entrar com o Google" variant="social" socialIcon="google" />
+        <FormButton
+          title="Entrar com o Facebook"
+          variant="social"
+          socialIcon="facebook-f"
+          onPress={handleFacebookLogin}
+        />
+        <FormButton
+          title="Entrar com o Google"
+          variant="social"
+          socialIcon="google"
+          onPress={handleGoogleLogin}
+        />
       </View>
     </View>
   );

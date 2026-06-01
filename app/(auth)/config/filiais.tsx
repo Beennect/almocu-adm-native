@@ -4,10 +4,11 @@ import { observer } from 'mobx-react-lite';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
 import { ChevronLeftIcon, PinIcon } from '@/components/shared/Icons';
 import { FormInput } from '@/components/shared/FormInput';
 import { FormButton } from '@/components/shared/FormButton';
+import { InlineAlert } from '@/components/shared/InlineAlert';
 
 export default observer(function FiliaisScreen() {
   const { width } = useWindowDimensions();
@@ -28,6 +29,7 @@ export default observer(function FiliaisScreen() {
   const [endereco, setEndereco] = useState('');
 
   const [loading, setLoading] = useState(false);
+  const [modalError, setModalError] = useState('');
 
   const maskCnpj = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 14);
@@ -44,37 +46,40 @@ export default observer(function FiliaisScreen() {
 
   const handleAddBranch = () => {
     if (!nome || !cnpj || !telefone || !endereco) {
-      toastStore.show('Por favor, preencha todos os campos.', 'error');
+      setModalError('Por favor, preencha todos os campos.');
       return;
     }
 
     const cnpjRegex = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/;
     if (!cnpjRegex.test(cnpj)) {
-      toastStore.show('CNPJ inválido. Use o formato: 00.000.000/0000-00', 'error');
+      setModalError('CNPJ inválido. Use o formato: 00.000.000/0000-00');
       return;
     }
 
+    setModalError('');
     setLoading(true);
 
     try {
-      const newBranch = dataStore.addBranch({
-        name: nome,
-        cnpj,
-        phone: telefone,
-        address: endereco,
-      });
+      try {
+        const newBranch = dataStore.addBranch({
+          name: nome,
+          cnpj,
+          phone: telefone,
+          address: endereco,
+        });
 
-      toastStore.show(`Filial "${newBranch.name}" adicionada com sucesso!`, 'success');
-      
-      // Reset form
-      setNome('');
-      setCnpj('');
-      setTelefone('');
-      setEndereco('');
-      
-      setModalVisible(false);
-    } catch (e: any) {
-      toastStore.show('Erro ao adicionar filial.', 'error');
+        // Reset form
+        setNome('');
+        setCnpj('');
+        setTelefone('');
+        setEndereco('');
+        setModalError('');
+
+        setModalVisible(false);
+        Toast.show({ type: 'success', text1: `Filial "${newBranch.name}" adicionada com sucesso!` });
+      } catch (e: any) {
+        setModalError(e?.response?.data?.message || e?.message || 'Erro ao adicionar filial.');
+      }
     } finally {
       setLoading(false);
     }
@@ -82,16 +87,17 @@ export default observer(function FiliaisScreen() {
 
   const handleSelectActive = (branchId: string, branchName: string) => {
     setActiveBranchId(branchId);
-    toastStore.show(`Você mudou para a filial: ${branchName}`, 'success');
+    Toast.show({ type: 'success', text1: `Você mudou para a filial: ${branchName}` });
   };
 
   const handleRemove = (branchId: string) => {
     if (branchId === activeBranchId) {
-      toastStore.show('Você não pode remover a filial ativa no momento.', 'error');
+      Toast.show({ type: 'error', text1: 'Você não pode remover a filial ativa no momento.' });
       return;
     }
+    Toast.show({ type: 'info', text1: 'Removendo filial...' });
     dataStore.removeBranch(branchId);
-    toastStore.show('Filial removida com sucesso!', 'success');
+    Toast.show({ type: 'success', text1: 'Filial removida com sucesso!' });
   };
 
   return (
@@ -105,7 +111,7 @@ export default observer(function FiliaisScreen() {
         <Text style={[styles.headerTitle, { color: theme.text }]}>Gerenciar Filiais</Text>
         <TouchableOpacity 
           style={[styles.addBtnHeader, { backgroundColor: theme.contrast }]} 
-          onPress={() => setModalVisible(true)}
+          onPress={() => { setModalError(''); setModalVisible(true); }}
         >
           <Text style={styles.addBtnHeaderText}>+ Adicionar</Text>
         </TouchableOpacity>
@@ -179,15 +185,17 @@ export default observer(function FiliaisScreen() {
       </ScrollView>
 
       {/* Add Branch Modal Form */}
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => { setModalError(''); setModalVisible(false); }}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.foreground }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>Cadastrar Nova Filial</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity onPress={() => { setModalError(''); setModalVisible(false); }}>
                 <Text style={{ fontSize: 24, color: theme.text, opacity: 0.5 }}>×</Text>
               </TouchableOpacity>
             </View>
+
+            {modalError ? <InlineAlert type="error" message={modalError} /> : null}
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={[styles.modalDesc, { color: theme.text }]}>Insira os dados cadastrais da nova filial do seu restaurante.</Text>
@@ -226,7 +234,7 @@ export default observer(function FiliaisScreen() {
                   onPress={handleAddBranch}
                   disabled={loading}
                 />
-                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalVisible(false)}>
+                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setModalError(''); setModalVisible(false); }}>
                   <Text style={[styles.modalCancelBtnText, { color: theme.text }]}>Cancelar</Text>
                 </TouchableOpacity>
               </View>

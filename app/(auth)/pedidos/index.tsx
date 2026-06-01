@@ -7,7 +7,7 @@ import { OrderCard } from '../../../components/orders/OrderCard';
 import { UserHeader } from '../../../components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
 import { authStore } from '@/stores/AuthStore';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
 
 const ITEMS_PER_PAGE = 6;
@@ -113,7 +113,7 @@ export default observer(function PedidosScreen() {
                 ]}
                 onPress={() => {
                   dataStore.toggleMenuItemAvailability(item.id);
-                  toastStore.show(`${item.name} marcado como ${item.available ? 'Disponível' : 'ESGOTADO'}!`, 'info');
+                  Toast.show({ type: 'info', text1: `${item.name} marcado como ${item.available ? 'Disponível' : 'ESGOTADO'}!` });
                 }}
               >
                 <Text style={styles.emergencyItemName}>{item.name}</Text>

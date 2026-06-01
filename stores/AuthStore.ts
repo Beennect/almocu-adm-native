@@ -4,7 +4,7 @@ import { Platform } from "react-native";
 import api from "../services/api-service";
 import { dataStore } from "./DataStore";
 
-function mapBackendRoleToFrontend(role: string): 'GERENTE' | 'GARCOM' | 'COZINHA' | 'INDEFINIDO' {
+function mapBackendRoleToFrontend(role: string): 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM' | 'INDEFINIDO' {
   switch (role) {
     case 'OWNER':
     case 'MANAGER':
@@ -13,6 +13,10 @@ function mapBackendRoleToFrontend(role: string): 'GERENTE' | 'GARCOM' | 'COZINHA
       return 'GARCOM';
     case 'KITCHEN':
       return 'COZINHA';
+    case 'CASHIER':
+      return 'CAIXA';
+    case 'COMMON':
+      return 'COMUM';
     default:
       return 'INDEFINIDO';
   }
@@ -58,7 +62,7 @@ class AuthStore {
     }
   }
 
-  get activeRole(): 'GERENTE' | 'GARCOM' | 'COZINHA' | 'INDEFINIDO' {
+  get activeRole(): 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM' | 'INDEFINIDO' {
     if (!this.user || !this.user.restaurantId) return 'INDEFINIDO';
     return this.user.restaurantRoles?.[this.user.restaurantId] || 'INDEFINIDO';
   }
@@ -87,7 +91,7 @@ class AuthStore {
 
   async login(email: string, pass: string) {
     const normalizedEmail = email.toLowerCase().trim();
-    
+
     // Chamada real de login no microserviço do backend
     const response = await api.post('/auth/login', {
       username: normalizedEmail,
@@ -96,6 +100,69 @@ class AuthStore {
 
     const { access_token, user: backendUser } = response.data;
 
+    // Ensure user is tracked in local users list for profile password validation
+    if (!this.users.some(u => u.email === normalizedEmail)) {
+      this.users.push({ email: normalizedEmail, password: pass, name: backendUser.name });
+      await AsyncStorage.setItem('users', JSON.stringify(this.users));
+      if (Platform.OS === 'web') {
+        localStorage.setItem('users', JSON.stringify(this.users));
+      }
+    }
+
+    await this._applyLoginResponse(access_token, backendUser);
+  }
+
+  async loginWithToken(token: string) {
+    // Salva o token primeiro para que o interceptor do axios envie o Authorization
+    await AsyncStorage.setItem('auth_token', token);
+
+    try {
+      // Decodifica o JWT (payload base64) para extrair dados básicos do usuário.
+      // Atenção: decode sem verificar assinatura. A validação real é feita pelo backend
+      // em qualquer requisição autenticada.
+      let jwtPayload: { sub?: string; username?: string; globalRoles?: string[] } = {};
+      try {
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+          const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4);
+          jwtPayload = JSON.parse(atob(padded));
+        }
+      } catch (decodeErr) {
+        console.warn('Falha ao decodificar JWT no loginWithToken', decodeErr);
+      }
+
+      // Busca o perfil canônico (apenas dados do token ativo, sem email/name/restaurants[])
+      const meResponse = await api.get('/auth/me');
+      const meData = meResponse.data || {};
+
+      // O backend /auth/me ainda não retorna restaurants[]; quando há restaurantId ativo,
+      // inferimos um único item para popular restaurantRoles com a role atual.
+      const restaurants = meData.restaurantId
+        ? [{ id: meData.restaurantId, role: meData.activeRole }]
+        : [];
+
+      const backendUser = {
+        id: meData.id ?? jwtPayload.sub,
+        email: jwtPayload.username || '',
+        name: jwtPayload.username || '',
+        globalRoles: meData.globalRoles ?? jwtPayload.globalRoles ?? ['user'],
+        activeRestaurantId: meData.restaurantId || '',
+        restaurants,
+      };
+
+      await this._applyLoginResponse(token, backendUser);
+    } catch (err) {
+      // Token inválido ou /auth/me falhou: limpa storage e propaga o erro
+      await AsyncStorage.removeItem('auth_token');
+      throw err;
+    }
+  }
+
+  private async _applyLoginResponse(
+    accessToken: string,
+    backendUser: any,
+  ) {
     // Converter as roles do backend para o formato reativo do frontend
     const restaurantRoles: Record<string, string> = {};
     if (backendUser.restaurants) {
@@ -114,19 +181,10 @@ class AuthStore {
       restaurantId: backendUser.activeRestaurantId || '',
     };
 
-    // Ensure user is tracked in local users list for profile password validation
-    if (!this.users.some(u => u.email === normalizedEmail)) {
-      this.users.push({ email: normalizedEmail, password: pass, name: backendUser.name });
-      await AsyncStorage.setItem('users', JSON.stringify(this.users));
-      if (Platform.OS === 'web') {
-        localStorage.setItem('users', JSON.stringify(this.users));
-      }
-    }
-
     // Salvar token e estado da sessão
-    await AsyncStorage.setItem('auth_token', access_token);
+    await AsyncStorage.setItem('auth_token', accessToken);
     await AsyncStorage.setItem('user', JSON.stringify(this.user));
-    
+
     if (this.user.restaurantId) {
       await AsyncStorage.setItem('selected_restaurant_id', this.user.restaurantId);
     } else {
@@ -242,11 +300,10 @@ class AuthStore {
     if (!this.user) return;
 
     // Limpar workspace no backend removendo o vínculo do usuário com o restaurante
-    try {
-      await api.delete(`/restaurants/${restaurantId}/staff/${this.user.id}`);
-    } catch (e) {
+    await api.delete(`/restaurants/${restaurantId}/staff/${this.user.id}`).catch((e) => {
       console.warn("Failed to delete staff link from backend", e);
-    }
+      throw e;
+    });
 
     if (this.user.restaurantRoles) {
       delete this.user.restaurantRoles[restaurantId];
@@ -265,6 +322,28 @@ class AuthStore {
     }
 
     await dataStore.init();
+  }
+
+  async refreshProfile() {
+    if (!this.user?.restaurantId) return;
+    try {
+      const response = await api.get('/auth/me');
+      const data = response.data;
+      if (data.activeRole && data.restaurantId) {
+        const frontRole = mapBackendRoleToFrontend(data.activeRole);
+        this.user.restaurantRoles = {
+          ...this.user.restaurantRoles,
+          [data.restaurantId]: frontRole,
+        };
+        // Se o restaurantId retornado for diferente do ativo, atualiza também
+        if (data.restaurantId && data.restaurantId !== this.user.restaurantId) {
+          this.user.restaurantId = data.restaurantId;
+        }
+        await AsyncStorage.setItem('user', JSON.stringify(this.user));
+      }
+    } catch (e) {
+      console.warn('refreshProfile() falhou:', e);
+    }
   }
 
   async updateProfile(name: string, email: string, newPass?: string) {

@@ -5,10 +5,12 @@ import {
   Text, 
   TouchableOpacity, 
   View, 
-  FlatList, 
+  ScrollView, 
   TouchableWithoutFeedback 
 } from 'react-native';
 import { useAppTheme } from '@/themes/colors';
+
+import { ChevronLeftIcon, ChevronRightIcon } from './Icons';
 
 interface SelectModalProps {
   visible: boolean;
@@ -27,6 +29,16 @@ export const SelectModal: React.FC<SelectModalProps> = ({
 }) => {
   const theme = useAppTheme();
 
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 6;
+  
+  const totalPages = Math.ceil(options.length / itemsPerPage);
+  const paginatedOptions = options.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  React.useEffect(() => {
+    if (visible) setCurrentPage(1);
+  }, [visible]);
+
   return (
     <Modal
       transparent
@@ -40,34 +52,60 @@ export const SelectModal: React.FC<SelectModalProps> = ({
             <View style={[styles.content, { backgroundColor: theme.foreground }]}>
               <View style={styles.header}>
                 <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
-                <View style={[styles.headerLine, { backgroundColor: theme.background }]} />
+                <View style={[styles.headerLine, { backgroundColor: theme.text + '20' }]} />
               </View>
 
-              <FlatList
-                data={options}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
+              <ScrollView contentContainerStyle={styles.listContent}>
+                {options.length > 0 ? (
+                  paginatedOptions.map((item, index) => (
+                    <TouchableOpacity 
+                      key={`${item}-${index}`}
+                      style={[styles.option, { borderColor: theme.text + '20' }]}
+                      onPress={() => {
+                        onSelect(item);
+                        onClose();
+                      }}
+                    >
+                      <Text style={[styles.optionText, { color: theme.text }]}>{item}</Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View style={styles.emptyContainer}>
+                    <Text style={[styles.emptyText, { color: theme.text }]}>Nada disponível por aqui...</Text>
+                    <Text style={[styles.emptySubtext, { color: theme.text }]}>Parece que você ainda não cadastrou nada nesta categoria.</Text>
+                  </View>
+                )}
+              </ScrollView>
+
+              {totalPages > 1 && (
+                <View style={styles.paginationContainer}>
                   <TouchableOpacity 
-                    style={styles.option}
-                    onPress={() => {
-                      onSelect(item);
-                      onClose();
-                    }}
+                    style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
+                    onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
                   >
-                    <Text style={[styles.optionText, { color: theme.text }]}>{item}</Text>
+                    <ChevronLeftIcon color={theme.text} size={20} />
                   </TouchableOpacity>
-                )}
-                ItemSeparatorComponent={() => (
-                  <View style={[styles.separator, { backgroundColor: theme.background }]} />
-                )}
-                contentContainerStyle={styles.listContent}
-              />
+                  
+                  <View style={styles.pageIndicator}>
+                    <Text style={[styles.pageIndicatorText, { color: theme.text }]}>{currentPage} / {totalPages}</Text>
+                  </View>
+
+                  <TouchableOpacity 
+                    style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
+                    onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRightIcon color={theme.text} size={20} />
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <TouchableOpacity 
                 style={[styles.closeButton, { backgroundColor: theme.background }]}
                 onPress={onClose}
               >
-                <Text style={[styles.closeButtonText, { color: theme.text }]}>Cancelar</Text>
+                <Text style={[styles.closeButtonText, { color: theme.text }]}>Fechar</Text>
               </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
@@ -106,22 +144,22 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   listContent: {
-    paddingVertical: 10,
+    paddingBottom: 10,
   },
   option: {
-    paddingVertical: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 16,
+    marginBottom: 8,
   },
   optionText: {
     fontFamily: 'Jost_400Regular',
     fontSize: 16,
   },
-  separator: {
-    height: 1,
-    width: '100%',
-  },
   closeButton: {
-    marginTop: 20,
+    marginTop: 12,
     paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
@@ -129,5 +167,48 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontFamily: 'Jost_600SemiBold',
     fontSize: 16,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 16,
+  },
+  pageBtn: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(150,150,150,0.2)',
+  },
+  pageBtnDisabled: {
+    opacity: 0.3,
+  },
+  pageIndicator: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  pageIndicatorText: {
+    fontFamily: 'Jost_600SemiBold',
+    fontSize: 14,
+  },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontFamily: 'Jost_700Bold',
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontFamily: 'Jost_400Regular',
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.6,
+    paddingHorizontal: 20,
   },
 });

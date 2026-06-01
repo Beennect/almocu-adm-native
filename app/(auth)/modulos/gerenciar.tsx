@@ -4,7 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore, ModuleItem } from '@/stores/DataStore';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
 import { ChevronLeftIcon } from '@/components/shared/Icons';
 
 // Mapping icons by name
@@ -31,17 +31,18 @@ export default observer(function ModulosGerenciarScreen() {
   const handleToggle = (module: ModuleItem, value: boolean) => {
     // Prevent hiding core pages to keep layout stable
     if (['dashboard', 'cardapio', 'pedidos'].includes(module.id)) {
-      toastStore.show('Módulos principais não podem ser ocultados da navegação.', 'error');
+      Toast.show({ type: 'error', text1: 'Módulos principais não podem ser ocultados da navegação.' });
       return;
     }
 
+    Toast.show({ type: 'info', text1: 'Salvando...' });
     dataStore.toggleModuleNavbar(module.id, value);
-    toastStore.show(
-      value 
-        ? `Atalho "${module.name}" adicionado à barra de navegação!` 
-        : `Atalho "${module.name}" removido da barra de navegação!`, 
-      'success'
-    );
+    Toast.show({
+      type: 'success',
+      text1: value
+        ? `Atalho "${module.name}" adicionado à barra de navegação!`
+        : `Atalho "${module.name}" removido da barra de navegação!`
+    });
   };
 
   return (

@@ -4,7 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { authStore } from '@/stores/AuthStore';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
 import { ChevronLeftIcon, UserIcon, EmailIcon, KeyIcon } from '@/components/shared/Icons';
 import { FormInput } from '@/components/shared/FormInput';
 import { FormButton } from '@/components/shared/FormButton';
@@ -28,13 +28,13 @@ export default observer(function EditPerfilScreen() {
 
   const handleSave = () => {
     if (!nome || !email) {
-      toastStore.show('Preencha os campos Nome e E-mail.', 'error');
+      Toast.show({ type: 'error', text1: 'Preencha os campos Nome e E-mail.' });
       return;
     }
 
     const emailRegex = /\S+@\S+\.\S+/;
     if (!emailRegex.test(email)) {
-      toastStore.show('Preencha um e-mail válido.', 'error');
+      Toast.show({ type: 'error', text1: 'Preencha um e-mail válido.' });
       return;
     }
 
@@ -44,35 +44,36 @@ export default observer(function EditPerfilScreen() {
 
     if (emailChanged || passwordChanging) {
       if (!senhaAtual) {
-        toastStore.show('Digite sua senha atual para autorizar as alterações.', 'error');
+        Toast.show({ type: 'error', text1: 'Digite sua senha atual para autorizar as alterações.' });
         return;
       }
 
       // Validar senha atual
       const currentUserData = authStore.users.find(u => u.email === authStore.user?.email);
       if (currentUserData && currentUserData.password !== senhaAtual) {
-        toastStore.show('Senha atual incorreta.', 'error');
+        Toast.show({ type: 'error', text1: 'Senha atual incorreta.' });
         return;
       }
     }
 
     if (passwordChanging) {
       if (novaSenha.length < 6) {
-        toastStore.show('A nova senha deve ter ao menos 6 caracteres.', 'error');
+        Toast.show({ type: 'error', text1: 'A nova senha deve ter ao menos 6 caracteres.' });
         return;
       }
       if (novaSenha !== confirmarSenha) {
-        toastStore.show('As senhas não coincidem.', 'error');
+        Toast.show({ type: 'error', text1: 'As senhas não coincidem.' });
         return;
       }
     }
 
+    Toast.show({ type: 'info', text1: 'Salvando perfil...' });
     setLoading(true);
 
     try {
       // Atualizar perfil
       authStore.updateProfile(nome, email, novaSenha || undefined);
-      toastStore.show('Perfil atualizado com sucesso!', 'success');
+      Toast.show({ type: 'success', text1: 'Perfil atualizado com sucesso!' });
       
       // Limpar campos de senha
       setSenhaAtual('');
@@ -82,7 +83,7 @@ export default observer(function EditPerfilScreen() {
       // Voltar
       router.push('/(auth)/config/perfil' as any);
     } catch (err: any) {
-      toastStore.show(err.message || 'Erro ao salvar perfil.', 'error');
+      Toast.show({ type: 'error', text1: err.message || 'Erro ao salvar perfil.' });
     } finally {
       setLoading(false);
     }

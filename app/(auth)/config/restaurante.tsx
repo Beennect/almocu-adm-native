@@ -4,7 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
 import { ChevronLeftIcon, FoodStoreIcon, PinIcon } from '@/components/shared/Icons';
 import { FormInput } from '@/components/shared/FormInput';
 import { FormButton } from '@/components/shared/FormButton';
@@ -43,22 +43,23 @@ export default observer(function RestauranteScreen() {
 
   const handleSave = () => {
     if (!nome || !cnpj || !telefone || !categoria || !endereco || !funcionamento) {
-      toastStore.show('Por favor, preencha todos os campos obrigatórios.', 'error');
+      Toast.show({ type: 'error', text1: 'Por favor, preencha todos os campos obrigatórios.' });
       return;
     }
 
     const cnpjRegex = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/;
     if (!cnpjRegex.test(cnpj)) {
-      toastStore.show('CNPJ inválido. Use o formato: 00.000.000/0000-00', 'error');
+      Toast.show({ type: 'error', text1: 'CNPJ inválido. Use o formato: 00.000.000/0000-00' });
       return;
     }
 
     const parsedFee = parseFloat(taxaEntrega.replace(',', '.'));
     if (isNaN(parsedFee)) {
-      toastStore.show('Insira um valor de taxa de entrega válido.', 'error');
+      Toast.show({ type: 'error', text1: 'Insira um valor de taxa de entrega válido.' });
       return;
     }
 
+    Toast.show({ type: 'info', text1: 'Salvando...' });
     setLoading(true);
 
     try {
@@ -72,10 +73,10 @@ export default observer(function RestauranteScreen() {
         operatingHours: funcionamento,
       });
 
-      toastStore.show('Informações do restaurante salvas com sucesso!', 'success');
+      Toast.show({ type: 'success', text1: 'Informações do restaurante salvas com sucesso!' });
       router.push('/(auth)/config' as any);
     } catch (e: any) {
-      toastStore.show('Erro ao salvar as informações.', 'error');
+      Toast.show({ type: 'error', text1: 'Erro ao salvar as informações.' });
     } finally {
       setLoading(false);
     }

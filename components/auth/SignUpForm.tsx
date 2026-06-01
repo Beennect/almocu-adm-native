@@ -1,55 +1,100 @@
 import { EmailIcon, KeyIcon, ShieldCheckIcon, UserIcon } from '@/components/shared/Icons';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAppTheme } from '@/themes/colors';
-import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FormButton } from '../shared/FormButton';
 import { FormInput } from '../shared/FormInput';
 import { authStore } from '../../stores/AuthStore';
 import { useRouter } from 'expo-router';
+import { startGoogleLogin } from '../../services/api-oauth-service';
+import { withLoading } from '@/utils/toast';
 
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
 
 export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [nome, setNome] = useState('');
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const theme = useAppTheme();
-  const { register } = useAuth();
+  const router = useRouter();
 
   const styles = makeStyles(theme.text);
 
-  const handleRegister = async () => {
-    if (!nome.trim() || !username.trim() || !email.trim() || !senha.trim() || !confirmarSenha.trim()) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
+  const validateEmail = (email: string) => {
+    return /\S+@\S+\.\S+/.test(email);
+  };
+
+  const validatePassword = (pass: string) => {
+    // Letters, numbers, and symbols
+    const hasLetters = /[a-zA-Z]/.test(pass);
+    const hasNumbers = /[0-9]/.test(pass);
+    const hasSymbols = /[^a-zA-Z0-9]/.test(pass);
+    return hasLetters && hasNumbers && hasSymbols;
+  };
+
+  const handleRegister = () => {
+    if (!nome || !email || !senha || !confirmarSenha) {
+      Toast.show({ type: 'error', text1: 'Por favor, preencha todos os campos.' });
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      Toast.show({ type: 'error', text1: 'Por favor, insira um e-mail válido.' });
+      return;
+    }
+
+    if (!validatePassword(senha)) {
+      Toast.show({ type: 'error', text1: 'A senha deve conter letras, números e símbolos.' });
       return;
     }
 
     if (senha !== confirmarSenha) {
-      Alert.alert('Erro', 'As senhas não coincidem.');
+      Toast.show({ type: 'error', text1: 'As senhas não coincidem.' });
       return;
     }
 
-    if (senha.length < 6) {
-      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres.');
-      return;
-    }
-
+    Toast.show({ type: 'info', text1: 'Criando conta...' });
     try {
-      setIsLoading(true);
-      await register(nome.trim(), email.trim(), username.trim(), senha);
-      router.replace('/(auth)/dashboard');
-    } catch (error: any) {
-      console.error('Erro no registro:', error);
-      const message = error.response?.data?.message || 'Erro ao criar conta. Tente novamente.';
-      Alert.alert('Erro', message);
-    } finally {
-      setIsLoading(false);
+      authStore.register(email, senha, nome);
+      Toast.show({ type: 'success', text1: 'Conta criada com sucesso! Faça login para continuar.' });
+      onToggleForm();
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: err.message || 'Erro ao realizar cadastro.' });
     }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await startGoogleLogin();
+
+      if (result.cancelled) {
+        Toast.show({ type: 'info', text1: 'Login cancelado' });
+        return;
+      }
+
+      if (!result.token) {
+        return;
+      }
+
+      await withLoading(
+        async () => {
+          await authStore.loginWithToken(result.token!);
+          router.replace('/(auth)/dashboard');
+        },
+        {
+          loading: 'Conectando com Google...',
+          success: 'Bem-vindo!',
+          error: 'Não foi possível concluir o login com Google.',
+        }
+      );
+    } catch {
+      Toast.show({ type: 'error', text1: 'Erro ao iniciar login com Google' });
+    }
+  };
+
+  const handleFacebookLogin = () => {
+    Toast.show({ type: 'info', text1: 'Login com Facebook em breve' });
   };
 
   return (
@@ -67,15 +112,6 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           placeholder="Nome"
           value={nome}
           onChangeText={setNome}
-          editable={!isLoading}
-        />
-        <FormInput
-          Icon={UserIcon}
-          placeholder="Nome de usuário"
-          autoCapitalize="none"
-          value={username}
-          onChangeText={setUsername}
-          editable={!isLoading}
         />
         <FormInput
           Icon={EmailIcon}
@@ -84,7 +120,6 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
-          editable={!isLoading}
         />
         <FormInput
           Icon={KeyIcon}
@@ -92,7 +127,6 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           secureTextEntry
           value={senha}
           onChangeText={setSenha}
-          editable={!isLoading}
         />
         <FormInput
           Icon={ShieldCheckIcon}
@@ -100,34 +134,32 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
           secureTextEntry
           value={confirmarSenha}
           onChangeText={setConfirmarSenha}
-          editable={!isLoading}
+          onSubmitEditing={handleRegister}
         />
       </View>
 
       {/* Primary CTA */}
-      <FormButton
-        title={isLoading ? "" : "CRIE A SUA CONTA"}
-        variant="primary"
-        onPress={handleRegister}
-        disabled={isLoading}
-      >
-        {isLoading && <ActivityIndicator color="#1A1A1A" />}
-      </FormButton>
+      <FormButton title="CRIE A SUA CONTA" variant="primary" onPress={handleRegister} />
 
       {/* Link para Login */}
-      <TouchableOpacity
-        style={styles.linkRow}
-        activeOpacity={0.7}
-        onPress={onToggleForm}
-        disabled={isLoading}
-      >
+      <TouchableOpacity style={styles.linkRow} activeOpacity={0.7} onPress={onToggleForm}>
         <Text style={styles.linkText}>Entrar na conta</Text>
       </TouchableOpacity>
 
       {/* Social buttons */}
       <View style={styles.socialRow}>
-        <FormButton variant="social" socialIcon="facebook-f" style={styles.socialCircle} />
-        <FormButton variant="social" socialIcon="google" style={styles.socialCircle} />
+        <FormButton
+          variant="social"
+          socialIcon="facebook-f"
+          style={styles.socialCircle}
+          onPress={handleFacebookLogin}
+        />
+        <FormButton
+          variant="social"
+          socialIcon="google"
+          style={styles.socialCircle}
+          onPress={handleGoogleLogin}
+        />
       </View>
     </View>
   );

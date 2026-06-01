@@ -2,6 +2,7 @@
   "expo": {
     "name": "almocu-native",
     "slug": "almocu-native",
+    "scheme": "almocu",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",

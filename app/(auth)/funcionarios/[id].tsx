@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,11 @@ export default observer(function FuncionarioPerformanceScreen() {
   const theme = useAppTheme();
   const router = useRouter();
   const { id: employeeEmail } = useLocalSearchParams();
+
+  // Refresh staff data when screen mounts
+  useEffect(() => {
+    dataStore.refreshStaff();
+  }, []);
 
   // Find the employee in active restaurant staff list
   const employee = dataStore.staff.find(

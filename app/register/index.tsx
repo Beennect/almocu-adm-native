@@ -20,7 +20,8 @@ import {
   UserIcon,
   ShieldCheckIcon,
 } from '@/components/shared/Icons';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
+import { withLoading } from '@/utils/toast';
 import { authStore } from '@/stores/AuthStore';
 
 export default function RegisterScreen() {
@@ -43,20 +44,20 @@ export default function RegisterScreen() {
 
   const validate = () => {
     if (!nome || !email || !senha || !confirmarSenha) {
-      toastStore.show('Por favor, preencha todos os campos.', 'error');
+      Toast.show({ type: 'error', text1: 'Por favor, preencha todos os campos.' });
       return false;
     }
     const emailRegex = /\S+@\S+\.\S+/;
     if (!emailRegex.test(email)) {
-      toastStore.show('Por favor, insira um e-mail válido.', 'error');
+      Toast.show({ type: 'error', text1: 'Por favor, insira um e-mail válido.' });
       return false;
     }
     if (senha.length < 6) {
-      toastStore.show('A senha deve conter ao menos 6 caracteres.', 'error');
+      Toast.show({ type: 'error', text1: 'A senha deve conter ao menos 6 caracteres.' });
       return false;
     }
     if (senha !== confirmarSenha) {
-      toastStore.show('As senhas não coincidem.', 'error');
+      Toast.show({ type: 'error', text1: 'As senhas não coincidem.' });
       return false;
     }
     return true;
@@ -66,13 +67,16 @@ export default function RegisterScreen() {
     if (!validate()) return;
 
     try {
-      await authStore.register(email, senha, nome, accountType);
-      await authStore.login(email, senha);
-
-      toastStore.show('Conta criada com sucesso!', 'success');
-      router.replace('/(auth)/dashboard' as any);
-    } catch (err: any) {
-      toastStore.show(err.message || 'Erro ao efetuar cadastro.', 'error');
+      await withLoading(
+        async () => {
+          await authStore.register(email, senha, nome, accountType);
+          await authStore.login(email, senha);
+          router.replace('/(auth)/dashboard' as any);
+        },
+        { loading: 'Criando conta...', success: 'Conta criada com sucesso!', error: 'Erro ao efetuar cadastro.' }
+      );
+    } catch {
+      // Erro já exibido pelo withLoading
     }
   };
 

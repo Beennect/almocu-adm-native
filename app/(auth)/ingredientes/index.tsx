@@ -3,7 +3,8 @@ import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, TrashIcon } from '@
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
+import { withLoading } from '@/utils/toast';
 import { useAppTheme } from '@/themes/colors';
 import { observer } from 'mobx-react-lite';
 import React, { useEffect, useRef, useState } from 'react';
@@ -45,13 +46,12 @@ const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: 
 const IngredientCard = observer(({ item, onRemove, onEdit, theme, styles }: any) => {
   const [amount, setAmount] = useState('1');
 
-  const handleUpdate = (delta: number) => {
+  const handleUpdate = async (delta: number) => {
     const val = parseFloat(amount.replace(',', '.'));
-    if (!isNaN(val) && val > 0) {
-      dataStore.updateIngredientStock(item.id, delta * val);
-    } else {
-      dataStore.updateIngredientStock(item.id, delta);
-    }
+    await withLoading(
+      () => dataStore.updateIngredientStock(item.id, !isNaN(val) && val > 0 ? delta * val : delta),
+      { loading: 'Ajustando estoque...', success: 'Estoque ajustado!', error: 'Erro ao ajustar estoque' }
+    );
   };
 
   return (
@@ -186,7 +186,7 @@ export default observer(function IngredientesScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [searchTerm, filterMode]);
 
-  const handleAddIngredient = () => {
+  const handleAddIngredient = async () => {
     setErrorMsg('');
     if (!name || !unit || !stock) {
       setErrorMsg('Preencha todos os campos.');
@@ -202,32 +202,29 @@ export default observer(function IngredientesScreen() {
       return;
     }
 
+    const stockVal = parseFloat(stock.replace(',', '.'));
+    if (isNaN(stockVal)) {
+      setErrorMsg("Quantidade inválida");
+      return;
+    }
+
     try {
-      const stockVal = parseFloat(stock.replace(',', '.'));
-      if (isNaN(stockVal)) throw new Error("Quantidade inválida");
-
-      if (editingId) {
-        dataStore.updateIngredient(editingId, {
-          name,
-          unit,
-          stock: stockVal,
-        });
-        toastStore.show("Ingrediente atualizado!", "success");
-      } else {
-        dataStore.addIngredient({
-          name,
-          unit,
-          stock: stockVal,
-        });
-        toastStore.show("Ingrediente adicionado!", "success");
-      }
-
-      setModalVisible(false);
-      setName('');
-      setUnit('');
-      setStock('');
-      setErrorMsg('');
-      setEditingId(null);
+      await withLoading(
+        async () => {
+          if (editingId) {
+            await dataStore.updateIngredient(editingId, { name, unit, stock: stockVal });
+          } else {
+            await dataStore.addIngredient({ name, unit, stock: stockVal });
+          }
+          setModalVisible(false);
+          setName('');
+          setUnit('');
+          setStock('');
+          setErrorMsg('');
+          setEditingId(null);
+        },
+        { loading: 'Salvando ingrediente...', success: editingId ? "Ingrediente atualizado!" : "Ingrediente adicionado!", error: 'Erro ao salvar ingrediente' }
+      );
     } catch (err: any) {
       setErrorMsg(err.message || 'Erro ao salvar ingrediente');
     }
@@ -248,10 +245,15 @@ export default observer(function IngredientesScreen() {
     setConfirmDeleteId(id);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (confirmDeleteId) {
-      dataStore.removeIngredient(confirmDeleteId);
-      setConfirmDeleteId(null);
+      await withLoading(
+        async () => {
+          await dataStore.removeIngredient(confirmDeleteId);
+          setConfirmDeleteId(null);
+        },
+        { loading: 'Removendo ingrediente...', success: 'Ingrediente removido', error: 'Erro ao remover ingrediente' }
+      );
     }
   };
 

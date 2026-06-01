@@ -1,11 +1,13 @@
 import api from './api-service';
 
-export type UserRole = 'OWNER' | 'MANAGER' | 'WAITER' | 'KITCHEN' | 'CASHIER';
+export type UserRole = 'OWNER' | 'MANAGER' | 'WAITER' | 'KITCHEN' | 'CASHIER' | 'COMMON';
+
+export type FrontRole = 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM' | 'INDEFINIDO';
 
 // Mapeamento de roles do frontend para o backend e vice-versa
-// O frontend usa: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'INDEFINIDO'
-// O backend usa: 'OWNER' | 'MANAGER' | 'WAITER' | 'KITCHEN' | 'CASHIER'
-export function mapRoleToFrontend(role: string): 'GERENTE' | 'GARCOM' | 'COZINHA' | 'INDEFINIDO' {
+// O frontend usa: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM' | 'INDEFINIDO'
+// O backend usa: 'OWNER' | 'MANAGER' | 'WAITER' | 'KITCHEN' | 'CASHIER' | 'COMMON'
+export function mapRoleToFrontend(role: string): FrontRole {
   switch (role) {
     case 'OWNER':
     case 'MANAGER':
@@ -14,12 +16,16 @@ export function mapRoleToFrontend(role: string): 'GERENTE' | 'GARCOM' | 'COZINHA
       return 'GARCOM';
     case 'KITCHEN':
       return 'COZINHA';
+    case 'CASHIER':
+      return 'CAIXA';
+    case 'COMMON':
+      return 'COMUM';
     default:
       return 'INDEFINIDO';
   }
 }
 
-export function mapRoleToBackend(role: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'INDEFINIDO'): UserRole {
+export function mapRoleToBackend(role: FrontRole): UserRole {
   switch (role) {
     case 'GERENTE':
       return 'MANAGER';
@@ -27,18 +33,24 @@ export function mapRoleToBackend(role: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'INDEF
       return 'WAITER';
     case 'COZINHA':
       return 'KITCHEN';
+    case 'CAIXA':
+      return 'CASHIER';
+    case 'COMUM':
+      return 'COMMON';
     default:
       return 'WAITER';
   }
 }
 
 export const apiStaffService = {
-  async getStaff(restaurantId: string) {
-    const response = await api.get(`/restaurants/${restaurantId}/staff`);
+  async getStaff(restaurantId: string, page: number = 1, limit: number = 10) {
+    const response = await api.get(`/restaurants/${restaurantId}/staff`, {
+      params: { page, limit },
+    });
     return response.data;
   },
 
-  async updateStaffRole(restaurantId: string, userId: string, role: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'INDEFINIDO') {
+  async updateStaffRole(restaurantId: string, userId: string, role: FrontRole) {
     const backendRole = mapRoleToBackend(role);
     const response = await api.patch(`/restaurants/${restaurantId}/staff/${userId}`, { role: backendRole });
     return response.data;
@@ -46,6 +58,11 @@ export const apiStaffService = {
 
   async removeStaff(restaurantId: string, userId: string) {
     const response = await api.delete(`/restaurants/${restaurantId}/staff/${userId}`);
+    return response.data;
+  },
+
+  async getInviteCode(restaurantId: string): Promise<{ code: string; expiresInSeconds: number }> {
+    const response = await api.get(`/restaurants/${restaurantId}/invite-code`);
     return response.data;
   },
 };

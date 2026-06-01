@@ -31,6 +31,7 @@ export interface OrderInput {
   }[];
   origin?: string;
   observations?: string;
+  totalValue?: number;
 }
 
 export const apiOrderService = {
@@ -45,7 +46,15 @@ export const apiOrderService = {
   },
 
   async createOrder(data: OrderInput) {
-    const response = await api.post('/api/order', data);
+    const payload: any = {
+      items: data.items,
+      origin: data.origin,
+      observations: data.observations,
+    };
+    if (data.totalValue !== undefined) {
+      payload.totalValue = data.totalValue;
+    }
+    const response = await api.post('/api/order', payload);
     return response.data;
   },
 

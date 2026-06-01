@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'rea
 import { useAppTheme } from '@/themes/colors';
 import { dataStore, OrderStatus, StatusHistoryEntry } from '@/stores/DataStore';
 import { authStore } from '@/stores/AuthStore';
+import Toast from 'react-native-toast-message';
 import { useRouter } from 'expo-router';
+import { InlineAlert } from '@/components/shared/InlineAlert';
 
 interface OrderItem {
   id: string;
@@ -104,19 +106,55 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
   const [splitCount, setSplitCount] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDITO' | 'DEBITO' | 'DINHEIRO'>('PIX');
   const [rating, setRating] = useState(5);
-  
+  const [detailsError, setDetailsError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+  const [closing, setClosing] = useState(false);
+
   const isFinal = status === 'CONCLUIDO' || status === 'CANCELADO';
   const displayTimer = useStageTimer(statusHistory, isFinal, createdAt);
 
-  const handleAdvanceStatus = () => {
+  const handleAdvanceStatus = async () => {
     if (!isFinal) {
-      dataStore.updateOrderStatus(id);
+      try {
+        await dataStore.updateOrderStatus(id);
+      } catch (error) {
+        Toast.show({ type: 'error', text1: 'Erro ao atualizar status do pedido' });
+      }
     }
   };
 
-  const handleCancel = () => {
-    dataStore.cancelOrder(id);
-    setDetailsVisible(false);
+  const handleCancel = async () => {
+    setCancelling(true);
+    setDetailsError('');
+    try {
+      try {
+        await dataStore.cancelOrder(id);
+        setDetailsVisible(false);
+        Toast.show({ type: 'success', text1: 'Pedido cancelado' });
+      } catch (err: any) {
+        setDetailsError(err?.response?.data?.message || err?.message || 'Erro ao cancelar pedido');
+      }
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleCloseOrder = async () => {
+    setClosing(true);
+    setCheckoutError('');
+    try {
+      try {
+        await dataStore.closeOrder(id, paymentMethod, rating);
+        setCheckoutVisible(false);
+        setDetailsVisible(false);
+        Toast.show({ type: 'success', text1: 'Conta fechada com sucesso!' });
+      } catch (err: any) {
+        setCheckoutError(err?.response?.data?.message || err?.message || 'Erro ao fechar conta');
+      }
+    } finally {
+      setClosing(false);
+    }
   };
 
   // Status transitions for labels
@@ -188,7 +226,7 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
       </View>
 
       {/* Details Modal */}
-      <Modal visible={detailsVisible} transparent animationType="fade" onRequestClose={() => setDetailsVisible(false)}>
+      <Modal visible={detailsVisible} transparent animationType="fade" onRequestClose={() => { setDetailsError(''); setDetailsVisible(false); }}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.foreground }]}>
             <View style={styles.modalHeader}>
@@ -197,6 +235,8 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
                 <Text style={styles.statusText}>{STATUS_LABELS[status] ?? status}</Text>
               </View>
             </View>
+
+            {detailsError ? <InlineAlert type="error" message={detailsError} /> : null}
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalInfoRow}>
@@ -302,14 +342,17 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
                 )}
 
                 {!isFinal && (
-                  <TouchableOpacity 
-                    style={[styles.modalCancelBtn, { backgroundColor: '#EF4444' + '22', borderColor: '#EF4444' + '44' }]} 
+                  <TouchableOpacity
+                    style={[styles.modalCancelBtn, { backgroundColor: '#EF4444' + '22', borderColor: '#EF4444' + '44', opacity: cancelling ? 0.6 : 1 }]}
                     onPress={handleCancel}
+                    disabled={cancelling}
                   >
-                    <Text style={{ fontFamily: 'Jost_700Bold', color: '#EF4444', fontSize: 15 }}>Cancelar Pedido</Text>
+                    <Text style={{ fontFamily: 'Jost_700Bold', color: '#EF4444', fontSize: 15 }}>
+                      {cancelling ? 'Cancelando...' : 'Cancelar Pedido'}
+                    </Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setDetailsVisible(false)}>
+                <TouchableOpacity style={styles.modalCloseBtn} onPress={() => { setDetailsError(''); setDetailsVisible(false); }}>
                   <Text style={styles.modalCloseBtnText}>Fechar</Text>
                 </TouchableOpacity>
               </View>
@@ -319,10 +362,12 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
       </Modal>
 
       {/* Checkout Bill Closure Modal */}
-      <Modal visible={checkoutVisible} transparent animationType="slide" onRequestClose={() => setCheckoutVisible(false)}>
+      <Modal visible={checkoutVisible} transparent animationType="slide" onRequestClose={() => { setCheckoutError(''); setCheckoutVisible(false); }}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.foreground }]}>
             <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 12 }]}>Fechamento de Conta</Text>
+
+            {checkoutError ? <InlineAlert type="error" message={checkoutError} /> : null}
             
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* Receipt Breakdown */}
@@ -401,20 +446,19 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
 
               {/* Actions */}
               <View style={styles.modalActions}>
-                <TouchableOpacity 
-                  style={[styles.modalCloseBtn, { backgroundColor: '#10B981' }]} 
-                  onPress={() => {
-                    dataStore.closeOrder(id, paymentMethod, rating);
-                    setCheckoutVisible(false);
-                    setDetailsVisible(false);
-                  }}
+                <TouchableOpacity
+                  style={[styles.modalCloseBtn, { backgroundColor: '#10B981', opacity: closing ? 0.6 : 1 }]}
+                  onPress={handleCloseOrder}
+                  disabled={closing}
                 >
-                  <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Confirmar e Fechar Conta</Text>
+                  <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>
+                    {closing ? 'Fechando...' : 'Confirmar e Fechar Conta'}
+                  </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={styles.modalCloseBtn} 
-                  onPress={() => setCheckoutVisible(false)}
+                <TouchableOpacity
+                  style={styles.modalCloseBtn}
+                  onPress={() => { setCheckoutError(''); setCheckoutVisible(false); }}
                 >
                   <Text style={styles.modalCloseBtnText}>Voltar</Text>
                 </TouchableOpacity>

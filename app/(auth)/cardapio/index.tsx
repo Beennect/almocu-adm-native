@@ -7,6 +7,8 @@ import { UserHeader } from '../../../components/shared/UserHeader';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
 import { observer } from 'mobx-react-lite';
 import { dataStore } from '@/stores/DataStore';
+import Toast from 'react-native-toast-message';
+import { withLoading } from '@/utils/toast';
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
 
@@ -138,10 +140,15 @@ export default observer(function CardapioScreen() {
     setConfirmDeleteId(id);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (confirmDeleteId) {
-      dataStore.removeItem(confirmDeleteId);
-      setConfirmDeleteId(null);
+      await withLoading(
+        async () => {
+          await dataStore.removeItem(confirmDeleteId);
+          setConfirmDeleteId(null);
+        },
+        { loading: 'Removendo item...', success: 'Item removido do cardápio', error: 'Erro ao remover item' }
+      );
     }
   };
 

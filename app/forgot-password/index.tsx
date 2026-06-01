@@ -15,7 +15,7 @@ import { FormInput } from '@/components/shared/FormInput';
 import { FormButton } from '@/components/shared/FormButton';
 import { useAppTheme } from '@/themes/colors';
 import { AlmocuIcon, EmailIcon, KeyIcon, ShieldCheckIcon } from '@/components/shared/Icons';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
 import { authStore } from '@/stores/AuthStore';
 
 export default function ForgotPassword() {
@@ -39,15 +39,16 @@ export default function ForgotPassword() {
 
   const handleSendEmail = () => {
     if (!email) {
-      toastStore.show('Por favor, informe seu e-mail.', 'error');
+      Toast.show({ type: 'error', text1: 'Por favor, informe seu e-mail.' });
       return;
     }
     const emailRegex = /\S+@\S+\.\S+/;
     if (!emailRegex.test(email)) {
-      toastStore.show('Insira um e-mail válido.', 'error');
+      Toast.show({ type: 'error', text1: 'Insira um e-mail válido.' });
       return;
     }
 
+    Toast.show({ type: 'info', text1: 'Enviando código...' });
     // Gerar código de 4 dígitos simulado
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     setGeneratedCode(code);
@@ -58,39 +59,41 @@ export default function ForgotPassword() {
       `Um código de recuperação foi enviado para seu e-mail.\n\nCódigo: ${code}`,
       [{ text: 'Copiar Código', onPress: () => {
         setStep(2);
-        toastStore.show(`Código de verificação: ${code}`, 'success');
+        Toast.show({ type: 'success', text1: `Código de verificação: ${code}` });
       }}]
     );
   };
 
   const handleVerifyCode = () => {
     if (!verificationCode) {
-      toastStore.show('Digite o código de verificação.', 'error');
+      Toast.show({ type: 'error', text1: 'Digite o código de verificação.' });
       return;
     }
     if (verificationCode !== generatedCode) {
-      toastStore.show('Código incorreto. Tente novamente.', 'error');
+      Toast.show({ type: 'error', text1: 'Código incorreto. Tente novamente.' });
       return;
     }
 
-    toastStore.show('Código validado com sucesso!', 'success');
+    Toast.show({ type: 'info', text1: 'Validando...' });
+    Toast.show({ type: 'success', text1: 'Código validado com sucesso!' });
     setStep(3);
   };
 
   const handleResetPassword = () => {
     if (!newPassword || !confirmPassword) {
-      toastStore.show('Preencha os campos de nova senha.', 'error');
+      Toast.show({ type: 'error', text1: 'Preencha os campos de nova senha.' });
       return;
     }
     if (newPassword.length < 6) {
-      toastStore.show('A senha deve ter pelo menos 6 caracteres.', 'error');
+      Toast.show({ type: 'error', text1: 'A senha deve ter pelo menos 6 caracteres.' });
       return;
     }
     if (newPassword !== confirmPassword) {
-      toastStore.show('As senhas não coincidem.', 'error');
+      Toast.show({ type: 'error', text1: 'As senhas não coincidem.' });
       return;
     }
 
+    Toast.show({ type: 'info', text1: 'Redefinindo senha...' });
     // Atualizar a senha no AuthStore se o usuário existir
     try {
       const emailLower = email.toLowerCase().trim();
@@ -106,10 +109,10 @@ export default function ForgotPassword() {
         // Se for um usuário simulado que não foi registrado ainda nesta sessão
         authStore.register(email, newPassword, 'Restaurante Teste');
       }
-      toastStore.show('Senha redefinida com sucesso!', 'success');
+      Toast.show({ type: 'success', text1: 'Senha redefinida com sucesso!' });
       router.replace('/login');
     } catch (e: any) {
-      toastStore.show(e.message || 'Erro ao redefinir a senha.', 'error');
+      Toast.show({ type: 'error', text1: e.message || 'Erro ao redefinir a senha.' });
     }
   };
 

@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Configure sua URL base aqui (ex: http://192.168.1.10:3000)
-const API_URL = 'https://sturdy-cod-wr9p9jvv7q76f5p5-3000.app.github.dev'; 
+export const API_URL = 'http://localhost:3000';
 
 const api = axios.create({
   baseURL: API_URL,

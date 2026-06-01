@@ -13,7 +13,8 @@ import { observer } from 'mobx-react-lite';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
+import { withLoading } from '@/utils/toast';
 
 interface SelfCartItem {
   id: string;
@@ -60,7 +61,7 @@ export default observer(function AutoatendimentoScreen() {
       }
       return [...prev, { id: item.id, name: item.name, price: item.price, quantity: 1 }];
     });
-    toastStore.show(`${item.name} adicionado!`, 'success');
+    Toast.show({ type: 'success', text1: `${item.name} adicionado!` });
   };
 
   const handleQtyChange = (id: string, delta: number) => {
@@ -71,33 +72,31 @@ export default observer(function AutoatendimentoScreen() {
     );
   };
 
-  const handleSendOrder = () => {
+  const handleSendOrder = async () => {
     if (!clientName.trim()) {
-      toastStore.show('Por favor, informe seu nome para identificação.', 'error');
+      Toast.show({ type: 'error', text1: 'Por favor, informe seu nome para identificação.' });
       return;
     }
     if (cart.length === 0) {
-      toastStore.show('Seu carrinho está vazio.', 'error');
+      Toast.show({ type: 'error', text1: 'Seu carrinho está vazio.' });
       return;
     }
 
     try {
-      dataStore.addOrder({
-        clientName: clientName,
-        table: activeTable,
-        total: cartTotal,
-        items: cart.map((c) => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity })),
-      } as any);
-
-      setCart([]);
-      toastStore.show('Pedido enviado com sucesso para a cozinha!', 'success');
-    } catch (e: any) {
-      const message = e?.response?.data?.message || e?.message || 'Erro ao enviar pedido.';
-      if (Array.isArray(message)) {
-        toastStore.show(message.join(', '), 'error');
-      } else {
-        toastStore.show(message, 'error');
-      }
+      await withLoading(
+        async () => {
+          await dataStore.addOrder({
+            clientName: clientName,
+            table: activeTable,
+            total: cartTotal,
+            items: cart.map((c) => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity })),
+          } as any);
+          setCart([]);
+        },
+        { loading: 'Enviando pedido...', success: 'Pedido enviado com sucesso para a cozinha!', error: 'Erro ao enviar pedido.' }
+      );
+    } catch {
+      // Erro já exibido pelo withLoading
     }
   };
 
@@ -105,7 +104,7 @@ export default observer(function AutoatendimentoScreen() {
     // Add review rating globally to average score of the workspace
     dataStore.accumulateRating(rating);
     setFeedbackSubmitted(true);
-    toastStore.show('Obrigado pela sua avaliação! Volte sempre.', 'success');
+    Toast.show({ type: 'success', text1: 'Obrigado pela sua avaliação! Volte sempre.' });
   };
 
   return (

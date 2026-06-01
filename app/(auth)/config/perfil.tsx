@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,11 @@ export default observer(function PerfilScreen() {
 
   const userName = authStore.user?.name || 'Administrador';
   const userEmail = authStore.user?.email || 'admin@almocu.com.br';
+
+  // Refresh user profile/role from backend on mount
+  useEffect(() => {
+    authStore.refreshProfile();
+  }, []);
 
   const activeBranchName = dataStore.branches[0]?.name || 'Filial Principal';
   
@@ -49,7 +54,9 @@ export default observer(function PerfilScreen() {
             <Text style={[styles.profileEmail, { color: theme.text }]}>{userEmail}</Text>
           </View>
           <View style={[styles.badge, { backgroundColor: theme.contrast + '20' }]}>
-            <Text style={[styles.badgeText, { color: theme.contrast }]}>Proprietário</Text>
+            <Text style={[styles.badgeText, { color: theme.contrast }]}>
+              {authStore.activeRole === 'GERENTE' ? 'Gerente' : authStore.activeRole === 'GARCOM' ? 'Garçom' : authStore.activeRole === 'COZINHA' ? 'Cozinha' : authStore.activeRole === 'CAIXA' ? 'Caixa' : authStore.activeRole === 'COMUM' ? 'Sem Cargo' : 'Indefinido'}
+            </Text>
           </View>
         </View>
 

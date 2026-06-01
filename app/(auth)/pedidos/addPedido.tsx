@@ -1,25 +1,65 @@
 import { useAppTheme } from '@/themes/colors';
-import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  useWindowDimensions, 
+import React, { useState, useEffect } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
   View,
-  ScrollView
 } from 'react-native';
-import { 
-  AddEnderecoIcon, 
-  ChevronDownIcon, 
-  FinalizarPedidoIcon, 
-  InfoAdicionaisIcon, 
-  MinusIcon, 
-  PlusIcon 
+import {
+  AddEnderecoIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  FinalizarPedidoIcon,
+  InfoAdicionaisIcon,
+  MinusIcon,
+  PlusIcon,
+  TrashIcon,
+  CheckIcon,
 } from '../../../components/shared/Icons';
 import { SelectModal } from '../../../components/shared/SelectModal';
 
-export default function AddPedidoScreen() {
+import { dataStore } from '@/stores/DataStore';
+import Toast from 'react-native-toast-message';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { observer } from 'mobx-react-lite';
+import { useMemo } from 'react';
+
+interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+interface Address {
+  cep: string;
+  rua: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  complemento: string;
+  semNumero?: boolean;
+}
+
+const emptyAddress: Address = {
+  cep: '',
+  rua: '',
+  numero: '',
+  bairro: '',
+  cidade: '',
+  estado: '',
+  complemento: '',
+  semNumero: false,
+};
+
+export default observer(function AddPedidoScreen() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
   const theme = useAppTheme();
@@ -27,107 +67,388 @@ export default function AddPedidoScreen() {
   const { editOrderId } = useLocalSearchParams();
   const styles = makeStyles(theme, isWeb);
 
+  const [cliente, setCliente] = useState<string>('');
   const [mesa, setMesa] = useState<string>('');
-  const [quantity, setQuantity] = useState<number>(1);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [mesaModalVisible, setMesaModalVisible] = useState(false);
   const [itemModalVisible, setItemModalVisible] = useState(false);
 
-  const mesaOptions = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"];
-  const itemOptions = ["Canoa Sushi Grande", "Canoa Sushi Pequena", "Combo 1", "Combo 2", "Temaki Salmão"];
+  // Address
+  const [addressVisible, setAddressVisible] = useState(false);
+  const [address, setAddress] = useState<Address>(emptyAddress);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState('');
 
-  const handleDecrease = () => {
-    if (quantity > 1) setQuantity(prev => prev - 1);
+  // Info Adicionais
+  const [infoVisible, setInfoVisible] = useState(false);
+  const [infoText, setInfoText] = useState('');
+
+  const mesaOptions = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
+  const itemOptions = (dataStore.menuItems || []).map((item) => item.name);
+
+  const total = useMemo(() => {
+    if (!cart || cart.length === 0) return 0;
+    return cart.reduce((sum, item) => {
+      const price = parseFloat(String(item.price)) || 0;
+      const qty = parseInt(String(item.quantity), 10) || 0;
+      return sum + price * qty;
+    }, 0);
+  }, [cart]);
+
+  // Preload order if in editing mode
+  useEffect(() => {
+    if (editOrderId) {
+      const order = dataStore.orders.find((o) => o.id === editOrderId);
+      if (order) {
+        setCliente(order.clientName);
+        setMesa(order.table === 'DELIVERY' ? '' : order.table);
+        setCart((order.items || []).map((i) => ({ id: i.id, name: i.name, price: parseFloat(String(i.price)) || 0, quantity: i.quantity || 1 })));
+        if (order.address) {
+          setAddressVisible(true);
+          setAddress(order.address);
+        }
+        if (order.additionalInfo) {
+          setInfoVisible(true);
+          setInfoText(order.additionalInfo);
+        }
+      }
+    }
+  }, [editOrderId]);
+
+  // Auto-fetch CEP
+  useEffect(() => {
+    const clean = address.cep.replace(/\D/g, '');
+    if (clean.length === 8) {
+      handleFetchCep(clean);
+    } else {
+      setCepError('');
+    }
+  }, [address.cep]);
+
+  const handleFetchCep = async (cleanCep: string) => {
+    setCepLoading(true);
+    setCepError('');
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await res.json();
+      if (data.erro) {
+        setCepError('CEP não encontrado.');
+      } else {
+        setAddress((a) => ({
+          ...a,
+          rua: data.logradouro || a.rua,
+          bairro: data.bairro || a.bairro,
+          cidade: data.localidade || a.cidade,
+          estado: data.uf || a.estado,
+        }));
+      }
+    } catch {
+      setCepError('Erro ao buscar CEP.');
+    } finally {
+      setCepLoading(false);
+    }
   };
 
-  const handleIncrease = () => {
-    setQuantity(prev => prev + 1);
+  const handleSelectItem = (itemName: string) => {
+    const found = dataStore.menuItems.find((i) => i.name === itemName);
+    if (!found) return;
+    setItemModalVisible(false);
+
+    setCart((prev) => {
+      const existing = prev.find((c) => c.id === found.id);
+      if (existing) {
+        return prev.map((c) =>
+          c.id === found.id ? { ...c, quantity: c.quantity + 1 } : c
+        );
+      }
+      return [...prev, { id: found.id, name: found.name, price: parseFloat(String(found.price)) || 0, quantity: 1 }];
+    });
+  };
+
+  const handleQtyChange = (id: string, delta: number) => {
+    setCart((prev) =>
+      prev
+        .map((c) => (c.id === id ? { ...c, quantity: c.quantity + delta } : c))
+        .filter((c) => c.quantity > 0)
+    );
+  };
+
+  const handleFinalize = async () => {
+    if (!cliente) {
+      Toast.show({ type: 'error', text1: 'Preencha o nome do cliente.' });
+      return;
+    }
+    if (!mesa && !addressVisible) {
+      Toast.show({ type: 'error', text1: 'Selecione a mesa.' });
+      return;
+    }
+    if (cart.length === 0) {
+      Toast.show({ type: 'error', text1: 'Adicione pelo menos um item ao pedido.' });
+      return;
+    }
+
+    if (addressVisible) {
+      const { rua, numero, bairro, cidade, estado, semNumero } = address;
+      if (!rua || (!numero && !semNumero) || !bairro || !cidade || !estado) {
+        Toast.show({ type: 'error', text1: 'Preencha os campos obrigatórios do endereço (Rua, Nº, Bairro, Cidade, UF).' });
+        return;
+      }
+    }
+
+    Toast.show({ type: 'info', text1: 'Salvando pedido...' });
+    try {
+      if (editOrderId) {
+        dataStore.updateOrder(editOrderId as string, {
+          clientName: cliente,
+          table: addressVisible ? 'DELIVERY' : mesa,
+          items: cart.map((c) => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity })),
+          address: addressVisible ? address : undefined,
+          additionalInfo: infoText || undefined,
+        });
+        Toast.show({ type: 'success', text1: 'Pedido atualizado com sucesso!' });
+      } else {
+        await dataStore.addOrder({
+          clientName: cliente,
+          table: addressVisible ? 'DELIVERY' : mesa,
+          items: cart.map((c) => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity })),
+          address: addressVisible ? address : undefined,
+          additionalInfo: infoText || undefined,
+        } as any);
+        Toast.show({ type: 'success', text1: 'Pedido criado com sucesso!' });
+      }
+      router.back();
+    } catch (err: any) {
+      console.error('Order finalize failed:', err);
+      const message = err?.response?.data?.message || err?.message || 'Erro ao salvar alterações do pedido.';
+      if (Array.isArray(message)) {
+        Toast.show({ type: 'error', text1: message.join(', ') });
+      } else {
+        Toast.show({ type: 'error', text1: message });
+      }
+    }
   };
 
   return (
     <View style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
+        {/* Header with Back Arrow */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Sobre o pedido</Text>
+          <TouchableOpacity 
+            style={styles.backBtn} 
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ChevronLeftIcon color={theme.text} size={24} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{editOrderId ? 'Editar Pedido' : 'Sobre o pedido'}</Text>
           <View style={styles.headerLine} />
         </View>
 
+        {/* Cliente + Mesa */}
         <View style={styles.row}>
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.input}
               placeholder="Nome do cliente"
               placeholderTextColor={theme.text + '80'}
+              value={cliente}
+              onChangeText={setCliente}
+              onSubmitEditing={handleFinalize}
             />
           </View>
-
-          <TouchableOpacity 
-            style={styles.pickerContainer} 
-            activeOpacity={0.7}
-            onPress={() => setMesaModalVisible(true)}
-          >
-            <Text style={styles.pickerText}>{mesa || 'Mesa'}</Text>
-            <View style={styles.pickerIconContainer}>
+          {!addressVisible && (
+            <TouchableOpacity
+              style={styles.pickerContainer}
+              activeOpacity={0.7}
+              onPress={() => setMesaModalVisible(true)}
+            >
+              <Text style={styles.pickerText}>{mesa || 'Mesa'}</Text>
               <ChevronDownIcon color={theme.text} size={20} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Cart Items */}
+        {cart.length > 0 && (
+          <View style={styles.cartSection}>
+            <Text style={styles.cartSectionTitle}>Itens do pedido</Text>
+            {cart.map((item, index) => (
+              <View key={item.id} style={[styles.cartItem, index === cart.length - 1 && { borderBottomWidth: 0 }]}>
+                <View style={styles.cartItemInfo}>
+                  <Text style={styles.cartItemName}>{item.name}</Text>
+                  <Text style={styles.cartItemPrice}>
+                    R$ {( (parseFloat(String(item.price)) || 0) * (parseInt(String(item.quantity), 10) || 0) ).toFixed(2).replace('.', ',')}
+                  </Text>
+                </View>
+                <View style={styles.cartItemControls}>
+                  <TouchableOpacity style={styles.qtyBtn} onPress={() => handleQtyChange(item.id, -1)}>
+                    {item.quantity === 1 ? (
+                      <TrashIcon color={theme.contrast} size={14} />
+                    ) : (
+                      <MinusIcon color={theme.text} size={14} />
+                    )}
+                  </TouchableOpacity>
+                  <Text style={styles.qtyText}>{item.quantity.toString().padStart(2, '0')}</Text>
+                  <TouchableOpacity style={styles.qtyBtn} onPress={() => handleQtyChange(item.id, 1)}>
+                    <PlusIcon color={theme.text} size={14} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+
+            {/* Total */}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalValue}>R$ {total.toFixed(2).replace('.', ',')}</Text>
             </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.itemCard}>
-          <View style={styles.itemContent}>
-            <Text style={styles.itemName}>Canoa Sushi Grande</Text>
-            <Text style={styles.itemDesc} numberOfLines={2}>
-              30 Unidades de sushi contendo 6 camarões crocantes, 6 niguiri de salmão, 6 urama...
-            </Text>
-            <Text style={styles.itemPrice}>R$ 140,00</Text>
           </View>
+        )}
 
-          <View style={styles.quantityDivider} />
-
-          <View style={styles.quantitySelector}>
-            <TouchableOpacity style={styles.qtyBtn} onPress={handleDecrease}>
-              <MinusIcon color={quantity > 1 ? theme.text : theme.text + '40'} size={16} />
-            </TouchableOpacity>
-            <Text style={styles.qtyText}>{quantity.toString().padStart(2, '0')}</Text>
-            <TouchableOpacity style={styles.qtyBtn} onPress={handleIncrease}>
-              <PlusIcon color={theme.text} size={16} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <TouchableOpacity 
-          style={styles.addMoreContainer} 
+        {/* Add Item Button */}
+        <TouchableOpacity
+          style={styles.addMoreContainer}
           activeOpacity={0.7}
           onPress={() => setItemModalVisible(true)}
         >
-          <Text style={styles.addMoreText}>Adicionar item ao pedido</Text>
-          <View style={styles.pickerDivider} />
+          <Text style={styles.addMoreText}>
+            {cart.length === 0 ? 'Selecione um item do cardápio' : '+ Adicionar outro item'}
+          </Text>
           <ChevronDownIcon color={theme.text} opacity={0.5} size={20} />
         </TouchableOpacity>
 
+        {/* Address Section */}
+        {addressVisible && (
+          <View style={styles.addressSection}>
+            <Text style={styles.sectionTitle}>Endereço de Entrega (Delivery)</Text>
+
+            <View style={styles.cepRow}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="CEP (opcional)"
+                placeholderTextColor={theme.text + '80'}
+                value={address.cep}
+                onChangeText={(v) => setAddress(a => ({ ...a, cep: v }))}
+                keyboardType="numeric"
+                maxLength={9}
+              />
+              {cepLoading && <ActivityIndicator color={theme.contrast} style={{ marginLeft: 8 }} />}
+            </View>
+            {cepError ? <Text style={styles.errorText}>{cepError}</Text> : null}
+
+            <TextInput
+              style={[styles.input, { marginBottom: 10 }]}
+              placeholder="Rua / Logradouro *"
+              placeholderTextColor={theme.text + '80'}
+              value={address.rua}
+              onChangeText={(v) => setAddress((a) => ({ ...a, rua: v }))}
+            />
+            <View style={styles.row}>
+              <TextInput
+                style={[styles.input, { flex: 1, opacity: address.semNumero ? 0.4 : 1 }]}
+                placeholder="Número *"
+                placeholderTextColor={theme.text + '80'}
+                value={address.numero}
+                onChangeText={(v) => setAddress((a) => ({ ...a, numero: v }))}
+                keyboardType="numeric"
+                editable={!address.semNumero}
+              />
+              <TouchableOpacity 
+                style={styles.checkboxRow} 
+                onPress={() => setAddress(a => ({ ...a, semNumero: !a.semNumero, numero: !a.semNumero ? '' : a.numero }))}
+              >
+                <View style={[styles.checkbox, address.semNumero && styles.checkboxChecked]}>
+                  {address.semNumero && <CheckIcon color="#FFF" size={14} />}
+                </View>
+                <Text style={styles.checkboxLabel}>Sem Nº</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <TextInput
+              style={[styles.input, { marginBottom: 10 }]}
+              placeholder="Complemento"
+              placeholderTextColor={theme.text + '80'}
+              value={address.complemento}
+              onChangeText={(v) => setAddress((a) => ({ ...a, complemento: v }))}
+            />
+
+            <TextInput
+              style={[styles.input, { marginBottom: 10 }]}
+              placeholder="Bairro *"
+              placeholderTextColor={theme.text + '80'}
+              value={address.bairro}
+              onChangeText={(v) => setAddress((a) => ({ ...a, bairro: v }))}
+            />
+            <View style={styles.row}>
+              <TextInput
+                style={[styles.input, { flex: 2 }]}
+                placeholder="Cidade *"
+                placeholderTextColor={theme.text + '80'}
+                value={address.cidade}
+                onChangeText={(v) => setAddress((a) => ({ ...a, cidade: v }))}
+              />
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="UF *"
+                placeholderTextColor={theme.text + '80'}
+                value={address.estado}
+                onChangeText={(v) => setAddress((a) => ({ ...a, estado: v }))}
+                maxLength={2}
+                autoCapitalize="characters"
+                onSubmitEditing={handleFinalize}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Info Adicionais Section */}
+        {infoVisible && (
+          <View style={styles.addressSection}>
+            <Text style={styles.sectionTitle}>Informações Adicionais</Text>
+            <TextInput
+              style={[styles.input, { height: 100, textAlignVertical: 'top', paddingTop: 12 }]}
+              placeholder="Observações, preferências, alergias..."
+              placeholderTextColor={theme.text + '80'}
+              value={infoText}
+              onChangeText={setInfoText}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        )}
+
         <View style={styles.footerLine} />
 
+        {/* Action Buttons */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button}>
-            <AddEnderecoIcon color={theme.text} style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Adicionar Endereço</Text>
+          <TouchableOpacity
+            style={[styles.button, addressVisible && styles.buttonActive]}
+            onPress={() => setAddressVisible((v) => !v)}
+          >
+            <AddEnderecoIcon color={addressVisible ? theme.contrast : theme.text} size={16} />
+            <Text style={[styles.buttonText, addressVisible && { color: theme.contrast }]}>
+              {addressVisible ? 'Remover Endereço' : 'Adicionar Endereço'}
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.button}>
-            <InfoAdicionaisIcon color={theme.text} style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Informações Adicionais</Text>
+          <TouchableOpacity
+            style={[styles.button, infoVisible && styles.buttonActive]}
+            onPress={() => setInfoVisible((v) => !v)}
+          >
+            <InfoAdicionaisIcon color={infoVisible ? theme.contrast : theme.text} size={16} />
+            <Text style={[styles.buttonText, infoVisible && { color: theme.contrast }]}>
+              {infoVisible ? 'Remover Info' : 'Informações Adicionais'}
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={{...styles.button, ...styles.primaryButton}}>
-            <FinalizarPedidoIcon color={theme.foreground} style={styles.primaryButtonIcon} />
-            <Text style={styles.primaryButtonText}>Finalizar Pedido</Text>
+          <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleFinalize}>
+            <FinalizarPedidoIcon color={theme.text} size={16} />
+            <Text style={styles.buttonText}>{editOrderId ? 'Salvar Alterações' : 'Finalizar Pedido'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      <SelectModal 
+      <SelectModal
         visible={mesaModalVisible}
         onClose={() => setMesaModalVisible(false)}
         onSelect={setMesa}
@@ -135,10 +456,10 @@ export default function AddPedidoScreen() {
         title="Selecione a Mesa"
       />
 
-      <SelectModal 
+      <SelectModal
         visible={itemModalVisible}
         onClose={() => setItemModalVisible(false)}
-        onSelect={(item) => console.log('Item selecionado:', item)}
+        onSelect={handleSelectItem}
         options={itemOptions}
         title="Adicionar Item"
       />
@@ -153,9 +474,6 @@ function makeStyles(theme: any, isWeb: boolean) {
       backgroundColor: theme.background,
       paddingTop: isWeb ? 32 : 20,
       paddingHorizontal: isWeb ? 32 : 16,
-    },
-    scrollView: {
-      flex: 1,
     },
     scrollContent: {
       flexGrow: 1,

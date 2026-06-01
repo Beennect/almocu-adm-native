@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,10 +18,11 @@ import { useAppTheme } from '@/themes/colors';
 import { themeStore } from '@/stores/ThemeStore';
 import { authStore } from '@/stores/AuthStore';
 import { dataStore } from '@/stores/DataStore';
-import { toastStore } from '@/stores/ToastStore';
+import Toast from 'react-native-toast-message';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
+import { InlineAlert } from '@/components/shared/InlineAlert';
 import {
   LogOutIcon,
   MoonIcon,
@@ -124,6 +125,36 @@ function SettingRow({
   );
 }
 
+// ─── CNPJ Mathematical Validation ──────────────────────────────────────────────
+
+function isValidCNPJ(cnpj: string): boolean {
+  const digits = cnpj.replace(/\D/g, '');
+  if (digits.length !== 14) return false;
+
+  // Reject if all digits are the same (e.g., 00.000.000/0000-00)
+  if (/^(\d)\1{13}$/.test(digits)) return false;
+
+  const nums = digits.split('').map(Number);
+
+  // Validate first check digit (13th position)
+  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += nums[i] * weights1[i];
+  let remainder = sum % 11;
+  const digit1 = remainder < 2 ? 0 : 11 - remainder;
+  if (nums[12] !== digit1) return false;
+
+  // Validate second check digit (14th position)
+  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  sum = 0;
+  for (let i = 0; i < 13; i++) sum += nums[i] * weights2[i];
+  remainder = sum % 11;
+  const digit2 = remainder < 2 ? 0 : 11 - remainder;
+  if (nums[13] !== digit2) return false;
+
+  return true;
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default observer(function ConfigScreen() {
@@ -141,6 +172,16 @@ export default observer(function ConfigScreen() {
   const [confirmRemoveWorkspace, setConfirmRemoveWorkspace] = useState(false);
   const [removingRestId, setRemovingRestId] = useState('');
   const [removingRestName, setRemovingRestName] = useState('');
+
+  // Inline messages for modals (Toast fica atrás do modal no react-native-web)
+  const [workspaceModalError, setWorkspaceModalError] = useState('');
+  const [createModalError, setCreateModalError] = useState('');
+  const [joinModalError, setJoinModalError] = useState('');
+
+  // Refresh user profile/role from backend on mount
+  useEffect(() => {
+    authStore.refreshProfile();
+  }, []);
 
   // Setup states
   const [setupTab, setSetupTab] = useState<'create' | 'join'>('create');
@@ -179,8 +220,8 @@ export default observer(function ConfigScreen() {
     return dataStore.restaurants.find(r => r.id === id) || { id, name: `Restaurante (${id})` };
   });
 
-  const handleLogout = () => {
-    authStore.logout();
+  const handleLogout = async () => {
+    await authStore.logout();
     router.replace('/login');
   };
 
@@ -195,55 +236,67 @@ export default observer(function ConfigScreen() {
     setConfirmClearAll(false);
   };
 
-  const handleCreateRestaurant = () => {
+  const handleCreateRestaurant = async () => {
     if (!restName || !restCnpj || !restPhone || !restCategory || !restAddress) {
-      toastStore.show('Preencha todos os campos obrigatórios (*).', 'error');
+      setCreateModalError('Preencha todos os campos obrigatórios (*).');
       return;
     }
     const cnpjRegex = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/;
     if (!cnpjRegex.test(restCnpj)) {
-      toastStore.show('CNPJ inválido. Use o formato: 00.000.000/0000-00', 'error');
+      setCreateModalError('CNPJ inválido. Use o formato: 00.000.000/0000-00');
       return;
     }
+    if (!isValidCNPJ(restCnpj)) {
+      setCreateModalError('CNPJ inválido. Verifique os dígitos informados.');
+      return;
+    }
+    setCreateModalError('');
     setLoading(true);
     try {
-      authStore.createRestaurantWorkspace(
-        restName,
-        restCnpj,
-        restPhone,
-        restCategory,
-        restAddress,
-        parseFloat(restFee) || 0,
-        restHours
-      );
-      toastStore.show('Restaurante cadastrado e cargo GERENTE atribuído!', 'success');
-      setShowCreateModal(false);
-      // Limpar campos
-      setRestName('');
-      setRestCnpj('');
-      setRestPhone('');
-      setRestCategory('');
-      setRestAddress('');
-    } catch (e: any) {
-      toastStore.show(e.message || 'Erro ao cadastrar restaurante.', 'error');
+      try {
+        await authStore.createRestaurantWorkspace(
+          restName,
+          restCnpj,
+          restPhone,
+          restCategory,
+          restAddress,
+          parseFloat(restFee) || 0,
+          restHours
+        );
+        setShowCreateModal(false);
+        setCreateModalError('');
+        // Limpar campos
+        setRestName('');
+        setRestCnpj('');
+        setRestPhone('');
+        setRestCategory('');
+        setRestAddress('');
+        Toast.show({ type: 'success', text1: 'Restaurante cadastrado e cargo GERENTE atribuído!' });
+      } catch (err: any) {
+        setCreateModalError(err?.response?.data?.message || err?.message || 'Erro ao cadastrar restaurante.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleJoinRestaurant = () => {
+  const handleJoinRestaurant = async () => {
     if (!inviteCode.trim()) {
-      toastStore.show('Digite o código de convite.', 'error');
+      setJoinModalError('Digite o código de convite.');
       return;
     }
+    setJoinModalError('');
     setLoading(true);
     try {
-      authStore.joinRestaurantWorkspace(inviteCode);
-      toastStore.show('Ingresso realizado! Aguarde ativação pelo Gerente.', 'success');
-      setShowJoinModal(false);
-      setInviteCode('');
-    } catch (e: any) {
-      toastStore.show(e.message || 'Código de convite inválido ou expirado.', 'error');
+      try {
+        await authStore.joinRestaurantWorkspace(inviteCode);
+        setShowJoinModal(false);
+        setJoinModalError('');
+        setInviteCode('');
+        Toast.show({ type: 'success', text1: 'Ingresso realizado! Aguarde ativação pelo Gerente.' });
+      } catch (err: any) {
+        setJoinModalError(err?.response?.data?.message || err?.message || 'Código de convite inválido ou expirado.');
+      }
     } finally {
       setLoading(false);
     }
@@ -252,17 +305,25 @@ export default observer(function ConfigScreen() {
   const handleLeaveRestaurant = () => {
     if (authStore.user?.email) {
       dataStore.removeStaffMember(authStore.user.email);
-      toastStore.show('Desvinculado com sucesso!', 'success');
+      Toast.show({ type: 'success', text1: 'Desvinculado com sucesso!' });
     }
   };
 
-  const handleRemoveWorkspace = () => {
-    if (removingRestId) {
-      authStore.removeRestaurantWorkspace(removingRestId);
-      toastStore.show(`Restaurante "${removingRestName}" removido dos seus workspaces!`, 'success');
-      setConfirmRemoveWorkspace(false);
-      setRemovingRestId('');
-      setRemovingRestName('');
+  const handleRemoveWorkspace = async () => {
+    if (!removingRestId) return;
+    setLoading(true);
+    try {
+      try {
+        await authStore.removeRestaurantWorkspace(removingRestId);
+        setConfirmRemoveWorkspace(false);
+        setRemovingRestId('');
+        setRemovingRestName('');
+        Toast.show({ type: 'success', text1: `Restaurante "${removingRestName}" removido dos seus workspaces!` });
+      } catch (err: any) {
+        Toast.show({ type: 'error', text1: err?.response?.data?.message || err?.message || 'Erro ao remover workspace.' });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -288,7 +349,7 @@ export default observer(function ConfigScreen() {
           </View>
           <View style={[styles.planBadge, { backgroundColor: theme.contrast + '22' }]}>
             <Text style={[styles.planText, { color: theme.contrast }]}>
-              {activeRole === 'GERENTE' ? 'Gerente' : activeRole === 'GARCOM' ? 'Garçom' : activeRole === 'COZINHA' ? 'Cozinha' : 'Indefinido'}
+              {activeRole === 'GERENTE' ? 'Gerente' : activeRole === 'GARCOM' ? 'Garçom' : activeRole === 'COZINHA' ? 'Cozinha' : activeRole === 'CAIXA' ? 'Caixa' : activeRole === 'COMUM' ? 'Sem Cargo' : 'Indefinido'}
             </Text>
           </View>
         </View>
@@ -302,7 +363,7 @@ export default observer(function ConfigScreen() {
           <TouchableOpacity
             style={[styles.selectDropdown, { backgroundColor: theme.background, borderColor: theme.text + '15' }]}
             activeOpacity={0.7}
-            onPress={() => setShowWorkspaceModal(true)}
+            onPress={() => { setWorkspaceModalError(''); setShowWorkspaceModal(true); }}
           >
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Text style={{ fontSize: 20 }}>💼</Text>
@@ -311,7 +372,7 @@ export default observer(function ConfigScreen() {
                   {dataStore.restaurantDetails?.name || 'Selecione ou Crie um Workspace'}
                 </Text>
                 <Text style={{ fontFamily: 'Jost_400Regular', fontSize: 12, color: theme.text, opacity: 0.6 }} numberOfLines={1}>
-                  {dataStore.restaurantDetails?.category ? `${dataStore.restaurantDetails.category} • Cargo: ${activeRole}` : 'Nenhum estabelecimento ativo'}
+                  {dataStore.restaurantDetails?.category ? `${dataStore.restaurantDetails.category} • Cargo: ${activeRole === 'GERENTE' ? 'Gerente' : activeRole === 'GARCOM' ? 'Garçom' : activeRole === 'COZINHA' ? 'Cozinha' : activeRole === 'CAIXA' ? 'Caixa' : activeRole === 'COMUM' ? 'Sem Cargo' : activeRole}` : 'Nenhum estabelecimento ativo'}
                 </Text>
               </View>
             </View>
@@ -532,6 +593,8 @@ export default observer(function ConfigScreen() {
             <TouchableWithoutFeedback>
               <View style={[styles.modalContent, { backgroundColor: theme.foreground }]}>
                 <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 12 }]}>Seus Workspaces</Text>
+
+                {workspaceModalError ? <InlineAlert type="error" message={workspaceModalError} /> : null}
                 
                 <ScrollView style={{ maxHeight: 300, marginTop: 8 }} showsVerticalScrollIndicator={false}>
                   {userWorkspaces.length > 0 ? (
@@ -549,10 +612,15 @@ export default observer(function ConfigScreen() {
                           <TouchableOpacity
                             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}
                             activeOpacity={0.7}
-                            onPress={() => {
-                              authStore.selectRestaurantWorkspace(item.id);
-                              toastStore.show(`Alternado para o restaurante ${item.name}!`, 'success');
-                              setShowWorkspaceModal(false);
+                            onPress={async () => {
+                              setWorkspaceModalError('');
+                              try {
+                                await authStore.selectRestaurantWorkspace(item.id);
+                                setShowWorkspaceModal(false);
+                                Toast.show({ type: 'success', text1: `Alternado para o restaurante ${item.name}!` });
+                              } catch (err: any) {
+                                setWorkspaceModalError(err?.response?.data?.message || err?.message || 'Erro ao alternar workspace.');
+                              }
                             }}
                           >
                             <Text style={{ fontSize: 20 }}>🏪</Text>
@@ -599,6 +667,7 @@ export default observer(function ConfigScreen() {
                   activeOpacity={0.7}
                   onPress={() => {
                     setShowWorkspaceModal(false);
+                    setCreateModalError('');
                     setTimeout(() => setShowCreateModal(true), 300);
                   }}
                 >
@@ -613,6 +682,7 @@ export default observer(function ConfigScreen() {
                   activeOpacity={0.7}
                   onPress={() => {
                     setShowWorkspaceModal(false);
+                    setJoinModalError('');
                     setTimeout(() => setShowJoinModal(true), 300);
                   }}
                 >
@@ -639,13 +709,15 @@ export default observer(function ConfigScreen() {
         transparent
         visible={showCreateModal}
         animationType="slide"
-        onRequestClose={() => setShowCreateModal(false)}
+        onRequestClose={() => { setCreateModalError(''); setShowCreateModal(false); }}
       >
-        <TouchableWithoutFeedback onPress={() => setShowCreateModal(false)}>
+        <TouchableWithoutFeedback onPress={() => { setCreateModalError(''); setShowCreateModal(false); }}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={[styles.modalContent, { backgroundColor: theme.foreground }]}>
                 <Text style={[styles.modalTitle, { color: theme.text }]}>Criar Novo Restaurante</Text>
+
+                {createModalError ? <InlineAlert type="error" message={createModalError} /> : null}
                 
                 <ScrollView 
                   showsVerticalScrollIndicator={false}
@@ -661,7 +733,7 @@ export default observer(function ConfigScreen() {
                   />
                   <TextInput
                     style={[styles.input, { color: theme.text, backgroundColor: theme.background, marginBottom: 12 }]}
-                    placeholder="CNPJ do Restaurante *"
+                    placeholder="CNPJ do Restaurante * (ex: 11.444.777/0001-61)"
                     placeholderTextColor={theme.text + '80'}
                     value={restCnpj}
                     onChangeText={handleCnpjChange}
@@ -716,7 +788,7 @@ export default observer(function ConfigScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: theme.background, borderWidth: 1, borderColor: theme.text + '30' }]}
-                    onPress={() => setShowCreateModal(false)}
+                    onPress={() => { setCreateModalError(''); setShowCreateModal(false); }}
                   >
                     <Text style={[styles.actionBtnText, { color: theme.text }]}>Cancelar</Text>
                   </TouchableOpacity>
@@ -732,13 +804,16 @@ export default observer(function ConfigScreen() {
         transparent
         visible={showJoinModal}
         animationType="slide"
-        onRequestClose={() => setShowJoinModal(false)}
+        onRequestClose={() => { setJoinModalError(''); setShowJoinModal(false); }}
       >
-        <TouchableWithoutFeedback onPress={() => setShowJoinModal(false)}>
+        <TouchableWithoutFeedback onPress={() => { setJoinModalError(''); setShowJoinModal(false); }}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={[styles.modalContent, { backgroundColor: theme.foreground }]}>
                 <Text style={[styles.modalTitle, { color: theme.text }]}>Ingressar via Código</Text>
+
+                {joinModalError ? <InlineAlert type="error" message={joinModalError} /> : null}
+
                 <Text style={{ fontFamily: 'Jost_400Regular', color: theme.text, opacity: 0.6, fontSize: 14, textAlign: 'center', marginBottom: 20, lineHeight: 20 }}>
                   Digite o código alfanumérico gerado pelo gerente para se vincular a outro restaurante.
                 </Text>
@@ -762,7 +837,7 @@ export default observer(function ConfigScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: theme.background, borderWidth: 1, borderColor: theme.text + '30' }]}
-                    onPress={() => setShowJoinModal(false)}
+                    onPress={() => { setJoinModalError(''); setShowJoinModal(false); }}
                   >
                     <Text style={[styles.actionBtnText, { color: theme.text }]}>Cancelar</Text>
                   </TouchableOpacity>
