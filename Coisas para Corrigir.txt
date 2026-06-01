@@ -14,8 +14,7 @@
 [ ] Tem que realizar validação com email de verificação
 
 # Forms criar restaurante
-[ ] Invés de ser apenas um modal, ser uma página toda para adicionar as várias informações, com etapas, como adição de formas de pagamento etc...
-[ ] Adicionar mascará para o telefone
+[X] Corrigir
 
 # Estoque
 [ ] Na url tá ingredientes, deixar estoque também
@@ -37,6 +36,7 @@
 [ ] Não tem quantidade de pessoas que alimenta (desnecessário)
 [ ] os inputs de número estão aceitando letras, é tá enviando também, coisa que não deveria, então dá erro
 [ ] em categoria de prato, o front está armazenando em brand, já que no backend não existe o campo, categoria de prato
+[ ] Permitir a pesquisa de ingredientes 
 
 # Fornecedor
 [ ] Adicionar
@@ -48,7 +48,7 @@
 
 # Config
 [X] Trocar os Emojis por Icones
-[ ] Em Workspaces, os restaurantes estão aparecendo com o ID invés do nome, sumir com o ID e deixar o nome
+[X] Em Workspaces, os restaurantes estão aparecendo com o ID invés do nome, sumir com o ID e deixar o nome
 
 # Módulos 
 [ ] não tem módulo grátis, tem os adquiridos e os não adquiridos

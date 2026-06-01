@@ -82,11 +82,9 @@ export interface RestaurantDetails {
   id: string;
   name: string;
   cnpj: string;
-  phone: string;
-  category: string;
-  address: string;
-  deliveryFee: number;
-  operatingHours: string;
+  maxBranches?: number;
+  plan?: 'BASIC' | 'PROFESSIONAL' | 'NETWORK' | 'PREMIUM';
+  status?: 'active' | 'pending' | 'suspended';
   logoUrl?: string;
   inviteCode?: string;
   inviteCodeExpires?: string;
@@ -131,11 +129,9 @@ const DEFAULT_RESTAURANT: RestaurantDetails = {
   id: 'rest_default',
   name: 'Cantina Bella Italia',
   cnpj: '12.345.678/0001-99',
-  phone: '(11) 3456-7890',
-  category: 'Italiana',
-  address: 'Rua das Flores, 123 - Jardins, São Paulo - SP',
-  deliveryFee: 7.50,
-  operatingHours: 'Terça a Domingo: 11:30 às 23:00',
+  maxBranches: 1,
+  plan: 'BASIC',
+  status: 'active',
   ratingAverage: 4.8,
   ratingCount: 15,
 };
@@ -210,11 +206,9 @@ class DataStore {
           id: rDetails._id,
           name: rDetails.name,
           cnpj: rDetails.cnpj,
-          phone: '(11) 3456-7890',
-          category: 'Restaurante',
-          address: 'Endereço Principal',
-          deliveryFee: 0,
-          operatingHours: 'Sempre Aberto',
+          maxBranches: typeof rDetails.maxBranches === 'number' ? rDetails.maxBranches : 1,
+          plan: rDetails.plan || 'BASIC',
+          status: rDetails.status || 'active',
           inviteCode: rDetails.inviteCode,
           ratingAverage: 5.0,
           ratingCount: 1,
@@ -985,13 +979,6 @@ class DataStore {
   async removeBranch(id: string) {
     // As filiais compartilham o modelo de restaurante e são removidas desvinculando-se delas
     await authStore.removeRestaurantWorkspace(id);
-  }
-
-  async updateRestaurantDetails(details: Partial<RestaurantDetails>) {
-    // Mock local placeholder updates
-    if (this.restaurantDetails) {
-      this.restaurantDetails = { ...this.restaurantDetails, ...details };
-    }
   }
 
   purchaseModule(moduleId: string) {

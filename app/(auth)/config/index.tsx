@@ -31,6 +31,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ClipboardIcon,
+  CloseIcon,
   FoodStoreIcon,
   LightbulbIcon,
   LinkIcon,
@@ -182,6 +183,7 @@ export default observer(function ConfigScreen() {
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<'my' | 'all'>('my');
   const [confirmRemoveWorkspace, setConfirmRemoveWorkspace] = useState(false);
   const [removingRestId, setRemovingRestId] = useState('');
@@ -204,11 +206,7 @@ export default observer(function ConfigScreen() {
   // Form states
   const [restName, setRestName] = useState('');
   const [restCnpj, setRestCnpj] = useState('');
-  const [restPhone, setRestPhone] = useState('');
-  const [restCategory, setRestCategory] = useState('');
-  const [restAddress, setRestAddress] = useState('');
-  const [restHours, setRestHours] = useState('Segunda a Sábado: 11:30 às 22:00');
-  const [restFee, setRestFee] = useState('7.00');
+  const [restMaxBranches, setRestMaxBranches] = useState('1');
   const [inviteCode, setInviteCode] = useState('');
 
   const maskCnpj = (value: string) => {
@@ -222,6 +220,11 @@ export default observer(function ConfigScreen() {
 
   const handleCnpjChange = (value: string) => {
     setRestCnpj(maskCnpj(value));
+  };
+
+  const handleMaxBranchesChange = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 3);
+    setRestMaxBranches(digits);
   };
 
   const userName = authStore.user?.name || 'Usuário';
@@ -251,8 +254,8 @@ export default observer(function ConfigScreen() {
   };
 
   const handleCreateRestaurant = async () => {
-    if (!restName || !restCnpj || !restPhone || !restCategory || !restAddress) {
-      setCreateModalError('Preencha todos os campos obrigatórios (*).');
+    if (!restName.trim() || !restCnpj.trim()) {
+      setCreateModalError('Preencha o nome e o CNPJ do restaurante.');
       return;
     }
     const cnpjRegex = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/;
@@ -264,27 +267,21 @@ export default observer(function ConfigScreen() {
       setCreateModalError('CNPJ inválido. Verifique os dígitos informados.');
       return;
     }
+    const parsedMaxBranches = parseInt(restMaxBranches, 10);
+    if (isNaN(parsedMaxBranches) || parsedMaxBranches < 1) {
+      setCreateModalError('A quantidade de filiais deve ser no mínimo 1.');
+      return;
+    }
     setCreateModalError('');
     setLoading(true);
     try {
       try {
-        await authStore.createRestaurantWorkspace(
-          restName,
-          restCnpj,
-          restPhone,
-          restCategory,
-          restAddress,
-          parseFloat(restFee) || 0,
-          restHours
-        );
+        await authStore.createRestaurantWorkspace(restName.trim(), restCnpj, parsedMaxBranches);
         setShowCreateModal(false);
         setCreateModalError('');
-        // Limpar campos
         setRestName('');
         setRestCnpj('');
-        setRestPhone('');
-        setRestCategory('');
-        setRestAddress('');
+        setRestMaxBranches('1');
         Toast.show({ type: 'success', text1: 'Restaurante cadastrado e cargo GERENTE atribuído!' });
       } catch (err: any) {
         setCreateModalError(err?.response?.data?.message || err?.message || 'Erro ao cadastrar restaurante.');
@@ -386,7 +383,9 @@ export default observer(function ConfigScreen() {
                   {dataStore.restaurantDetails?.name || 'Selecione ou Crie um Workspace'}
                 </Text>
                 <Text style={{ fontFamily: 'Jost_400Regular', fontSize: 12, color: theme.text, opacity: 0.6 }} numberOfLines={1}>
-                  {dataStore.restaurantDetails?.category ? `${dataStore.restaurantDetails.category} • Cargo: ${activeRole === 'GERENTE' ? 'Gerente' : activeRole === 'GARCOM' ? 'Garçom' : activeRole === 'COZINHA' ? 'Cozinha' : activeRole === 'CAIXA' ? 'Caixa' : activeRole === 'COMUM' ? 'Sem Cargo' : activeRole}` : 'Nenhum estabelecimento ativo'}
+                  {dataStore.restaurantDetails?.name
+                    ? `${dataStore.restaurantDetails.plan ? `Plano ${dataStore.restaurantDetails.plan} • ` : ''}Cargo: ${activeRole === 'GERENTE' ? 'Gerente' : activeRole === 'GARCOM' ? 'Garçom' : activeRole === 'COZINHA' ? 'Cozinha' : activeRole === 'CAIXA' ? 'Caixa' : activeRole === 'COMUM' ? 'Sem Cargo' : activeRole}`
+                    : 'Nenhum estabelecimento ativo'}
                 </Text>
               </View>
             </View>
@@ -442,9 +441,9 @@ export default observer(function ConfigScreen() {
                   <SettingRow
                     theme={theme}
                     icon={<FoodStoreIcon color={theme.text} size={18} />}
-                    label="Informações do Restaurante"
-                    sublabel="Endereço, telefone, taxa e horários"
-                    onPress={() => router.push('/(auth)/config/restaurante' as any)}
+                    label="Visualizar Restaurante"
+                    sublabel="Nome, CNPJ, plano e código de convite"
+                    onPress={() => setShowViewModal(true)}
                   />
                   <SettingRow
                     theme={theme}
@@ -735,84 +734,171 @@ export default observer(function ConfigScreen() {
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={[styles.modalContent, { backgroundColor: theme.foreground }]}>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>Criar Novo Restaurante</Text>
-
-                {createModalError ? <InlineAlert type="error" message={createModalError} /> : null}
-                
-                <ScrollView 
+                <ScrollView
                   showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingBottom: 20 }}
-                  style={{ maxHeight: 400 }}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={styles.modalScrollContent}
                 >
-                  <TextInput
-                    style={[styles.input, { color: theme.text, backgroundColor: theme.background, marginBottom: 12 }]}
-                    placeholder="Nome do Restaurante *"
-                    placeholderTextColor={theme.text + '80'}
-                    value={restName}
-                    onChangeText={setRestName}
-                  />
-                  <TextInput
-                    style={[styles.input, { color: theme.text, backgroundColor: theme.background, marginBottom: 12 }]}
-                    placeholder="CNPJ do Restaurante * (ex: 11.444.777/0001-61)"
-                    placeholderTextColor={theme.text + '80'}
-                    value={restCnpj}
-                    onChangeText={handleCnpjChange}
-                    keyboardType="numeric"
-                    maxLength={18}
-                  />
-                  <TextInput
-                    style={[styles.input, { color: theme.text, backgroundColor: theme.background, marginBottom: 12 }]}
-                    placeholder="Telefone do Restaurante *"
-                    placeholderTextColor={theme.text + '80'}
-                    value={restPhone}
-                    onChangeText={setRestPhone}
-                  />
-                  <TextInput
-                    style={[styles.input, { color: theme.text, backgroundColor: theme.background, marginBottom: 12 }]}
-                    placeholder="Categoria (ex: Italiana, Fast Food) *"
-                    placeholderTextColor={theme.text + '80'}
-                    value={restCategory}
-                    onChangeText={setRestCategory}
-                  />
-                  <TextInput
-                    style={[styles.input, { color: theme.text, backgroundColor: theme.background, marginBottom: 12 }]}
-                    placeholder="Endereço Completo *"
-                    placeholderTextColor={theme.text + '80'}
-                    value={restAddress}
-                    onChangeText={setRestAddress}
-                  />
-                  <TextInput
-                    style={[styles.input, { color: theme.text, backgroundColor: theme.background, marginBottom: 12 }]}
-                    placeholder="Horários (ex: Segunda a Sábado: 11:30 às 22:00)"
-                    placeholderTextColor={theme.text + '80'}
-                    value={restHours}
-                    onChangeText={setRestHours}
-                  />
-                  <TextInput
-                    style={[styles.input, { color: theme.text, backgroundColor: theme.background, marginBottom: 12 }]}
-                    placeholder="Taxa de Entrega padrão (ex: 7.00)"
-                    placeholderTextColor={theme.text + '80'}
-                    value={restFee}
-                    onChangeText={setRestFee}
-                    keyboardType="numeric"
-                  />
+                  <View style={styles.modalIconHeader}>
+                    <View style={[styles.modalIconCircle, { backgroundColor: theme.contrast + '15' }]}>
+                      <FoodStoreIcon color={theme.contrast} size={28} />
+                    </View>
+                  </View>
+                  <Text style={[styles.modalTitle, { color: theme.text }]}>Criar Novo Restaurante</Text>
+                  <Text style={[styles.modalSubtitle, { color: theme.text }]}>
+                    Informe os dados cadastrais do seu estabelecimento para começar a usar o Almocu.
+                  </Text>
+
+                  {createModalError ? <InlineAlert type="error" message={createModalError} /> : null}
+
+                  <View style={{ marginTop: 8 }}>
+                    <View style={styles.fieldLabel}>
+                      <Text style={[styles.fieldLabelText, { color: theme.text }]}>Nome do Restaurante</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.input, { color: theme.text, backgroundColor: theme.background, marginBottom: 12 }]}
+                      placeholder="Ex: Cantina Bella Italia"
+                      placeholderTextColor={theme.text + '80'}
+                      value={restName}
+                      onChangeText={setRestName}
+                    />
+
+                    <View style={styles.fieldLabel}>
+                      <Text style={[styles.fieldLabelText, { color: theme.text }]}>CNPJ</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.input, { color: theme.text, backgroundColor: theme.background, marginBottom: 12 }]}
+                      placeholder="00.000.000/0000-00"
+                      placeholderTextColor={theme.text + '80'}
+                      value={restCnpj}
+                      onChangeText={handleCnpjChange}
+                      keyboardType="numeric"
+                      maxLength={18}
+                    />
+
+                    <View style={styles.fieldLabel}>
+                      <Text style={[styles.fieldLabelText, { color: theme.text }]}>Quantidade de Filiais</Text>
+                      <Text style={[styles.fieldHint, { color: theme.text }]}>Mínimo 1</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
+                      placeholder="1"
+                      placeholderTextColor={theme.text + '80'}
+                      value={restMaxBranches}
+                      onChangeText={handleMaxBranchesChange}
+                      keyboardType="numeric"
+                      maxLength={3}
+                    />
+                  </View>
                 </ScrollView>
 
-                <View style={{ gap: 10, marginTop: 16 }}>
+                <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: theme.contrast }]}
                     onPress={handleCreateRestaurant}
                     disabled={loading}
+                    activeOpacity={0.85}
                   >
                     {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.actionBtnText}>Criar Restaurante (Gerente)</Text>}
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: theme.background, borderWidth: 1, borderColor: theme.text + '30' }]}
                     onPress={() => { setCreateModalError(''); setShowCreateModal(false); }}
+                    activeOpacity={0.85}
                   >
                     <Text style={[styles.actionBtnText, { color: theme.text }]}>Cancelar</Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* MODAL: VISUALIZAR RESTAURANTE (read-only) */}
+      <Modal
+        transparent
+        visible={showViewModal}
+        animationType="fade"
+        onRequestClose={() => setShowViewModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowViewModal(false)}>
+          <View style={styles.viewModalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.viewModalContent, { backgroundColor: theme.foreground }]}>
+                <View style={styles.viewModalHeader}>
+                  <View style={[styles.viewModalAvatar, { backgroundColor: theme.contrast }]}>
+                    <FoodStoreIcon color="#FFFFFF" size={28} />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.viewModalClose}
+                    onPress={() => setShowViewModal(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <CloseIcon color={theme.text} size={22} style={{ opacity: 0.6 }} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={[styles.viewModalName, { color: theme.text }]} numberOfLines={2}>
+                  {dataStore.restaurantDetails?.name || 'Restaurante'}
+                </Text>
+                <Text style={[styles.viewModalCnpj, { color: theme.text }]} numberOfLines={1}>
+                  CNPJ {dataStore.restaurantDetails?.cnpj || '—'}
+                </Text>
+
+                <View style={[styles.viewModalDivider, { backgroundColor: theme.text + '12' }]} />
+
+                <View style={styles.viewModalGrid}>
+                  <View style={[styles.viewModalCard, { backgroundColor: theme.background }]}>
+                    <View style={[styles.viewModalCardIcon, { backgroundColor: theme.contrast + '18' }]}>
+                      <CardapioIcon color={theme.contrast} size={16} />
+                    </View>
+                    <Text style={[styles.viewModalCardLabel, { color: theme.text }]}>Plano</Text>
+                    <Text style={[styles.viewModalCardValue, { color: theme.text }]} numberOfLines={1}>
+                      {dataStore.restaurantDetails?.plan || 'BASIC'}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.viewModalCard, { backgroundColor: theme.background }]}>
+                    <View style={[styles.viewModalCardIcon, { backgroundColor: theme.contrast + '18' }]}>
+                      <BuildingIcon color={theme.contrast} size={16} />
+                    </View>
+                    <Text style={[styles.viewModalCardLabel, { color: theme.text }]}>Filiais</Text>
+                    <Text style={[styles.viewModalCardValue, { color: theme.text }]} numberOfLines={1}>
+                      {dataStore.restaurantDetails?.maxBranches ?? 1}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={[styles.viewModalInfoBlock, { backgroundColor: theme.background }]}>
+                  <View style={styles.viewModalInfoRow}>
+                    <Text style={[styles.viewModalInfoLabel, { color: theme.text }]}>Status</Text>
+                    <View style={[styles.viewModalStatusPill, { backgroundColor: (dataStore.restaurantDetails?.status === 'suspended' ? '#EF4444' : theme.contrast) + '20' }]}>
+                      <Text style={[styles.viewModalStatusText, { color: dataStore.restaurantDetails?.status === 'suspended' ? '#EF4444' : theme.contrast }]}>
+                        {(dataStore.restaurantDetails?.status || 'active').toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[styles.viewModalInfoSeparator, { backgroundColor: theme.text + '10' }]} />
+                  <View style={styles.viewModalInfoRow}>
+                    <Text style={[styles.viewModalInfoLabel, { color: theme.text }]}>Código de Convite</Text>
+                    <Text style={[styles.viewModalInfoValue, { color: theme.text }]} numberOfLines={1}>
+                      {dataStore.inviteCodeInfo?.code || dataStore.restaurantDetails?.inviteCode || '—'}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.viewModalFootnote, { color: theme.text }]}>
+                  Os dados são gerenciados pelo servidor. Para alterações, contate o suporte.
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: theme.contrast, marginTop: 16 }]}
+                  onPress={() => setShowViewModal(false)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.actionBtnText}>Fechar</Text>
+                </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -987,15 +1073,196 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '100%',
     maxWidth: 440,
-    borderRadius: 24,
-    padding: 24,
     maxHeight: '90%',
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 24,
+  },
+  modalScrollContent: {
+    paddingBottom: 8,
+  },
+  modalActions: {
+    gap: 10,
+    paddingTop: 12,
+    paddingBottom: 24,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: 'transparent',
   },
   modalTitle: {
     fontFamily: 'Jost_700Bold',
     fontSize: 18,
     textAlign: 'center',
     marginBottom: 20,
+  },
+  modalSubtitle: {
+    fontFamily: 'Jost_400Regular',
+    fontSize: 13,
+    textAlign: 'center',
+    opacity: 0.6,
+    marginTop: -8,
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  modalIconHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldLabel: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+    marginLeft: 2,
+  },
+  fieldLabelText: {
+    fontFamily: 'Jost_600SemiBold',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    opacity: 0.7,
+  },
+  fieldHint: {
+    fontFamily: 'Jost_400Regular',
+    fontSize: 11,
+    opacity: 0.5,
+  },
+  viewModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  viewModalContent: {
+    width: '100%',
+    maxWidth: 460,
+    borderRadius: 28,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  viewModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  viewModalAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewModalClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewModalName: {
+    fontFamily: 'Jost_700Bold',
+    fontSize: 22,
+    lineHeight: 28,
+  },
+  viewModalCnpj: {
+    fontFamily: 'Jost_500Medium',
+    fontSize: 13,
+    opacity: 0.55,
+    marginTop: 4,
+    letterSpacing: 0.4,
+  },
+  viewModalDivider: {
+    height: 1,
+    marginVertical: 18,
+  },
+  viewModalGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
+  },
+  viewModalCard: {
+    flex: 1,
+    borderRadius: 18,
+    padding: 14,
+    minHeight: 92,
+  },
+  viewModalCardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  viewModalCardLabel: {
+    fontFamily: 'Jost_500Medium',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    opacity: 0.55,
+    marginBottom: 4,
+  },
+  viewModalCardValue: {
+    fontFamily: 'Jost_700Bold',
+    fontSize: 16,
+  },
+  viewModalInfoBlock: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  viewModalInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    gap: 12,
+  },
+  viewModalInfoSeparator: {
+    height: 1,
+  },
+  viewModalInfoLabel: {
+    fontFamily: 'Jost_500Medium',
+    fontSize: 13,
+    opacity: 0.6,
+  },
+  viewModalInfoValue: {
+    fontFamily: 'Jost_600SemiBold',
+    fontSize: 14,
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  viewModalStatusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  viewModalStatusText: {
+    fontFamily: 'Jost_700Bold',
+    fontSize: 11,
+    letterSpacing: 0.6,
+  },
+  viewModalFootnote: {
+    fontFamily: 'Jost_400Regular',
+    fontSize: 11,
+    textAlign: 'center',
+    opacity: 0.45,
+    marginTop: 14,
+    lineHeight: 16,
   },
   selectDropdown: {
     flexDirection: 'row',

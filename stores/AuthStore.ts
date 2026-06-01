@@ -212,24 +212,17 @@ class AuthStore {
     dataStore.clear();
   }
 
-  async createRestaurantWorkspace(
-    name: string,
-    cnpj: string,
-    phone: string,
-    category: string,
-    address: string,
-    deliveryFee: number,
-    operatingHours: string
-  ) {
+  async createRestaurantWorkspace(name: string, cnpj: string, maxBranches: number) {
     if (!this.user) return;
 
     // Criar o restaurante master no backend
     const response = await api.post('/restaurants', {
       name,
       cnpj,
+      maxBranches,
     });
 
-    const newRestaurant = response.data; // { _id, name, cnpj, inviteCode, plan... }
+    const newRestaurant = response.data; // { _id, name, cnpj, plan, maxBranches, status, ... }
     const newRestaurantId = newRestaurant._id;
 
     // Atualizar dados locais do usuário
@@ -240,16 +233,14 @@ class AuthStore {
     await AsyncStorage.setItem('user', JSON.stringify(this.user));
     await AsyncStorage.setItem('selected_restaurant_id', newRestaurantId);
 
-    // Salvar informações detalhadas do restaurante na store de dados
+    // Sincronizar dados retornados pelo backend na store local
     await dataStore.createRestaurantDetails({
       id: newRestaurantId,
       name: newRestaurant.name,
       cnpj: newRestaurant.cnpj,
-      phone: phone || '(11) 3456-7890',
-      category: category || 'Geral',
-      address: address || 'Endereço Principal',
-      deliveryFee: deliveryFee || 0,
-      operatingHours: operatingHours || 'Sempre Aberto',
+      maxBranches: typeof newRestaurant.maxBranches === 'number' ? newRestaurant.maxBranches : maxBranches,
+      plan: newRestaurant.plan || 'BASIC',
+      status: newRestaurant.status || 'active',
       inviteCode: newRestaurant.inviteCode,
     });
   }
