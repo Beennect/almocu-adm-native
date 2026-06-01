@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { EditIcon, TrashIcon } from '@/components/shared/Icons';
 import { useAppTheme } from '@/themes/colors';
 
@@ -11,44 +11,22 @@ export interface MenuItem {
   image?: string;
   category?: string;
   ingredients?: any[];
-  hasRemovals?: boolean;
-  hasAdditionals?: boolean;
-  serves?: string | number;
   onEdit?: () => void;
   onDelete?: () => void;
 }
 
-export function MenuCard({ name, description, price, image, ingredients, hasRemovals, hasAdditionals, serves, onEdit, onDelete }: MenuItem) {
+function formatIngredient(ing: any): string {
+  const qty = ing.quantity;
+  const unit = ing.unit;
+  if (!qty) return ing.name || '';
+  const normalizedQty = String(qty).replace('.', ',');
+  if (!unit || unit === 'Unidades') return `${normalizedQty} ${ing.name}`;
+  return `${normalizedQty} ${unit.toLowerCase()} de ${ing.name}`;
+}
+
+export function MenuCard({ name, description, price, image, ingredients, onEdit, onDelete }: MenuItem) {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
-
-  const renderBadge = (text: string, color: string, bgColor: string, tooltip: string) => {
-    const handlePress = () => {
-      if (Platform.OS !== 'web') {
-        Alert.alert('Funcionalidade', tooltip);
-      }
-    };
-
-    const badgeView = (
-      <TouchableOpacity 
-        style={[styles.badge, { backgroundColor: bgColor }]} 
-        onPress={handlePress}
-        activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
-      >
-        <Text style={[styles.badgeText, { color }]}>{text}</Text>
-      </TouchableOpacity>
-    );
-
-    if (Platform.OS === 'web') {
-      return (
-        // @ts-ignore
-        <div title={tooltip} style={{ cursor: 'default', display: 'flex' }}>
-          {badgeView}
-        </div>
-      );
-    }
-    return badgeView;
-  };
 
   return (
     <View style={styles.card}>
@@ -66,28 +44,18 @@ export function MenuCard({ name, description, price, image, ingredients, hasRemo
 
       {/* Middle: Content */}
       <View style={styles.content}>
-        <View style={styles.headerRow}>
-          <Text style={styles.name}>{name}</Text>
-          <View style={styles.featureBadges}>
-            {hasRemovals && renderBadge('R', '#FF5252', '#FF525220', 'Permite Remoção')}
-            {hasAdditionals && renderBadge('A', '#4CAF50', '#4CAF5020', 'Permite Adicionais')}
-          </View>
-        </View>
-        
+        <Text style={styles.name}>{name}</Text>
+
         <Text style={styles.description} numberOfLines={2}>{description}</Text>
-        
+
         {ingredients && ingredients.length > 0 && (
           <View style={styles.ingredientsContainer}>
             <Text style={styles.ingredientsHeader}>Ingredientes</Text>
             <Text style={styles.ingredientItemText}>
-              {ingredients.map(i => (i.unit === 'Unidades' || (!i.unit && i.quantity)) && i.quantity ? `${i.quantity} ${i.name}` : i.name).join('  •  ')}
+              {ingredients.map(formatIngredient).join('  •  ')}
             </Text>
           </View>
         )}
-
-        {serves ? (
-          <Text style={styles.servesText}>Serve até {serves} pessoa{serves == 1 ? '' : 's'}</Text>
-        ) : null}
       </View>
 
       {/* Vertical Divider */}
@@ -144,32 +112,12 @@ function makeStyles(theme: any) {
       flex: 1,
       paddingRight: 8,
     },
-    headerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 2,
-    },
-    featureBadges: {
-      flexDirection: 'row',
-      gap: 4,
-    },
-    badge: {
-      width: 20,
-      height: 20,
-      borderRadius: 4,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    badgeText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 11,
-    },
     name: {
       fontFamily: 'Jost_700Bold',
       fontSize: 16,
       color: theme.text,
       flex: 1,
+      marginBottom: 2,
     },
     description: {
       fontFamily: 'Jost_400Regular',
@@ -194,13 +142,6 @@ function makeStyles(theme: any) {
       color: theme.text,
       opacity: 0.6,
       marginBottom: 2,
-    },
-    servesText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 12,
-      color: theme.text,
-      opacity: 0.7,
-      marginBottom: 4,
     },
     verticalDivider: {
       width: 1,

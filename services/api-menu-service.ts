@@ -6,13 +6,16 @@ export interface MenuItemInput {
   price: number;
   category?: string;
   ingredients?: any[];
-  hasRemovals?: boolean;
-  hasAdditionals?: boolean;
-  serves?: string | number;
   image?: string | null;
   isActive?: boolean;
   stockProductId?: string;
 }
+
+const toBackendQuantity = (raw: any) => {
+  const value = parseFloat(String(raw ?? '').replace(',', '.'));
+  if (isNaN(value) || value <= 0) return 0;
+  return value;
+};
 
 export const apiMenuService = {
   async getMenu(page = 1, limit = 100) {
@@ -23,17 +26,18 @@ export const apiMenuService = {
   async createProduct(data: MenuItemInput) {
     const payload: any = {
       name: data.name,
-      brand: data.category || 'Almocu', 
+      brand: data.category || 'Almocu',
       price: data.price,
       description: data.description || '',
       ingredients: (data.ingredients || [])
         .filter((ing: any) => /^[a-fA-F0-9]{24}$/.test(ing.id || ing.stockProductId))
         .map((ing: any) => ({
           stockProductId: ing.id || ing.stockProductId,
-          quantity: parseInt(ing.quantity) || 1,
-        })),
+          quantity: toBackendQuantity(ing.quantity),
+        }))
+        .filter((ing: any) => ing.quantity > 0),
     };
-    
+
     const response = await api.post('/api/menu', payload);
     return response.data;
   },
@@ -44,14 +48,15 @@ export const apiMenuService = {
     if (data.category !== undefined) payload.brand = data.category;
     if (data.price !== undefined) payload.price = data.price;
     if (data.description !== undefined) payload.description = data.description;
-    
+
     if (data.ingredients !== undefined) {
       payload.ingredients = data.ingredients
         .filter((ing: any) => /^[a-fA-F0-9]{24}$/.test(ing.id || ing.stockProductId))
         .map((ing: any) => ({
           stockProductId: ing.id || ing.stockProductId,
-          quantity: parseInt(ing.quantity) || 1,
-        }));
+          quantity: toBackendQuantity(ing.quantity),
+        }))
+        .filter((ing: any) => ing.quantity > 0);
     }
 
     const response = await api.patch(`/api/menu/${id}`, payload);

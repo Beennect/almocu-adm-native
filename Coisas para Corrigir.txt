@@ -17,8 +17,8 @@
 [X] Corrigir
 
 # Estoque
-[ ] Na url tá ingredientes, deixar estoque também
-[ ] A responsividade tá meio ruim, o item lá está esmagado
+[X] Na url tá ingredientes, deixar estoque também
+[X] A responsividade tá meio ruim, o item lá está esmagado
 [ ] tem que adicionar a opção para adicionar por XML
 [ ] Melhorar mensagem de erro (utilizar toast)
 [ ] Tem que adicionar opção de marca
@@ -29,12 +29,12 @@
 [ ] Em historico tem muita informação, e praticamente não dá para ver direito os próprios pedidos, permitir visualizar essas informações estátisticas em um botão modal ou no próprio dashboard
 
 # Cardápio
-[ ] Responsividade também tá meio ruim
+[X] Responsividade também tá meio ruim
 [ ] Adicionar modal apenas para visualizar as informações daquele item do cardápio
 ## Add item
-[ ] Quando adiciona um ingrediente, se for do tipo kg ou l ele não tem como selecionar quantidade, tem que permitir adicionar a quantidade para Kg e L também
-[ ] Não tem quantidade de pessoas que alimenta (desnecessário)
-[ ] os inputs de número estão aceitando letras, é tá enviando também, coisa que não deveria, então dá erro
+[X] Quando adiciona um ingrediente, se for do tipo kg ou l ele não tem como selecionar quantidade, tem que permitir adicionar a quantidade para Kg e L também
+[X] Não tem quantidade de pessoas que alimenta (desnecessário)
+[X] os inputs de número estão aceitando letras, é tá enviando também, coisa que não deveria, então dá erro
 [ ] em categoria de prato, o front está armazenando em brand, já que no backend não existe o campo, categoria de prato
 [ ] Permitir a pesquisa de ingredientes 
 

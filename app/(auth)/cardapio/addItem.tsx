@@ -8,25 +8,19 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
-  Alert,
   Image,
-  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
   CameraIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
-  ClocheIcon,
-  FileTextIcon,
   FoodStoreIcon,
-  MapPointIcon,
   TrashIcon,
   PlusIcon
 } from '../../../components/shared/Icons';
 import { SelectModal } from '../../../components/shared/SelectModal';
 import { ConfirmModal } from '../../../components/shared/ConfirmModal';
-import * as FileSystem from 'expo-file-system';
 
 interface Ingredient {
   id: string;
@@ -40,10 +34,7 @@ interface AddItemFormData {
   name: string;
   category: string;
   value: string;
-  serves: string;
   additionalInfo: string;
-  hasRemovals: boolean;
-  hasAdditionals: boolean;
   photo: string | null;
 }
 
@@ -66,10 +57,7 @@ export default observer(function AddItemScreen() {
     name: '',
     category: '',
     value: '',
-    serves: '',
     additionalInfo: '',
-    hasRemovals: false,
-    hasAdditionals: false,
     photo: null,
   });
 
@@ -95,11 +83,8 @@ export default observer(function AddItemScreen() {
         setFormData({
           name: item.name,
           category: item.category || '',
-          value: item.price.toString().replace('.', ','),
-          serves: item.serves?.toString() || '', 
+          value: sanitizePrice(item.price.toString()),
           additionalInfo: item.description,
-          hasRemovals: item.hasRemovals || false,
-          hasAdditionals: item.hasAdditionals || false,
           photo: item.image || null,
         });
         if (item.ingredients) {
@@ -126,6 +111,26 @@ export default observer(function AddItemScreen() {
     }
   };
 
+  const isUnitInteger = (unit?: string) => !unit || unit === 'Unidades';
+  const getStepForUnit = (unit?: string) => isUnitInteger(unit) ? 1 : 0.1;
+  const getMinForUnit = (unit?: string) => isUnitInteger(unit) ? 1 : 0.01;
+  const formatQty = (qty: number, unit?: string) => {
+    if (isUnitInteger(unit)) return Math.round(qty).toString();
+    return (Math.round(qty * 100) / 100).toString().replace('.', ',');
+  };
+
+  const sanitizePrice = (text: string) => {
+    let sanitized = text.replace(/[^0-9.,]/g, '').replace(',', '.');
+    const firstDot = sanitized.indexOf('.');
+    if (firstDot !== -1) {
+      sanitized = sanitized.slice(0, firstDot + 1) + sanitized.slice(firstDot + 1).replace(/\./g, '');
+      const [intPart, decPart] = sanitized.split('.');
+      sanitized = intPart + ',' + decPart.slice(0, 2);
+    }
+    if (sanitized.startsWith(',')) sanitized = '0' + sanitized;
+    return sanitized;
+  };
+
   const handleAddIngredient = () => {
     const stockIng = dataStore.ingredients.find(i => i.name === newIngredient.name);
 
@@ -134,25 +139,24 @@ export default observer(function AddItemScreen() {
       return;
     }
 
-    const isUnidades = stockIng.unit === 'Unidades';
-
-    if (!newIngredient.name || (isUnidades && !newIngredient.quantity)) {
-      Toast.show({ type: 'error', text1: isUnidades ? "Selecione um ingrediente e informe a quantidade." : "Selecione um ingrediente." });
+    if (!newIngredient.name || !newIngredient.quantity) {
+      Toast.show({ type: 'error', text1: "Selecione um ingrediente e informe a quantidade." });
       return;
     }
 
-    if (isUnidades) {
-      const qty = parseInt(newIngredient.quantity);
-      if (isNaN(qty) || qty <= 0) {
-        Toast.show({ type: 'error', text1: "A quantidade deve ser maior que 0." });
-        return;
-      }
+    const isInt = isUnitInteger(stockIng.unit);
+    const rawQty = newIngredient.quantity.replace(',', '.').trim();
+    const qty = isInt ? parseInt(rawQty, 10) : parseFloat(rawQty);
+
+    if (isNaN(qty) || qty < getMinForUnit(stockIng.unit)) {
+      Toast.show({ type: 'error', text1: `A quantidade deve ser maior que zero${isInt ? '' : ' (mínimo 0,01)'}.` });
+      return;
     }
 
     const ingredient: Ingredient = {
       id: stockIng.id,
       name: newIngredient.name,
-      quantity: isUnidades ? newIngredient.quantity : '',
+      quantity: formatQty(qty, stockIng.unit),
       info: newIngredient.info,
       unit: stockIng.unit || 'Unidades'
     };
@@ -175,9 +179,23 @@ export default observer(function AddItemScreen() {
   const adjustQty = (id: string, delta: number) => {
     setIngredients(prev => prev.map(item => {
       if (item.id === id) {
-        const currentQty = parseInt(item.quantity) || 1;
-        const newQty = Math.max(1, currentQty + delta);
-        return { ...item, quantity: newQty.toString() };
+        const isInt = isUnitInteger(item.unit);
+        const currentQty = isInt ? (parseInt(item.quantity, 10) || 0) : (parseFloat(item.quantity.replace(',', '.')) || 0);
+        const newQty = Math.max(getMinForUnit(item.unit), currentQty + delta);
+        return { ...item, quantity: formatQty(newQty, item.unit) };
+      }
+      return item;
+    }));
+  };
+
+  const updateIngredientQty = (id: string, text: string, isInt: boolean) => {
+    let sanitized = text.replace(',', '.');
+    sanitized = isInt ? sanitized.replace(/[^0-9]/g, '') : sanitized.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+    if (!isInt && sanitized.startsWith('.')) sanitized = '0' + sanitized;
+
+    setIngredients(prev => prev.map(item => {
+      if (item.id === id) {
+        return { ...item, quantity: sanitized };
       }
       return item;
     }));
@@ -194,9 +212,13 @@ export default observer(function AddItemScreen() {
       return;
     }
 
-    const servesVal = parseInt(formData.serves);
-    if (isNaN(servesVal) || servesVal <= 0) {
-      Toast.show({ type: 'error', text1: "A quantidade de pessoas deve ser maior que 0." });
+    const hasInvalidQty = ingredients.some(item => {
+      const isInt = isUnitInteger(item.unit);
+      const qty = isInt ? parseInt(item.quantity, 10) : parseFloat(item.quantity.replace(',', '.'));
+      return isNaN(qty) || qty < getMinForUnit(item.unit);
+    });
+    if (hasInvalidQty) {
+      Toast.show({ type: 'error', text1: "Existem ingredientes com quantidade inválida." });
       return;
     }
 
@@ -206,9 +228,6 @@ export default observer(function AddItemScreen() {
       price: parseFloat(formData.value.replace(',', '.')),
       category: formData.category,
       ingredients: ingredients,
-      hasRemovals: formData.hasRemovals,
-      hasAdditionals: formData.hasAdditionals,
-      serves: formData.serves || undefined,
       image: formData.photo,
     };
 
@@ -223,13 +242,6 @@ export default observer(function AddItemScreen() {
       },
       { loading: 'Salvando item...', success: isEditing ? "Item atualizado com sucesso!" : "Item adicionado ao cardápio!", error: "Erro ao processar item." }
     );
-  };
-
-  const toggleFeature = (feature: 'hasRemovals' | 'hasAdditionals') => {
-    setFormData(prev => ({
-      ...prev,
-      [feature]: !prev[feature],
-    }));
   };
 
   return (
@@ -293,23 +305,8 @@ export default observer(function AddItemScreen() {
                 keyboardType="decimal-pad"
                 value={formData.value}
                 onChangeText={(text) =>
-                  setFormData(prev => ({ ...prev, value: text }))
+                  setFormData(prev => ({ ...prev, value: sanitizePrice(text) }))
                 }
-              />
-            </View>
-
-            <View style={styles.inputWrapper}>
-              <Text style={styles.label}>Serve quantas pessoas?</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ex: 2"
-                placeholderTextColor={theme.text + '80'}
-                keyboardType="number-pad"
-                value={formData.serves}
-                onChangeText={(text) =>
-                  setFormData(prev => ({ ...prev, serves: text }))
-                }
-                onSubmitEditing={handleAddItem}
               />
             </View>
           </View>
@@ -334,33 +331,41 @@ export default observer(function AddItemScreen() {
           </View>
 
           {/* Ingredient List */}
-          {ingredients.map((item, index) => (
-            <View key={item.id} style={{ marginBottom: 16 }}>
-              <Text style={styles.label}>Ingrediente {index + 1}</Text>
-              <View style={styles.ingredientItem}>
-                {(!item.unit || item.unit === 'Unidades') && (
+          {ingredients.map((item, index) => {
+            const itemIsInt = isUnitInteger(item.unit);
+            const step = getStepForUnit(item.unit);
+            return (
+              <View key={`${item.id}-${index}`} style={{ marginBottom: 16 }}>
+                <Text style={styles.label}>Ingrediente {index + 1}</Text>
+                <View style={styles.ingredientItem}>
                   <View style={styles.ingredientQtyWrapper}>
-                    <TouchableOpacity onPress={() => adjustQty(item.id, -1)} style={{ padding: 4, width: 24, alignItems: 'center' }}>
-                      <Text style={{ color: theme.text, fontSize: 18, fontFamily: 'Jost_700Bold' }}>-</Text>
+                    <TouchableOpacity onPress={() => adjustQty(item.id, -step)} style={styles.ingredientStepBtn}>
+                      <Text style={styles.ingredientStepBtnText}>-</Text>
                     </TouchableOpacity>
-                    <Text style={styles.ingredientQtyText}>{item.quantity}</Text>
-                    <TouchableOpacity onPress={() => adjustQty(item.id, 1)} style={{ padding: 4, width: 24, alignItems: 'center' }}>
-                      <Text style={{ color: theme.text, fontSize: 18, fontFamily: 'Jost_700Bold' }}>+</Text>
+                    <TextInput
+                      style={styles.ingredientQtyInput}
+                      value={item.quantity}
+                      keyboardType={itemIsInt ? 'number-pad' : 'decimal-pad'}
+                      selectTextOnFocus
+                      onChangeText={(text) => updateIngredientQty(item.id, text, itemIsInt)}
+                    />
+                    <TouchableOpacity onPress={() => adjustQty(item.id, step)} style={styles.ingredientStepBtn}>
+                      <Text style={styles.ingredientStepBtnText}>+</Text>
                     </TouchableOpacity>
                     <View style={styles.ingredientDivider} />
                   </View>
-                )}
-                <View style={styles.ingredientContent}>
-                  <Text style={styles.ingredientNameText}>
-                    {item.name} {item.info ? <Text style={styles.ingredientInfoText}>{item.info}</Text> : null}
-                  </Text>
+                  <View style={styles.ingredientContent}>
+                    <Text style={styles.ingredientNameText}>
+                      {item.name} {item.info ? <Text style={styles.ingredientInfoText}>{item.info}</Text> : null}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => removeIngredient(item.id)}>
+                    <TrashIcon color={theme.contrast} size={20} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity onPress={() => removeIngredient(item.id)}>
-                  <TrashIcon color={theme.contrast} size={20} />
-                </TouchableOpacity>
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           {/* Add Ingredient Form */}
           <View style={styles.ingredientForm}>
@@ -381,21 +386,25 @@ export default observer(function AddItemScreen() {
                 </TouchableOpacity>
               </View>
 
-              {(!newIngredient.name || dataStore.ingredients.find(i => i.name === newIngredient.name)?.unit === 'Unidades') && (
-                <View style={[styles.inputWrapper, { flex: 1 }]}>
-                  <Text style={styles.label}>Quantidade</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ex: 3"
-                    placeholderTextColor={theme.text + '80'}
-                    value={newIngredient.quantity}
-                    onChangeText={(text) =>
-                      setNewIngredient(prev => ({ ...prev, quantity: text }))
-                    }
-                    onSubmitEditing={handleAddIngredient}
-                  />
-                </View>
-              )}
+              {newIngredient.name && (() => {
+                const stockIng = dataStore.ingredients.find(i => i.name === newIngredient.name);
+                const itemIsInt = isUnitInteger(stockIng?.unit);
+                const unitLabel = stockIng?.unit || 'un';
+                return (
+                  <View style={[styles.inputWrapper, { flex: 1 }]}>
+                    <Text style={styles.label}>Quantidade ({unitLabel})</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder={itemIsInt ? 'Ex: 3' : 'Ex: 0,2'}
+                      placeholderTextColor={theme.text + '80'}
+                      keyboardType={itemIsInt ? 'number-pad' : 'decimal-pad'}
+                      value={newIngredient.quantity}
+                      onChangeText={(text) => setNewIngredient(prev => ({ ...prev, quantity: text }))}
+                      onSubmitEditing={handleAddIngredient}
+                    />
+                  </View>
+                );
+              })()}
             </View>
 
 
@@ -429,30 +438,6 @@ export default observer(function AddItemScreen() {
         </View>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[
-              styles.button,
-              formData.hasRemovals && styles.buttonActive,
-            ]}
-            activeOpacity={0.7}
-            onPress={() => toggleFeature('hasRemovals')}
-          >
-            <MapPointIcon style={styles.buttonIcon} size={18} color={formData.hasRemovals ? theme.contrast : theme.text} />
-            <Text style={styles.buttonText}>Habilitar Remoções</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.button,
-              formData.hasAdditionals && styles.buttonActive,
-            ]}
-            activeOpacity={0.7}
-            onPress={() => toggleFeature('hasAdditionals')}
-          >
-            <FileTextIcon style={styles.buttonIcon} size={18} color={formData.hasAdditionals ? theme.contrast : theme.text} />
-            <Text style={styles.buttonText}>Habilitar Adicionais</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={{...styles.button, ...styles.primaryButton}}
             activeOpacity={0.8}
@@ -609,6 +594,29 @@ function makeStyles(theme: any, isWeb: boolean) {
       color: theme.text,
       minWidth: 24,
       textAlign: 'center',
+    },
+    ingredientQtyInput: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 16,
+      color: theme.text,
+      minWidth: 56,
+      maxWidth: 80,
+      paddingVertical: 4,
+      paddingHorizontal: 4,
+      textAlign: 'center',
+      backgroundColor: theme.background,
+      borderRadius: 8,
+      outlineStyle: 'none',
+    } as any,
+    ingredientStepBtn: {
+      padding: 4,
+      width: 24,
+      alignItems: 'center',
+    },
+    ingredientStepBtnText: {
+      color: theme.text,
+      fontSize: 18,
+      fontFamily: 'Jost_700Bold',
     },
     ingredientDivider: {
       width: 1,

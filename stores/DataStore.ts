@@ -14,9 +14,6 @@ export interface MenuItem {
   price: number;
   category?: string;
   ingredients?: any[];
-  hasRemovals?: boolean;
-  hasAdditionals?: boolean;
-  serves?: string | number;
   image?: string | null;
   isActive?: boolean;
   stockProductId?: string;
@@ -312,9 +309,6 @@ class DataStore {
             }
             return [];
         })(),
-        hasRemovals: false,
-        hasAdditionals: false,
-        serves: 1,
         image: null,
       }));
       // Salvar cardápio em cache local
@@ -462,9 +456,6 @@ class DataStore {
           }
           return [];
         })(),
-        hasRemovals: false,
-        hasAdditionals: false,
-        serves: 1,
         image: null,
       }));
       // Salvar em cache local
