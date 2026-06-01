@@ -238,6 +238,14 @@ class DataStore {
       if (this.branches.length === 0) {
         this.branches = [...DEFAULT_BRANCHES];
       }
+
+      this.restaurants = myRestaurants
+        .filter((r: any) => r.restaurantId)
+        .map((r: any) => ({
+          id: r.restaurantId._id,
+          name: r.restaurantId.name,
+          cnpj: r.restaurantId.cnpj,
+        }));
     } catch (e) {
       console.warn("Failed to load restaurant details, keeping previous values.", e);
       // Mantém valores anteriores se já existirem, senão cria default
@@ -1010,6 +1018,7 @@ class DataStore {
     this.branches = [...DEFAULT_BRANCHES];
     this.modules = DEFAULT_MODULES.map(m => ({ ...m }));
     this.restaurantDetails = null;
+    this.restaurants = [];
     this.staff = [];
     this.inviteCodeInfo = null;
     this.isRefreshingInviteCode = false;

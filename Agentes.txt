@@ -1,11 +1,11 @@
 # Agentes:
-## Super Agentes
-- ProblemSolver: Para corrigir problemas de código
-- Builder: 
+## Agentes
+- ProblemSolver: Especializado em enteder e corrigir problemas de código
+- Builder: Para implementar novos recursos
 
 - Discution: Agente para poder debater e discutir sobre o ideias e implementações do projeto, ele vai ter conhecimento completo do projeto, eu vou perguntar para ele as coisas e ele vai me responder, vou dar ideias e ele vai falar se é viavel implementar (Deep Seek)
 
-
+## Subagentes
 - Coder (Sub Agente) (local): Especializado na linguagem daquele projeto, após cada alteração vai criar um documento markdown sobre cada alteração que foi feita, e o mótivo (MiniMax)
 - Code Reviewer (Sub Agente) (local): Analisa(MiniMax)
 - Documentação (Sub Agente) (global): Ele vê as alterações que foram feitas e atualiza a documentação que é o AGENTS.MD

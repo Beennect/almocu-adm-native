@@ -47,7 +47,7 @@
 [ ] Deixar navbar ser retratil
 
 # Config
-[ ] Trocar os Emojis por Icones
+[X] Trocar os Emojis por Icones
 [ ] Em Workspaces, os restaurantes estão aparecendo com o ID invés do nome, sumir com o ID e deixar o nome
 
 # Módulos 

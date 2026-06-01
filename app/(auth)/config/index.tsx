@@ -649,7 +649,7 @@ export default observer(function ConfigScreen() {
                                 {item.name}
                               </Text>
                               <Text style={{ fontSize: 11, color: theme.text, opacity: 0.5 }} numberOfLines={1}>
-                                ID: {item.id}
+                                CNPJ: {(item as any).cnpj ? maskCnpj((item as any).cnpj) : '—'}
                               </Text>
                             </View>
                             {isActive && <CheckIcon color={theme.contrast} size={16} style={{ marginRight: 4 }} />}
