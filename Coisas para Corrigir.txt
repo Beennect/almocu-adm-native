@@ -36,7 +36,7 @@
 [X] Não tem quantidade de pessoas que alimenta (desnecessário)
 [X] os inputs de número estão aceitando letras, é tá enviando também, coisa que não deveria, então dá erro
 [X] em categoria de prato, o front está armazenando em brand, já que no backend não existe o campo, categoria de prato
-[ ] Permitir a pesquisa de ingredientes 
+[X] Permitir a pesquisa de ingredientes 
 
 # Fornecedor
 [X] Adicionar

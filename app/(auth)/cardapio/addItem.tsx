@@ -21,6 +21,7 @@ import {
 } from '../../../components/shared/Icons';
 import { SelectModal } from '../../../components/shared/SelectModal';
 import { ConfirmModal } from '../../../components/shared/ConfirmModal';
+import { IngredientPickerModal } from '../../../components/shared/IngredientPickerModal';
 
 interface Ingredient {
   id: string;
@@ -38,7 +39,7 @@ interface AddItemFormData {
   photo: string | null;
 }
 
-import { dataStore } from '@/stores/DataStore';
+import { dataStore, IngredientItem } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
 import { withLoading } from '@/utils/toast';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -66,18 +67,12 @@ export default observer(function AddItemScreen() {
   const [photoOriginalSize, setPhotoOriginalSize] = useState<number | null>(null);
 
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [newIngredient, setNewIngredient] = useState({
-    name: '',
-    quantity: '',
-    info: ''
-  });
 
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
-  const [ingredientModalVisible, setIngredientModalVisible] = useState(false);
+  const [ingredientPickerVisible, setIngredientPickerVisible] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const categoryOptions = ["Entradas", "Pratos Principais", "Sobremesas", "Bebidas", "Combos"];
-  const ingredientOptions = dataStore.ingredients.map(i => i.name);
 
   // Carregar dados se estiver editando
   useEffect(() => {
@@ -151,40 +146,6 @@ export default observer(function AddItemScreen() {
     return sanitized;
   };
 
-  const handleAddIngredient = () => {
-    const stockIng = dataStore.ingredients.find(i => i.name === newIngredient.name);
-
-    if (!stockIng) {
-      Toast.show({ type: 'error', text1: "Ingrediente não encontrado no estoque. Atualize a lista." });
-      return;
-    }
-
-    if (!newIngredient.name || !newIngredient.quantity) {
-      Toast.show({ type: 'error', text1: "Selecione um ingrediente e informe a quantidade." });
-      return;
-    }
-
-    const isInt = isUnitInteger(stockIng.unit);
-    const rawQty = newIngredient.quantity.replace(',', '.').trim();
-    const qty = isInt ? parseInt(rawQty, 10) : parseFloat(rawQty);
-
-    if (isNaN(qty) || qty < getMinForUnit(stockIng.unit)) {
-      Toast.show({ type: 'error', text1: `A quantidade deve ser maior que zero${isInt ? '' : ' (mínimo 0,01)'}.` });
-      return;
-    }
-
-    const ingredient: Ingredient = {
-      id: stockIng.id,
-      name: newIngredient.name,
-      quantity: formatQty(qty, stockIng.unit),
-      info: newIngredient.info,
-      unit: stockIng.unit || 'Unidades'
-    };
-
-    setIngredients(prev => [...prev, ingredient]);
-    setNewIngredient({ name: '', quantity: '', info: '' });
-  };
-
   const removeIngredient = (id: string) => {
     setConfirmDeleteId(id);
   };
@@ -194,6 +155,32 @@ export default observer(function AddItemScreen() {
       setIngredients(prev => prev.filter(item => item.id !== confirmDeleteId));
       setConfirmDeleteId(null);
     }
+  };
+
+  const handleConfirmIngredients = (selectedIds: string[]) => {
+    setIngredients(prev => {
+      const next: Ingredient[] = [];
+      const prevById = new Map(prev.map(i => [i.id, i]));
+
+      for (const id of selectedIds) {
+        const existing = prevById.get(id);
+        if (existing) {
+          next.push(existing);
+          continue;
+        }
+        const stockIng = dataStore.ingredients.find((i: IngredientItem) => i.id === id);
+        if (!stockIng) continue;
+        const defaultQty = isUnitInteger(stockIng.unit) ? 1 : 0.1;
+        next.push({
+          id: stockIng.id,
+          name: stockIng.name,
+          quantity: formatQty(defaultQty, stockIng.unit),
+          unit: stockIng.unit || 'Unidades',
+        });
+      }
+      return next;
+    });
+    setIngredientPickerVisible(false);
   };
 
   const adjustQty = (id: string, delta: number) => {
@@ -361,12 +348,24 @@ export default observer(function AddItemScreen() {
           </View>
 
           {/* Ingredient List */}
+          {ingredients.length > 0 && (
+            <Text style={styles.label}>Ingredientes</Text>
+          )}
+
+          {ingredients.length === 0 && (
+            <View style={styles.ingredientEmptyState}>
+              <Text style={[styles.ingredientEmptyTitle, { color: theme.text }]}>Nenhum ingrediente adicionado</Text>
+              <Text style={[styles.ingredientEmptySubtitle, { color: theme.text }]}>
+                Toque em &quot;Adicionar Ingredientes&quot; para escolher os itens que compõem a receita.
+              </Text>
+            </View>
+          )}
+
           {ingredients.map((item, index) => {
             const itemIsInt = isUnitInteger(item.unit);
             const step = getStepForUnit(item.unit);
             return (
-              <View key={`${item.id}-${index}`} style={{ marginBottom: 16 }}>
-                <Text style={styles.label}>Ingrediente {index + 1}</Text>
+              <View key={`${item.id}-${index}`} style={{ marginBottom: 12 }}>
                 <View style={styles.ingredientItem}>
                   <View style={styles.ingredientQtyWrapper}>
                     <TouchableOpacity onPress={() => adjustQty(item.id, -step)} style={styles.ingredientStepBtn}>
@@ -386,7 +385,7 @@ export default observer(function AddItemScreen() {
                   </View>
                   <View style={styles.ingredientContent}>
                     <Text style={styles.ingredientNameText}>
-                      {item.name} {item.info ? <Text style={styles.ingredientInfoText}>{item.info}</Text> : null}
+                      {item.name} {item.unit ? <Text style={styles.ingredientInfoText}>· {item.unit}</Text> : null}
                     </Text>
                   </View>
                   <TouchableOpacity onPress={() => removeIngredient(item.id)}>
@@ -397,57 +396,17 @@ export default observer(function AddItemScreen() {
             );
           })}
 
-          {/* Add Ingredient Form */}
-          <View style={styles.ingredientForm}>
-            <View style={styles.row}>
-              <View style={[styles.inputWrapper, { flex: 1.5 }]}>
-                <Text style={styles.label}>Ingrediente</Text>
-                <TouchableOpacity
-                  style={[styles.pickerContainer, { flex: undefined }]}
-                  activeOpacity={0.7}
-                  onPress={() => setIngredientModalVisible(true)}
-                >
-                  <Text style={styles.pickerText}>
-                    {newIngredient.name || 'Selecione...'}
-                  </Text>
-                  <View style={styles.pickerIconContainer}>
-                    <ChevronDownIcon color={theme.text} size={20} />
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {newIngredient.name && (() => {
-                const stockIng = dataStore.ingredients.find(i => i.name === newIngredient.name);
-                const itemIsInt = isUnitInteger(stockIng?.unit);
-                const unitLabel = stockIng?.unit || 'un';
-                return (
-                  <View style={[styles.inputWrapper, { flex: 1 }]}>
-                    <Text style={styles.label}>Quantidade ({unitLabel})</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder={itemIsInt ? 'Ex: 3' : 'Ex: 0,2'}
-                      placeholderTextColor={theme.text + '80'}
-                      keyboardType={itemIsInt ? 'number-pad' : 'decimal-pad'}
-                      value={newIngredient.quantity}
-                      onChangeText={(text) => setNewIngredient(prev => ({ ...prev, quantity: text }))}
-                      onSubmitEditing={handleAddIngredient}
-                    />
-                  </View>
-                );
-              })()}
-            </View>
-
-
-
-            <TouchableOpacity 
-              style={styles.addIngredientBtn} 
-              onPress={handleAddIngredient}
-              activeOpacity={0.7}
-            >
-              <PlusIcon size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.addIngredientBtnText}>Adicionar Ingrediente</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Add Ingredient Button */}
+          <TouchableOpacity
+            style={styles.addIngredientBtn}
+            onPress={() => setIngredientPickerVisible(true)}
+            activeOpacity={0.7}
+          >
+            <PlusIcon size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.addIngredientBtnText}>
+              {ingredients.length > 0 ? 'Adicionar mais ingredientes' : 'Adicionar Ingredientes'}
+            </Text>
+          </TouchableOpacity>
 
           <View>
             <Text style={styles.label}>Descrição do Produto</Text>
@@ -487,12 +446,12 @@ export default observer(function AddItemScreen() {
         title="Selecione a Categoria"
       />
 
-      <SelectModal 
-        visible={ingredientModalVisible}
-        onClose={() => setIngredientModalVisible(false)}
-        onSelect={(val) => setNewIngredient(prev => ({ ...prev, name: val }))}
-        options={ingredientOptions}
-        title="Selecione o Ingrediente"
+      <IngredientPickerModal
+        visible={ingredientPickerVisible}
+        onClose={() => setIngredientPickerVisible(false)}
+        onConfirm={handleConfirmIngredients}
+        ingredients={dataStore.ingredients}
+        initialSelectedIds={ingredients.map(i => i.id)}
       />
 
       <ConfirmModal 
@@ -670,17 +629,28 @@ function makeStyles(theme: any, isWeb: boolean) {
       color: theme.text,
       opacity: 0.6,
     },
-    ingredientForm: {
-      backgroundColor: theme.background + '80',
-      borderRadius: 20,
-      padding: 16,
-      gap: 12,
+    ingredientEmptyState: {
+      backgroundColor: theme.foreground,
+      borderRadius: 16,
       borderWidth: 1,
-      borderColor: theme.foreground,
+      borderColor: 'rgba(255, 255, 255, 0.06)',
+      borderStyle: 'dashed',
+      paddingVertical: 24,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    ingredientInfoInput: {
+    ingredientEmptyTitle: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 14,
+      marginBottom: 6,
+      textAlign: 'center',
+    },
+    ingredientEmptySubtitle: {
+      fontFamily: 'Jost_400Regular',
       fontSize: 12,
-      paddingVertical: 10,
+      opacity: 0.6,
+      textAlign: 'center',
     },
     addIngredientBtn: {
       backgroundColor: theme.contrast,
