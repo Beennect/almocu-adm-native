@@ -113,7 +113,6 @@ export default function RootLayout() {
           <Stack.Screen name="register" />
           <Stack.Screen name="forgot-password" />
           <Stack.Screen name="oauth-callback" />
-          <Stack.Screen name="(auth)" />
         </Stack>
         <View
           pointerEvents="box-none"
