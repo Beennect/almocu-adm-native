@@ -234,7 +234,12 @@ export default observer(function ConfigScreen() {
 
   const restaurantIds = Object.keys(authStore.user?.restaurantRoles || {});
   const userWorkspaces = restaurantIds.map(id => {
-    return dataStore.restaurants.find(r => r.id === id) || { id, name: `Restaurante (${id})` };
+    const found = dataStore.restaurants.find(r => r.id === id);
+    if (!found) {
+      console.warn(`[workspace] dataStore.restaurants sem entrada para ${id} — usando fallback`);
+      return { id, name: `Restaurante (${id})` };
+    }
+    return found;
   });
 
   const handleLogout = async () => {

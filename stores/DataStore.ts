@@ -8,6 +8,14 @@ import { apiStockService } from "../services/api-stock-service";
 import { apiSupplierService, SupplierInput } from "../services/api-supplier-service";
 import { authStore } from "./AuthStore";
 
+const MENU_IMAGE_BASE_URL = 'http://localhost:3000';
+
+const resolveImageUrl = (imageUrl?: string | null): string | null => {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  return `${MENU_IMAGE_BASE_URL}${imageUrl}`;
+};
+
 export interface MenuItem {
   id: string;
   name: string;
@@ -176,6 +184,12 @@ class DataStore {
   activeNotifications: string[] = [];
   inviteCodeInfo: InviteCodeInfo | null = null;
   isRefreshingInviteCode: boolean = false;
+  isRefreshingWorkspaces: boolean = false;
+  isRefreshingMenu: boolean = false;
+  isRefreshingStock: boolean = false;
+  isRefreshingSuppliers: boolean = false;
+  isRefreshingStaff: boolean = false;
+  isRefreshingOrders: boolean = false;
 
   constructor() {
     makeAutoObservable(this);
@@ -184,10 +198,48 @@ class DataStore {
   async init() {
     if (!authStore.user) return;
 
+    await this.loadLocalConfig();
+
     const restId = authStore.user.restaurantId;
 
-    // ── Carregar módulos SEMPRE, independente de APIs ──
-    // Isso garante que a navbar nunca fique vazia mesmo se o backend falhar
+    if (!restId) {
+      // Sem workspace ativo: garante pelo menos a lista de workspaces para o seletor
+      await this.refreshWorkspaces();
+      this.isInitialized = true;
+      return;
+    }
+
+    const settled = await Promise.allSettled([
+      this.refreshWorkspaces(),
+      this.refreshInviteCode(),
+      this.refreshMenu(),
+      this.refreshStock(),
+      this.refreshSuppliers().then(() => this.enrichIngredientsWithSupplierNames()),
+      this.refreshStaff(),
+      this.refreshOrders(),
+    ]);
+
+    settled.forEach((result, idx) => {
+      if (result.status === 'rejected') {
+        const labels = [
+          'refreshWorkspaces',
+          'refreshInviteCode',
+          'refreshMenu',
+          'refreshStock',
+          'refreshSuppliers',
+          'refreshStaff',
+          'refreshOrders',
+        ];
+        console.warn(`[DataStore.init] ${labels[idx]} falhou:`, result.reason);
+      }
+    });
+
+    this.isInitialized = true;
+  }
+
+  async loadLocalConfig() {
+    if (!authStore.user) return;
+    const restId = authStore.user.restaurantId;
     try {
       const storedModules = await AsyncStorage.getItem(
         `modules_${authStore.user.email}_${restId || 'default'}`
@@ -210,55 +262,16 @@ class DataStore {
       console.error('Failed to load modules from storage, using defaults.', e);
       this.modules = DEFAULT_MODULES.map((m) => ({ ...m }));
     }
+  }
 
-    if (!restId) {
-      this.clear();
-      this.isInitialized = true;
-      return;
-    }
-
-    // ── Chave para cache local ──
-    const userKey = authStore.user.email;
-    const cacheKey = (suffix: string) => `${userKey}_${restId}_${suffix}`;
-
-    // ── 1. Restaurante & Filiais (próprio try-catch) ──
+  async refreshWorkspaces() {
+    if (this.isRefreshingWorkspaces) return;
+    if (!authStore.user) return;
+    this.isRefreshingWorkspaces = true;
     try {
       const restResponse = await api.get('/restaurants/my');
-      const myRestaurants = restResponse.data;
-      const activeLink = myRestaurants.find((r: any) => r.restaurantId && r.restaurantId._id === restId);
-      
-      if (activeLink) {
-        const rDetails = activeLink.restaurantId;
-        this.restaurantDetails = {
-          id: rDetails._id,
-          name: rDetails.name,
-          cnpj: rDetails.cnpj,
-          maxBranches: typeof rDetails.maxBranches === 'number' ? rDetails.maxBranches : 1,
-          plan: rDetails.plan || 'BASIC',
-          status: rDetails.status || 'active',
-          inviteCode: rDetails.inviteCode,
-          ratingAverage: 5.0,
-          ratingCount: 1,
-        };
-      } else {
-        this.restaurantDetails = {
-          ...DEFAULT_RESTAURANT,
-          id: restId,
-          name: 'Novo Restaurante'
-        };
-      }
-
-      const filiais = myRestaurants.filter((r: any) => r.restaurantId && r.restaurantId.parentId === restId);
-      this.branches = filiais.map((f: any) => ({
-        id: f.restaurantId._id,
-        name: f.restaurantId.name,
-        cnpj: f.restaurantId.cnpj,
-        phone: '(11) 3456-7890',
-        address: 'Endereço da Filial',
-      }));
-      if (this.branches.length === 0) {
-        this.branches = [...DEFAULT_BRANCHES];
-      }
+      const myRestaurants = restResponse.data || [];
+      const restId = authStore.user.restaurantId;
 
       this.restaurants = myRestaurants
         .filter((r: any) => r.restaurantId)
@@ -267,41 +280,76 @@ class DataStore {
           name: r.restaurantId.name,
           cnpj: r.restaurantId.cnpj,
         }));
+
+      if (restId) {
+        const activeLink = myRestaurants.find(
+          (r: any) => r.restaurantId && r.restaurantId._id === restId
+        );
+        if (activeLink) {
+          const rDetails = activeLink.restaurantId;
+          this.restaurantDetails = {
+            id: rDetails._id,
+            name: rDetails.name,
+            cnpj: rDetails.cnpj,
+            maxBranches: typeof rDetails.maxBranches === 'number' ? rDetails.maxBranches : 1,
+            plan: rDetails.plan || 'BASIC',
+            status: rDetails.status || 'active',
+            inviteCode: rDetails.inviteCode,
+            ratingAverage: 5.0,
+            ratingCount: 1,
+          };
+        } else if (!this.restaurantDetails) {
+          this.restaurantDetails = {
+            ...DEFAULT_RESTAURANT,
+            id: restId,
+            name: 'Novo Restaurante',
+          };
+        }
+
+        const filiais = myRestaurants.filter(
+          (r: any) => r.restaurantId && r.restaurantId.parentId === restId
+        );
+        this.branches = filiais.map((f: any) => ({
+          id: f.restaurantId._id,
+          name: f.restaurantId.name,
+          cnpj: f.restaurantId.cnpj,
+          phone: '(11) 3456-7890',
+          address: 'Endereço da Filial',
+        }));
+        if (this.branches.length === 0) {
+          this.branches = [...DEFAULT_BRANCHES];
+        }
+      } else {
+        if (!this.restaurantDetails) {
+          this.restaurantDetails = null;
+        }
+        if (this.branches.length === 0) {
+          this.branches = [...DEFAULT_BRANCHES];
+        }
+      }
     } catch (e) {
-      console.warn("Failed to load restaurant details, keeping previous values.", e);
-      // Mantém valores anteriores se já existirem, senão cria default
-      if (!this.restaurantDetails) {
-        this.restaurantDetails = { ...DEFAULT_RESTAURANT, id: restId, name: 'Restaurante' };
+      console.warn('refreshWorkspaces() falhou - mantendo valores anteriores:', e);
+      if (!this.restaurantDetails && authStore.user.restaurantId) {
+        this.restaurantDetails = {
+          ...DEFAULT_RESTAURANT,
+          id: authStore.user.restaurantId,
+          name: 'Restaurante',
+        };
       }
       if (this.branches.length === 0) {
         this.branches = [...DEFAULT_BRANCHES];
       }
+    } finally {
+      this.isRefreshingWorkspaces = false;
     }
+  }
 
-    // ── 2. Código de Convite (carregado cedo para aparecer rápido na tela) ──
-    await this.refreshInviteCode();
+  // ── Métodos de refresh focado (substitutos do init() completo) ──
 
-    // ── 3. Estoque (Ingredientes) ──
-    try {
-      const stockData = await apiStockService.getStock(1, 100);
-      const stockItemsFromApi = stockData.items || [];
-      this.ingredients = stockItemsFromApi.map((ing: any) => ({
-        id: ing._id,
-        name: ing.name,
-        unit: ing.unit || 'un',
-        stock: ing.quantity || 0,
-        supplierId: ing.supplierId || undefined,
-      }));
-    } catch (stockErr) {
-      console.warn("Failed to fetch stock from API, ingredients will use fallback names.", stockErr);
-      this.ingredients = [];
-    }
-
-    // ── 3.1 Fornecedores (carregado após estoque para que os ingredients recebam o nome do supplier) ──
-    await this.refreshSuppliers();
-    this.enrichIngredientsWithSupplierNames();
-
-    // ── 4. Cardápio (com cache local) ──
+  async refreshMenu() {
+    if (this.isRefreshingMenu) return;
+    if (!authStore.user?.restaurantId) return;
+    this.isRefreshingMenu = true;
     try {
       const menuData = await apiMenuService.getMenu(1, 100);
       const menuItemsFromApi = menuData.items || [];
@@ -310,7 +358,7 @@ class DataStore {
         name: item.name,
         description: item.description || '',
         price: item.price,
-        category: item.brand || 'Geral',
+        category: item.category || 'Geral',
         isActive: item.isActive !== false,
         available: item.isActive !== false,
         ingredients: (() => {
@@ -344,154 +392,7 @@ class DataStore {
             }
             return [];
         })(),
-        image: null,
-      }));
-      // Salvar cardápio em cache local
-      await AsyncStorage.setItem(`menu_${cacheKey('menu')}`, JSON.stringify(this.menuItems));
-    } catch (menuErr) {
-      console.warn("Failed to fetch menu from API, loading from cache.", menuErr);
-      try {
-        const cached = await AsyncStorage.getItem(`menu_${cacheKey('menu')}`);
-        if (cached) {
-          this.menuItems = JSON.parse(cached);
-        }
-      } catch (cacheErr) {
-        console.warn("Failed to load menu from cache.", cacheErr);
-        this.menuItems = [];
-      }
-    }
-
-    // ── 5. Equipe (Staff) com cache local ──
-    try {
-      const staffData = await apiStaffService.getStaff(restId, 1, 50);
-      // Aceitar tanto { items: [...] } quanto array direto
-      const staffList = Array.isArray(staffData) ? staffData : (staffData?.items || []);
-      this.staff = staffList.map((st: any) => {
-        const rawUserId = st.userId;
-        const userId = typeof rawUserId === 'string' ? rawUserId : (rawUserId?._id || rawUserId?.id || '');
-        return {
-          userId,
-          name: rawUserId?.name || 'Funcionário',
-          email: rawUserId?.email || rawUserId?.username || 'email@restaurante.com',
-          role: mapRoleToFrontend(st.role),
-          performanceStats: { tablesServed: 10, ratingAverage: 4.9, dishesPrepared: 5, revenueGenerated: 250.00 }
-        };
-      });
-      // Salvar staff em cache local
-      await AsyncStorage.setItem(`staff_${cacheKey('staff')}`, JSON.stringify(this.staff));
-    } catch (staffErr) {
-      console.warn("Failed to fetch staff from API, loading from cache.", staffErr);
-      try {
-        const cached = await AsyncStorage.getItem(`staff_${cacheKey('staff')}`);
-        if (cached) {
-          this.staff = JSON.parse(cached);
-        } else {
-          // Fallback: pelo menos o próprio usuário
-          this.staff = [{
-            userId: authStore.user.id || authStore.user.email,
-            name: authStore.user.name || 'Usuário',
-            email: authStore.user.email,
-            role: authStore.activeRole,
-            performanceStats: { tablesServed: 12, ratingAverage: 4.9, dishesPrepared: 0, revenueGenerated: 1450.00 }
-          }];
-        }
-      } catch (cacheErr) {
-        console.warn("Failed to load staff from cache.", cacheErr);
-        this.staff = [{
-          userId: authStore.user.id || authStore.user.email,
-          name: authStore.user.name || 'Usuário',
-          email: authStore.user.email,
-          role: authStore.activeRole,
-          performanceStats: { tablesServed: 12, ratingAverage: 4.9, dishesPrepared: 0, revenueGenerated: 1450.00 }
-        }];
-      }
-    }
-
-    // ── 6. Pedidos (Orders) ──
-    try {
-      // Garçom e caixa usam o endpoint /orders/user (não podem ver pedidos de todos)
-      const isLimitedRole = authStore.activeRole === 'GARCOM' || authStore.activeRole === 'CAIXA' || authStore.activeRole === 'COMUM';
-      const ordersData = isLimitedRole
-        ? await apiOrderService.getUserOrders()
-        : await apiOrderService.getOrders();
-      // Aceitar tanto array direto quanto formato { items: [...] }
-      const ordersList = Array.isArray(ordersData) ? ordersData : (ordersData?.items || []);
-      this.orders = ordersList.map((ord: any) => {
-        const dateStr = ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '00:00';
-        return {
-          id: ord._id,
-          clientName: ord.origin || 'Garçom',
-          table: ord.origin || 'Balcão',
-          total: ord.totalValue,
-          status: mapStatusToFrontend(ord.status),
-          time: dateStr,
-          createdAt: ord.createdAt || new Date().toISOString(),
-          items: ord.items ? ord.items.map((i: any) => ({
-            id: i.productId?._id || i.productId,
-            name: i.name || 'Produto',
-            quantity: i.quantity,
-            price: i.price || 0,
-          })) : [],
-          statusHistory: ord.statusHistory ? ord.statusHistory.map((h: any) => ({
-            status: mapStatusToFrontend(h.status),
-            timestamp: h.timestamp,
-          })) : [{ status: mapStatusToFrontend(ord.status), timestamp: ord.createdAt || new Date().toISOString() }],
-        };
-      });
-    } catch (ordersErr) {
-      console.warn("Failed to fetch orders from API, keeping previous values.", ordersErr);
-      // NÃO limpar this.orders - manter valores anteriores (evita sumiço na UI)
-    }
-
-  }
-
-  // ── Métodos de refresh focado (substitutos do init() completo) ──
-
-  async refreshMenu() {
-    if (!authStore.user?.restaurantId) return;
-    try {
-      const menuData = await apiMenuService.getMenu(1, 100);
-      const menuItemsFromApi = menuData.items || [];
-      this.menuItems = menuItemsFromApi.map((item: any) => ({
-        id: item._id,
-        name: item.name,
-        description: item.description || '',
-        price: item.price,
-        category: item.brand || 'Geral',
-        isActive: item.isActive !== false,
-        available: item.isActive !== false,
-        ingredients: (() => {
-          if (item.ingredients && Array.isArray(item.ingredients) && item.ingredients.length > 0) {
-            return item.ingredients.map((ing: any) => {
-              const ingId = ing.stockProductId || ing.id || (typeof ing === 'string' ? ing : 'unknown');
-              const matchedStock = this.ingredients.find(i => i.id === ingId);
-              if (matchedStock) {
-                return { id: matchedStock.id, name: matchedStock.name, quantity: ing.quantity?.toString() || '1', unit: matchedStock.unit, info: ing.info || '' };
-              }
-              return { id: ingId, name: ing.name || 'Ingrediente Base', quantity: ing.quantity?.toString() || '1', unit: ing.unit || 'un', info: ing.info || '' };
-            });
-          }
-          if (item.stockProductId && typeof item.stockProductId === 'string' && !item.stockProductId.startsWith('[')) {
-            const matchedIng = this.ingredients.find(i => i.id === item.stockProductId);
-            if (matchedIng) {
-              return [{ id: matchedIng.id, name: matchedIng.name, quantity: '1', unit: matchedIng.unit, info: '' }];
-            }
-          }
-          if (item.stockProductId && typeof item.stockProductId === 'string' && item.stockProductId.startsWith('[')) {
-            try {
-              const embedded = JSON.parse(item.stockProductId);
-              if (Array.isArray(embedded) && embedded.length > 0) {
-                return embedded.map((ing: any) => {
-                  const ingId = ing.stockProductId || ing.id || (typeof ing === 'string' ? ing : 'unknown');
-                  const matchedStock = this.ingredients.find(i => i.id === ingId);
-                  return { id: matchedStock ? matchedStock.id : ingId, name: matchedStock ? matchedStock.name : (ing.name || 'Ingrediente'), quantity: ing.quantity?.toString() || '1', unit: matchedStock ? matchedStock.unit : (ing.unit || 'un'), info: ing.info || '' };
-                });
-              }
-            } catch (e) {}
-          }
-          return [];
-        })(),
-        image: null,
+        image: resolveImageUrl(item.imageUrl),
       }));
       // Salvar em cache local
       const userKey = authStore.user!.email;
@@ -499,11 +400,15 @@ class DataStore {
       await AsyncStorage.setItem(`menu_${userKey}_${restId}_menu`, JSON.stringify(this.menuItems));
     } catch (e) {
       console.warn('refreshMenu() falhou:', e);
+    } finally {
+      this.isRefreshingMenu = false;
     }
   }
 
   async refreshStock() {
+    if (this.isRefreshingStock) return;
     if (!authStore.user?.restaurantId) return;
+    this.isRefreshingStock = true;
     try {
       const stockData = await apiStockService.getStock(1, 100);
       const stockItemsFromApi = stockData.items || [];
@@ -519,11 +424,15 @@ class DataStore {
       this.enrichIngredientsWithSupplierNames();
     } catch (e) {
       console.warn('refreshStock() falhou:', e);
+    } finally {
+      this.isRefreshingStock = false;
     }
   }
 
   async refreshSuppliers() {
+    if (this.isRefreshingSuppliers) return;
     if (!authStore.user?.restaurantId) return;
+    this.isRefreshingSuppliers = true;
     try {
       const data = await apiSupplierService.getSuppliers(1, 100);
       const items = data.items || [];
@@ -541,6 +450,8 @@ class DataStore {
       }));
     } catch (e) {
       console.warn('refreshSuppliers() falhou:', e);
+    } finally {
+      this.isRefreshingSuppliers = false;
     }
   }
 
@@ -553,7 +464,9 @@ class DataStore {
   }
 
   async refreshOrders() {
+    if (this.isRefreshingOrders) return;
     if (!authStore.user?.restaurantId) return;
+    this.isRefreshingOrders = true;
     try {
       // Garçom, caixa e comum usam /orders/user (não podem ver pedidos de todos)
       const isLimitedRole = authStore.activeRole === 'GARCOM' || authStore.activeRole === 'CAIXA' || authStore.activeRole === 'COMUM';
@@ -585,11 +498,15 @@ class DataStore {
       });
     } catch (e) {
       console.warn('refreshOrders() falhou - mantendo pedidos anteriores:', e);
+    } finally {
+      this.isRefreshingOrders = false;
     }
   }
 
   async refreshStaff() {
+    if (this.isRefreshingStaff) return;
     if (!authStore.user?.restaurantId) return;
+    this.isRefreshingStaff = true;
     const restId = authStore.user.restaurantId;
     try {
       const staffData = await apiStaffService.getStaff(restId, 1, 50);
@@ -609,6 +526,8 @@ class DataStore {
       await AsyncStorage.setItem(`staff_${userKey}_${restId}_staff`, JSON.stringify(this.staff));
     } catch (e) {
       console.warn('refreshStaff() falhou:', e);
+    } finally {
+      this.isRefreshingStaff = false;
     }
   }
 
@@ -620,7 +539,7 @@ class DataStore {
     this.isRefreshingInviteCode = true;
     const restId = authStore.user.restaurantId;
     try {
-      const data = await apiStaffService.getInviteCode(restId);
+      const data: any = await apiStaffService.getInviteCode(restId);
       // API retorna { code: string, expiresInSeconds: number }
       const seconds = data?.expiresInSeconds ?? data?.expireInSeconds;
       if (data && data.code && seconds != null && Number(seconds) > 0) {
@@ -635,6 +554,70 @@ class DataStore {
     } finally {
       this.isRefreshingInviteCode = false;
     }
+  }
+
+  // ── Mutações granulares (preparam terreno para real-time) ──
+  // Estas funções NÃO fazem chamadas de rede — apenas patcham os arrays
+  // observáveis. O canal de eventos chamará estas quando receber atualizações
+  // do backend, evitando refresh* completo da página.
+
+  upsertOrder(order: Order) {
+    if (!order?.id) return;
+    const idx = this.orders.findIndex((o) => o.id === order.id);
+    if (idx === -1) {
+      this.orders = [order, ...this.orders];
+    } else {
+      const next = [...this.orders];
+      next[idx] = { ...next[idx], ...order };
+      this.orders = next;
+    }
+  }
+
+  removeOrder(id: string) {
+    this.orders = this.orders.filter((o) => o.id !== id);
+  }
+
+  upsertMenuItem(item: MenuItem) {
+    if (!item?.id) return;
+    const idx = this.menuItems.findIndex((m) => m.id === item.id);
+    if (idx === -1) {
+      this.menuItems = [...this.menuItems, item];
+    } else {
+      const next = [...this.menuItems];
+      next[idx] = { ...next[idx], ...item };
+      this.menuItems = next;
+    }
+  }
+
+  removeMenuItem(id: string) {
+    this.menuItems = this.menuItems.filter((m) => m.id !== id);
+  }
+
+  adjustStock(id: string, delta: number) {
+    const idx = this.ingredients.findIndex((i) => i.id === id);
+    if (idx === -1) return;
+    const next = [...this.ingredients];
+    next[idx] = {
+      ...next[idx],
+      stock: Math.max(0, (next[idx].stock ?? 0) + delta),
+    };
+    this.ingredients = next;
+  }
+
+  upsertStaff(member: StaffMember) {
+    if (!member?.userId) return;
+    const idx = this.staff.findIndex((s) => s.userId === member.userId);
+    if (idx === -1) {
+      this.staff = [...this.staff, member];
+    } else {
+      const next = [...this.staff];
+      next[idx] = { ...next[idx], ...member };
+      this.staff = next;
+    }
+  }
+
+  removeStaff(userId: string) {
+    this.staff = this.staff.filter((s) => s.userId !== userId);
   }
 
   async clearOrders() {
@@ -655,7 +638,7 @@ class DataStore {
 
   createRestaurantDetails(details: RestaurantDetails) {
     this.restaurantDetails = details;
-    this.init(); // init() completo necessário aqui pois troca o contexto do restaurante
+    this.refreshWorkspaces();
   }
 
   findRestaurantByInviteCode(inviteCode: string) {
@@ -663,7 +646,7 @@ class DataStore {
   }
 
   async joinRestaurantStaff(restaurantId: string, member: StaffMember) {
-    await this.init(); // init() completo necessário pois muda o contexto do restaurante
+    await this.refreshStaff();
   }
 
   async assignStaffRole(email: string, role: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM') {
@@ -704,23 +687,40 @@ class DataStore {
     }
   }
 
-  async addItem(item: Omit<MenuItem, 'id'>) {
-    const created = await apiMenuService.createProduct(item);
+  async addItem(item: Omit<MenuItem, 'id'> & { imageLocalUri?: string | null }) {
+    const { imageLocalUri, ...payload } = item;
+    const created = await apiMenuService.createProduct(payload);
+    const newId = created?._id ?? created?.id;
+    if (newId && imageLocalUri) {
+      try {
+        await apiMenuService.uploadProductImage(newId, imageLocalUri);
+      } catch (uploadError) {
+        console.warn('Upload de imagem falhou (item criado sem foto):', uploadError);
+      }
+    }
     await this.refreshMenu();
     return created;
   }
 
-  async updateItem(id: string, updatedData: Partial<MenuItem>) {
+  async updateItem(id: string, updatedData: Partial<MenuItem> & { imageLocalUri?: string | null }) {
     const previousItems = [...this.menuItems];
+    const { imageLocalUri, ...payload } = updatedData;
 
     // 🚀 Optimistic update
     const index = this.menuItems.findIndex(i => i.id === id);
     if (index !== -1) {
-      this.menuItems[index] = { ...this.menuItems[index], ...updatedData };
+      this.menuItems[index] = { ...this.menuItems[index], ...payload };
     }
 
     try {
-      await apiMenuService.updateProduct(id, updatedData);
+      await apiMenuService.updateProduct(id, payload);
+      if (imageLocalUri) {
+        try {
+          await apiMenuService.uploadProductImage(id, imageLocalUri);
+        } catch (uploadError) {
+          console.warn('Upload de imagem na edição falhou (dados atualizados sem foto):', uploadError);
+        }
+      }
       await this.refreshMenu();
     } catch (error) {
       // 🔙 Reverte
@@ -1079,8 +1079,8 @@ class DataStore {
           found.id = backendBranch._id;
         }
       }
-      // init() completo necessário aqui pois filiais afetam o contexto do restaurante
-      await this.init();
+      // filiais afetam o contexto do restaurante: rebusca workspaces
+      await this.refreshWorkspaces();
     }).catch(err => {
       console.error("Failed to sync new branch to backend", err);
     });
@@ -1122,6 +1122,12 @@ class DataStore {
     this.staff = [];
     this.inviteCodeInfo = null;
     this.isRefreshingInviteCode = false;
+    this.isRefreshingWorkspaces = false;
+    this.isRefreshingMenu = false;
+    this.isRefreshingStock = false;
+    this.isRefreshingSuppliers = false;
+    this.isRefreshingStaff = false;
+    this.isRefreshingOrders = false;
   }
 }
 

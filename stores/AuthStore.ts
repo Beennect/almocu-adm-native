@@ -284,6 +284,8 @@ class AuthStore {
     await AsyncStorage.setItem('user', JSON.stringify(this.user));
     await AsyncStorage.setItem('selected_restaurant_id', restaurantId);
 
+    // init() é fino e paralelo agora; é a forma mais segura de trocar contexto
+    // e cada tela dispara seu próprio refresh* granular ao montar
     await dataStore.init();
   }
 
@@ -312,7 +314,9 @@ class AuthStore {
       await AsyncStorage.removeItem('selected_restaurant_id');
     }
 
-    await dataStore.init();
+    // Apenas rebusca a lista de workspaces (o que importa para o seletor);
+    // as telas de domínio já disparam seus próprios refresh* no mount.
+    await dataStore.refreshWorkspaces();
   }
 
   async refreshProfile() {

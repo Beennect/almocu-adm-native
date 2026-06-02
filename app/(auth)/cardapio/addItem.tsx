@@ -43,6 +43,7 @@ import Toast from 'react-native-toast-message';
 import { withLoading } from '@/utils/toast';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { observer } from 'mobx-react-lite';
+import { compressImageForUpload, formatBytes, IMAGE_UPLOAD_MAX_BYTES } from '@/utils/image-compression';
 
 export default observer(function AddItemScreen() {
   const { width } = useWindowDimensions();
@@ -60,6 +61,9 @@ export default observer(function AddItemScreen() {
     additionalInfo: '',
     photo: null,
   });
+  const [photoLocalUri, setPhotoLocalUri] = useState<string | null>(null);
+  const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
+  const [photoOriginalSize, setPhotoOriginalSize] = useState<number | null>(null);
 
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [newIngredient, setNewIngredient] = useState({
@@ -87,6 +91,7 @@ export default observer(function AddItemScreen() {
           additionalInfo: item.description,
           photo: item.image || null,
         });
+        setPhotoLocalUri(null);
         if (item.ingredients) {
           setIngredients(item.ingredients);
         }
@@ -96,18 +101,33 @@ export default observer(function AddItemScreen() {
 
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.granted) {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.5, // Reduce quality slightly to save base64 string size
-        base64: true,
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      });
-      if (!result.canceled && result.assets[0].base64) {
-        const imageUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
-        setFormData(prev => ({ ...prev, photo: imageUri }));
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    });
+    if (result.canceled || !result.assets[0]?.uri) return;
+    const originalUri = result.assets[0].uri;
+    setIsCompressingPhoto(true);
+    try {
+      const compressed = await compressImageForUpload(originalUri);
+      setPhotoLocalUri(compressed.uri);
+      setPhotoOriginalSize(compressed.size);
+      setFormData(prev => ({ ...prev, photo: compressed.uri }));
+      if (compressed.size > IMAGE_UPLOAD_MAX_BYTES) {
+        Toast.show({
+          type: 'warning',
+          text1: 'Imagem grande',
+          text2: `Após compressão: ${formatBytes(compressed.size)}. Limite: ${formatBytes(IMAGE_UPLOAD_MAX_BYTES)}.`,
+        });
       }
+    } catch (err) {
+      console.warn('Falha ao comprimir imagem:', err);
+      setPhotoLocalUri(originalUri);
+      setFormData(prev => ({ ...prev, photo: originalUri }));
+    } finally {
+      setIsCompressingPhoto(false);
     }
   };
 
@@ -222,14 +242,16 @@ export default observer(function AddItemScreen() {
       return;
     }
 
-    const itemData = {
+    const itemData: any = {
       name: formData.name,
       description: formData.additionalInfo || '',
       price: parseFloat(formData.value.replace(',', '.')),
       category: formData.category,
       ingredients: ingredients,
-      image: formData.photo,
     };
+    if (photoLocalUri) {
+      itemData.imageLocalUri = photoLocalUri;
+    }
 
     await withLoading(
       async () => {
@@ -319,14 +341,22 @@ export default observer(function AddItemScreen() {
                     style={[styles.button, { height: 54, flex: 1 }]}
                     activeOpacity={0.7}
                     onPress={handlePickImage}
+                    disabled={isCompressingPhoto}
                 >
                     <CameraIcon style={styles.buttonIcon} color={formData.photo ? theme.contrast : theme.text} />
-                    <Text style={styles.buttonText}>{formData.photo ? "Trocar Foto" : "Adicionar Foto"}</Text>
+                    <Text style={styles.buttonText}>
+                      {isCompressingPhoto ? 'Comprimindo...' : formData.photo ? 'Trocar Foto' : 'Adicionar Foto'}
+                    </Text>
                 </TouchableOpacity>
                 {formData.photo && (
                   <Image source={{ uri: formData.photo }} style={{ width: 54, height: 54, borderRadius: 12, backgroundColor: theme.foreground }} />
                 )}
               </View>
+              {photoOriginalSize != null && (
+                <Text style={[styles.ingredientInfoText, { marginTop: 6, marginLeft: 4 }]}>
+                  Foto otimizada: {formatBytes(photoOriginalSize)}
+                </Text>
+              )}
             </View>
           </View>
 

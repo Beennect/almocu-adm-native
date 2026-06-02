@@ -3,7 +3,7 @@
 
 Este documento foi criado para servir como base de conhecimento definitiva para desenvolvedores e IAs. Ele descreve a arquitetura geral, o fluxo de multi-tenancy, os esquemas de banco de dados, os endpoints da API e a estrutura modular do front-end da plataforma **Almocu**.
 
-> Última atualização: 2026-06-01
+> Última atualização: 2026-06-02
 
 ---
 
@@ -188,14 +188,14 @@ export class Restaurant {
 ```
 
 ### 🍔 Produto do Cardápio (`ProductSchema` — `apps/menu/src/product/product.schema.ts`)
-> Cada produto agora possui um array de **ingredientes** referenciando itens do estoque, permitindo descontar quantidades de múltiplos insumos ao registrar um pedido.
+> Cada produto agora possui um array de **ingredientes** referenciando itens do estoque, permitindo descontar quantidades de múltiplos insumos ao registrar um pedido. O backend serve as imagens uploaded em `/uploads/products/*` (estático).
 ```typescript
 @Schema({ _id: false })
 class Ingredient {
   @Prop({ type: Types.ObjectId, required: true })
   stockProductId!: Types.ObjectId; // Item de estoque consumido
 
-  @Prop({ required: true, min: 1 })
+  @Prop({ required: true, min: 0 })
   quantity!: number; // Quantidade do insumo por unidade produzida
 }
 
@@ -204,25 +204,25 @@ export class Product extends Document {
   @Prop({ required: true })
   name!: string;
 
-  @Prop({ required: true })
-  brand!: string;
+  @Prop({ required: true, example: 'Hamburgueres', description: 'Categoria do produto' })
+  category!: string;
 
   @Prop({ required: true })
   price!: number;
 
   @Prop()
-  description!: string;
+  description?: string;
+
+  @Prop({ required: false, description: 'Caminho relativo servido em /uploads/products/*' })
+  imageUrl?: string;
 
   @Prop({ type: [IngredientSchema], required: true })
   ingredients!: Ingredient[];
 
   @Prop({ required: true, index: true })
   restaurantId!: string;
-
-  @Prop({ required: true })
-  userId!: string;
 }
-ProductSchema.index({ name: 1, brand: 1, restaurantId: 1 }, { unique: true });
+ProductSchema.index({ name: 1, category: 1, restaurantId: 1 }, { unique: true });
 ```
 
 ### 📦 Item de Estoque (`StockSchema` — `apps/stock/src/stock/stock.schema.ts`)
@@ -418,11 +418,12 @@ Todos os endpoints autenticados requerem `Authorization: Bearer <TOKEN>`. Rotas 
 ### 🍔 Módulo de Cardápio (`/api/menu` ➡️ `/products`)
 | Método | Rota | Roles permitidos | Descrição |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/menu` | OWNER, MANAGER | Cria um novo produto. Body: `{ name, brand, price, description?, ingredients: [{ stockProductId, quantity }] }`. |
+| `POST` | `/api/menu` | OWNER, MANAGER | Cria um novo produto. Body: `{ name, category, price, description?, ingredients: [{ stockProductId, quantity }] }`. |
 | `GET`  | `/api/menu` | WAITER, KITCHEN, DELIVERY, OWNER, MANAGER | Lista produtos paginados (`?page=1&limit=10`). |
 | `GET`  | `/api/menu/:id` | WAITER, KITCHEN, DELIVERY, OWNER, MANAGER | Detalha um produto. |
-| `PATCH`| `/api/menu/:id` | OWNER, MANAGER | Atualiza um produto. Body: `UpdateProductDto`. |
+| `PATCH`| `/api/menu/:id` | OWNER, MANAGER | Atualiza um produto. Body: `UpdateProductDto` (campos opcionais: `name`, `category`, `price`, `description`, `ingredients`). |
 | `DELETE`| `/api/menu/:id` | OWNER, MANAGER | Remove um produto. |
+| `POST` | `/api/menu/:id/upload` | OWNER, MANAGER | Faz upload da imagem do produto (`multipart/form-data`, campo `image`, máx. 5MB; jpeg/png/gif/webp). Atualiza `imageUrl` para `/uploads/products/{filename}`. |
 | `POST` | `/api/menu/batch` | WAITER, KITCHEN, DELIVERY, OWNER, MANAGER | Busca múltiplos produtos por IDs. Body: `{ ids: string[] }`. |
 
 ### 📦 Módulo de Estoque (`/api/stock` ➡️ `/stock`)

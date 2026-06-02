@@ -38,7 +38,13 @@ export default observer(function AutoatendimentoScreen() {
 
   // Initialize workspace data based on query restaurantId
   useEffect(() => {
-    dataStore.init();
+    (async () => {
+      await Promise.allSettled([
+        dataStore.refreshWorkspaces(),
+        dataStore.refreshMenu(),
+        dataStore.refreshOrders(),
+      ]);
+    })();
   }, []);
 
   const activeTable = (table as string) || 'Mesa 01';

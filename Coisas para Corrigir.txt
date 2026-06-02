@@ -20,9 +20,9 @@
 [X] Na url tá ingredientes, deixar estoque também
 [X] A responsividade tá meio ruim, o item lá está esmagado
 [ ] tem que adicionar a opção para adicionar por XML
-[ ] Melhorar mensagem de erro (utilizar toast)
-[ ] Tem que adicionar opção de marca
-[ ] Adicionar fornecedor
+[X] Melhorar mensagem de erro (utilizar toast)
+[X] Tem que adicionar opção de marca
+[X] Adicionar fornecedor
 
 # Pedidos
 [ ] Não aparecem em tempo real
@@ -35,7 +35,7 @@
 [X] Quando adiciona um ingrediente, se for do tipo kg ou l ele não tem como selecionar quantidade, tem que permitir adicionar a quantidade para Kg e L também
 [X] Não tem quantidade de pessoas que alimenta (desnecessário)
 [X] os inputs de número estão aceitando letras, é tá enviando também, coisa que não deveria, então dá erro
-[ ] em categoria de prato, o front está armazenando em brand, já que no backend não existe o campo, categoria de prato
+[X] em categoria de prato, o front está armazenando em brand, já que no backend não existe o campo, categoria de prato
 [ ] Permitir a pesquisa de ingredientes 
 
 # Fornecedor
@@ -55,3 +55,5 @@
 
 # Geral
 [ ] Identificar o tema do sistema e já alterar automaticamente
+[X] Quando faço login, e vou para selecionar um workspace, todos os workspaces estão como "Restaurantes <id>", só volta ao normal (Nome e o CNPJ embaixo) quando seleciono um workspace
+[ ] Se eu não estiver com nenhum workspace selecionado eu ainda consigo acessar pela URL, o que não deveria acontecer
