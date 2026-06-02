@@ -42,7 +42,7 @@ const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: 
   </View>
 );
 
-const IngredientCard = observer(({ item, onRemove, onEdit, theme, styles }: any) => {
+const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, styles }: any) => {
   const [amount, setAmount] = useState('1');
 
   const handleUpdate = async (delta: number) => {
@@ -55,7 +55,12 @@ const IngredientCard = observer(({ item, onRemove, onEdit, theme, styles }: any)
 
   return (
     <View style={styles.card}>
-      <View style={styles.cardContent}>
+      <TouchableOpacity
+        style={styles.cardContent}
+        activeOpacity={0.7}
+        onPress={onPress}
+        disabled={!onPress}
+      >
         <Text style={styles.cardTitle}>{item.name}</Text>
         <Text style={styles.cardSubtitle}>{item.stock} {item.unit}</Text>
         {item.supplierName ? (
@@ -71,7 +76,7 @@ const IngredientCard = observer(({ item, onRemove, onEdit, theme, styles }: any)
             </View>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
 
       <View style={styles.cardActions}>
         <View style={styles.qtyControls}>
@@ -263,6 +268,7 @@ export default observer(function EstoqueScreen() {
                   item={item}
                   onRemove={() => removeIngredient(item.id)}
                   onEdit={() => router.push({ pathname: 'estoque/addItem', params: { id: item.id } })}
+                  onPress={() => router.push(`estoque/${item.id}` as any)}
                   theme={theme}
                   styles={styles}
                 />
