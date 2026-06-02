@@ -1,5 +1,5 @@
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon } from '@/components/shared/Icons';
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
@@ -59,6 +59,12 @@ const IngredientCard = observer(({ item, onRemove, onEdit, theme, styles }: any)
       <View style={styles.cardContent}>
         <Text style={styles.cardTitle}>{item.name}</Text>
         <Text style={styles.cardSubtitle}>{item.stock} {item.unit}</Text>
+        {item.supplierName ? (
+          <View style={styles.supplierRow}>
+            <TruckIcon color={theme.text} opacity={0.4} size={11} />
+            <Text style={styles.supplierName} numberOfLines={1}>{item.supplierName}</Text>
+          </View>
+        ) : null}
         <View style={styles.badgePlaceholder}>
           {item.stock <= 3 && (
             <View style={styles.lowStockBadge}>
@@ -136,13 +142,19 @@ export default observer(function EstoqueScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [unitModalVisible, setUnitModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [supplierModalVisible, setSupplierModalVisible] = useState(false);
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('');
   const [stock, setStock] = useState('');
+  const [supplierId, setSupplierId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const unitOptions = ["Kg", "Litros", "Unidades"];
+
+  useEffect(() => {
+    dataStore.refreshSuppliers();
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('todos');
@@ -219,14 +231,15 @@ export default observer(function EstoqueScreen() {
       await withLoading(
         async () => {
           if (editingId) {
-            await dataStore.updateIngredient(editingId, { name, unit, stock: stockVal });
+            await dataStore.updateIngredient(editingId, { name, unit, stock: stockVal, supplierId: supplierId || undefined });
           } else {
-            await dataStore.addIngredient({ name, unit, stock: stockVal });
+            await dataStore.addIngredient({ name, unit, stock: stockVal, supplierId: supplierId || undefined });
           }
           setModalVisible(false);
           setName('');
           setUnit('');
           setStock('');
+          setSupplierId(null);
           setErrorMsg('');
           setEditingId(null);
         },
@@ -242,6 +255,7 @@ export default observer(function EstoqueScreen() {
     setName(item.name);
     setUnit(item.unit || 'Unidades');
     setStock(item.stock.toString());
+    setSupplierId(item.supplierId || null);
     setErrorMsg('');
     setModalVisible(true);
   };
@@ -294,6 +308,7 @@ export default observer(function EstoqueScreen() {
               setName('');
               setUnit('');
               setStock('');
+              setSupplierId(null);
               setErrorMsg('');
               setModalVisible(true);
             }}
@@ -375,6 +390,7 @@ export default observer(function EstoqueScreen() {
           setModalVisible(false);
           setErrorMsg('');
           setEditingId(null);
+          setSupplierId(null);
         }}
       >
         <View style={styles.modalOverlay}>
@@ -427,6 +443,31 @@ export default observer(function EstoqueScreen() {
               </View>
             </View>
 
+            <View>
+              <View style={styles.supplierLabelRow}>
+                <TruckIcon color={theme.text} opacity={0.5} size={14} />
+                <Text style={[styles.label, { marginLeft: 6, marginBottom: 0 }]}>Fornecedor (opcional)</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.pickerContainer, { backgroundColor: theme.background }]}
+                onPress={() => setSupplierModalVisible(true)}
+              >
+                <Text
+                  style={{
+                    color: supplierId ? theme.text : theme.text + '60',
+                    fontSize: 14,
+                    flex: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  {supplierId
+                    ? dataStore.suppliers.find((s) => s.id === supplierId)?.name || 'Fornecedor'
+                    : 'Nenhum'}
+                </Text>
+                <ChevronDownIcon color={theme.text} size={18} opacity={0.5} />
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.cancelBtn, { backgroundColor: theme.background }]}
@@ -434,6 +475,7 @@ export default observer(function EstoqueScreen() {
                   setModalVisible(false);
                   setErrorMsg('');
                   setEditingId(null);
+                  setSupplierId(null);
                 }}
               >
                 <Text style={[styles.cancelBtnText, { color: theme.text }]}>Cancelar</Text>
@@ -458,6 +500,22 @@ export default observer(function EstoqueScreen() {
         }}
         options={unitOptions}
         title="Selecione a Unidade"
+      />
+
+      <SelectModal
+        visible={supplierModalVisible}
+        onClose={() => setSupplierModalVisible(false)}
+        onSelect={(val: string) => {
+          if (val === 'Nenhum') {
+            setSupplierId(null);
+          } else {
+            const found = dataStore.suppliers.find((s) => s.name === val);
+            if (found) setSupplierId(found.id);
+          }
+          setSupplierModalVisible(false);
+        }}
+        options={['Nenhum', ...dataStore.suppliers.map((s) => s.name)]}
+        title="Selecione o Fornecedor"
       />
 
       <SelectModal
@@ -626,6 +684,25 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       fontSize: 10,
       color: '#FF5252',
       textTransform: 'uppercase',
+    },
+    supplierRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 4,
+    },
+    supplierName: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 11,
+      color: theme.text,
+      opacity: 0.5,
+      flex: 1,
+    },
+    supplierLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6,
+      marginLeft: 4,
     },
     cardActions: {
       flexDirection: 'row',

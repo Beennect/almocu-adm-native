@@ -583,3 +583,12 @@ export const ModulesIcon = ({ color = "currentColor", size = 24, ...props }: any
     <Path d="M2 12l10 5 10-5" />
   </Svg>
 );
+
+export const TruckIcon = ({ color = "currentColor", size = 24, ...props }: any) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <Path d="M1 3h15v13H1z" />
+    <Path d="M16 8h4l3 3v5h-7z" />
+    <Circle cx="5.5" cy="18.5" r="2.5" />
+    <Circle cx="18.5" cy="18.5" r="2.5" />
+  </Svg>
+);

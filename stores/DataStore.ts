@@ -5,6 +5,7 @@ import { apiOrderService, mapStatusToFrontend } from "../services/api-order-serv
 import api from "../services/api-service";
 import { apiStaffService, mapRoleToFrontend } from "../services/api-staff-service";
 import { apiStockService } from "../services/api-stock-service";
+import { apiSupplierService, SupplierInput } from "../services/api-supplier-service";
 import { authStore } from "./AuthStore";
 
 export interface MenuItem {
@@ -55,6 +56,31 @@ export interface IngredientItem {
   name: string;
   unit: string;
   stock: number;
+  supplierId?: string;
+  supplierName?: string;
+}
+
+export interface SupplierAddress {
+  street: string;
+  number: string;
+  neighborhood?: string;
+  city: string;
+  state: string;
+  zipCode?: string;
+  complement?: string;
+}
+
+export interface SupplierItem {
+  id: string;
+  name: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  cnpj?: string;
+  address?: SupplierAddress;
+  notes?: string;
+  isActive: boolean;
+  createdAt?: string;
 }
 
 export interface Branch {
@@ -120,6 +146,7 @@ const DEFAULT_MODULES: ModuleItem[] = [
   { id: 'pedidos', name: 'Pedidos', description: 'Acompanhamento de pedidos em tempo real com alertas sonoros.', price: 0, icon: 'BagIcon', acquired: true, showInNavbar: true },
   { id: 'estoque', name: 'Estoque', description: 'Controle inteligente de insumos e matérias-primas com alerta.', price: 0, icon: 'ClocheIcon', acquired: true, showInNavbar: true },
   { id: 'funcionarios', name: 'Funcionários', description: 'Gestão da equipe, atribuição de cargos e códigos de convites.', price: 0, icon: 'UsersIcon', acquired: true, showInNavbar: false },
+  { id: 'fornecedores', name: 'Fornecedores', description: 'Cadastro de fornecedores vinculados aos itens de estoque.', price: 0, icon: 'TruckIcon', acquired: true, showInNavbar: false },
 ];
 
 const DEFAULT_RESTAURANT: RestaurantDetails = {
@@ -137,6 +164,7 @@ class DataStore {
   menuItems: MenuItem[] = [];
   orders: Order[] = [];
   ingredients: IngredientItem[] = [];
+  suppliers: SupplierItem[] = [];
   branches: Branch[] = [];
   modules: ModuleItem[] = [];
   restaurantDetails: RestaurantDetails | null = null;
@@ -169,7 +197,7 @@ class DataStore {
 
         // PERSISTIR o showInNavbar salvo pelo usuário, não o default
         let showInNavbar = found ? found.showInNavbar : defMod.showInNavbar;
-        if (defMod.id === 'funcionarios') {
+        if (defMod.id === 'funcionarios' || defMod.id === 'fornecedores') {
           showInNavbar = isGerente;
         }
         return found
@@ -260,11 +288,16 @@ class DataStore {
         name: ing.name,
         unit: ing.unit || 'un',
         stock: ing.quantity || 0,
+        supplierId: ing.supplierId || undefined,
       }));
     } catch (stockErr) {
       console.warn("Failed to fetch stock from API, ingredients will use fallback names.", stockErr);
       this.ingredients = [];
     }
+
+    // ── 3.1 Fornecedores (carregado após estoque para que os ingredients recebam o nome do supplier) ──
+    await this.refreshSuppliers();
+    this.enrichIngredientsWithSupplierNames();
 
     // ── 4. Cardápio (com cache local) ──
     try {
@@ -477,10 +510,42 @@ class DataStore {
         name: ing.name,
         unit: ing.unit || 'un',
         stock: ing.quantity || 0,
+        supplierId: ing.supplierId || undefined,
       }));
+      this.enrichIngredientsWithSupplierNames();
     } catch (e) {
       console.warn('refreshStock() falhou:', e);
     }
+  }
+
+  async refreshSuppliers() {
+    if (!authStore.user?.restaurantId) return;
+    try {
+      const data = await apiSupplierService.getSuppliers(1, 100);
+      const items = data.items || [];
+      this.suppliers = items.map((s: any) => ({
+        id: s._id,
+        name: s.name,
+        contactName: s.contactName,
+        phone: s.phone,
+        email: s.email,
+        cnpj: s.cnpj,
+        address: s.address,
+        notes: s.notes,
+        isActive: s.isActive !== false,
+        createdAt: s.createdAt,
+      }));
+    } catch (e) {
+      console.warn('refreshSuppliers() falhou:', e);
+    }
+  }
+
+  enrichIngredientsWithSupplierNames() {
+    this.ingredients = this.ingredients.map((ing) => {
+      if (!ing.supplierId) return ing;
+      const supplier = this.suppliers.find((s) => s.id === ing.supplierId);
+      return { ...ing, supplierName: supplier?.name };
+    });
   }
 
   async refreshOrders() {
@@ -856,6 +921,7 @@ class DataStore {
       name: ingredient.name,
       quantity: ingredient.stock,
       unit: ingredient.unit,
+      supplierId: ingredient.supplierId,
     });
 
     // Recarrega só o estoque para confirmar o dado salvo no servidor
@@ -899,6 +965,7 @@ class DataStore {
       if (updates.name !== undefined) payload.name = updates.name;
       if (updates.stock !== undefined) payload.quantity = updates.stock;
       if (updates.unit !== undefined) payload.unit = updates.unit;
+      if (updates.supplierId !== undefined) payload.supplierId = updates.supplierId;
 
       await apiStockService.updateStock(id, payload);
       await this.refreshStock();
@@ -906,6 +973,52 @@ class DataStore {
       // 🔙 Reverte
       this.ingredients = previousIngredients;
       console.error("Failed to update ingredient:", error);
+      throw error;
+    }
+  }
+
+  async addSupplier(input: SupplierInput) {
+    const created = await apiSupplierService.createSupplier(input);
+    await this.refreshSuppliers();
+    this.enrichIngredientsWithSupplierNames();
+    return created;
+  }
+
+  async updateSupplier(id: string, updates: Partial<SupplierInput>) {
+    const previousSuppliers = [...this.suppliers];
+
+    // 🚀 Optimistic update
+    const index = this.suppliers.findIndex(s => s.id === id);
+    if (index !== -1) {
+      this.suppliers[index] = { ...this.suppliers[index], ...updates };
+    }
+
+    try {
+      await apiSupplierService.updateSupplier(id, updates);
+      await this.refreshSuppliers();
+      this.enrichIngredientsWithSupplierNames();
+    } catch (error) {
+      // 🔙 Reverte
+      this.suppliers = previousSuppliers;
+      console.error('Failed to update supplier:', error);
+      throw error;
+    }
+  }
+
+  async removeSupplier(id: string) {
+    const previousSuppliers = [...this.suppliers];
+
+    // 🚀 Optimistic update
+    this.suppliers = this.suppliers.filter(s => s.id !== id);
+
+    try {
+      await apiSupplierService.deleteSupplier(id);
+      await this.refreshSuppliers();
+      this.enrichIngredientsWithSupplierNames();
+    } catch (error) {
+      // 🔙 Reverte
+      this.suppliers = previousSuppliers;
+      console.error('Failed to remove supplier:', error);
       throw error;
     }
   }
@@ -993,6 +1106,7 @@ class DataStore {
     this.menuItems = [];
     this.orders = [];
     this.ingredients = [];
+    this.suppliers = [];
     this.branches = [...DEFAULT_BRANCHES];
     this.modules = DEFAULT_MODULES.map(m => ({ ...m }));
     this.restaurantDetails = null;

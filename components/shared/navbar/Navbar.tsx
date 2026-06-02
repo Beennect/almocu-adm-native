@@ -20,6 +20,7 @@ import {
     ShieldCheckIcon,
     PinIcon,
     FoodStoreIcon,
+    TruckIcon,
     UsersIcon
 } from "../Icons";
 import { themeStore } from "../../../stores/ThemeStore";
@@ -37,6 +38,7 @@ const ICON_COMPONENTS: Record<string, React.FC<any>> = {
   PinIcon, // mesas
   FoodStoreIcon, // delivery
   SettingsIcon,
+  TruckIcon, // fornecedores
   UsersIcon, // funcionarios
 };
 

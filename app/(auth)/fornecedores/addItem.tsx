@@ -1,0 +1,710 @@
+import { ConfirmModal } from '@/components/shared/ConfirmModal';
+import {
+  ChevronLeftIcon,
+  EmailIcon,
+  NoteIcon,
+  TrashIcon,
+  TruckIcon
+} from '@/components/shared/Icons';
+import { InlineAlert } from '@/components/shared/InlineAlert';
+import { SelectModal } from '@/components/shared/SelectModal';
+import { UserHeader } from '@/components/shared/UserHeader';
+import { dataStore, SupplierAddress } from '@/stores/DataStore';
+import { useAppTheme } from '@/themes/colors';
+import { withLoading } from '@/utils/toast';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { observer } from 'mobx-react-lite';
+import React, { useEffect, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
+} from 'react-native';
+import Toast from 'react-native-toast-message';
+
+const UF_OPTIONS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+];
+
+interface FormState {
+  name: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  cnpj: string;
+  isActive: boolean;
+  notes: string;
+  address: SupplierAddress;
+}
+
+const initialFormState: FormState = {
+  name: '',
+  contactName: '',
+  phone: '',
+  email: '',
+  cnpj: '',
+  isActive: true,
+  notes: '',
+  address: {
+    street: '',
+    number: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    complement: '',
+  },
+};
+
+const formatCnpj = (raw: string) => {
+  const d = raw.replace(/\D/g, '').slice(0, 14);
+  if (d.length <= 2) return d;
+  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`;
+  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+  if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+};
+
+const formatPhone = (raw: string) => {
+  const d = raw.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+};
+
+const formatCep = (raw: string) => {
+  const d = raw.replace(/\D/g, '').slice(0, 8);
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+};
+
+const hasAnyAddressField = (a: SupplierAddress) => {
+  return !!(
+    a.street || a.number || a.neighborhood || a.city ||
+    a.state || a.zipCode || a.complement
+  );
+};
+
+const buildPayload = (form: FormState) => {
+  const payload: any = {
+    name: form.name.trim(),
+    isActive: form.isActive,
+  };
+
+  if (form.contactName.trim()) payload.contactName = form.contactName.trim();
+  if (form.phone.trim()) payload.phone = form.phone.replace(/\D/g, '');
+  if (form.email.trim()) payload.email = form.email.trim().toLowerCase();
+  if (form.cnpj.trim()) payload.cnpj = form.cnpj.replace(/\D/g, '');
+  if (form.notes.trim()) payload.notes = form.notes.trim();
+
+  if (hasAnyAddressField(form.address)) {
+    const a: any = {
+      street: form.address.street.trim(),
+      number: form.address.number.trim(),
+      city: form.address.city.trim(),
+      state: form.address.state.trim().toUpperCase(),
+    };
+    if (form.address.neighborhood?.trim()) a.neighborhood = form.address.neighborhood.trim();
+    if (form.address.zipCode?.trim()) a.zipCode = form.address.zipCode.replace(/\D/g, '');
+    if (form.address.complement?.trim()) a.complement = form.address.complement.trim();
+    payload.address = a;
+  }
+
+  return payload;
+};
+
+export default observer(function FornecedorFormScreen() {
+  const { width } = useWindowDimensions();
+  const isWeb = width >= 768;
+  const theme = useAppTheme();
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const editingId = typeof params.id === 'string' ? params.id : null;
+  const isEditing = !!editingId;
+  const styles = makeStyles(theme, isWeb);
+
+  const [form, setForm] = useState<FormState>(initialFormState);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [ufModalVisible, setUfModalVisible] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(false);
+
+  useEffect(() => {
+    if (!editingId) return;
+    const local = dataStore.suppliers.find((s) => s.id === editingId);
+    if (local) {
+      setForm({
+        name: local.name,
+        contactName: local.contactName || '',
+        phone: local.phone || '',
+        email: local.email || '',
+        cnpj: local.cnpj || '',
+        isActive: local.isActive,
+        notes: local.notes || '',
+        address: {
+          street: local.address?.street || '',
+          number: local.address?.number || '',
+          neighborhood: local.address?.neighborhood || '',
+          city: local.address?.city || '',
+          state: local.address?.state || '',
+          zipCode: local.address?.zipCode || '',
+          complement: local.address?.complement || '',
+        },
+      });
+      return;
+    }
+
+    setLoadingEdit(true);
+    import('@/services/api-supplier-service')
+      .then(({ apiSupplierService }) => apiSupplierService.getSupplier(editingId))
+      .then((s: any) => {
+        setForm({
+          name: s.name || '',
+          contactName: s.contactName || '',
+          phone: s.phone || '',
+          email: s.email || '',
+          cnpj: s.cnpj || '',
+          isActive: s.isActive !== false,
+          notes: s.notes || '',
+          address: {
+            street: s.address?.street || '',
+            number: s.address?.number || '',
+            neighborhood: s.address?.neighborhood || '',
+            city: s.address?.city || '',
+            state: s.address?.state || '',
+            zipCode: s.address?.zipCode || '',
+            complement: s.address?.complement || '',
+          },
+        });
+      })
+      .catch((err) => {
+        Toast.show({ type: 'error', text1: 'Erro ao carregar fornecedor' });
+        console.warn('Erro ao carregar fornecedor:', err);
+      })
+      .finally(() => setLoadingEdit(false));
+  }, [editingId]);
+
+  const updateField = (field: keyof FormState, value: any) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateAddress = (field: keyof SupplierAddress, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      address: { ...prev.address, [field]: value },
+    }));
+  };
+
+  const handleSave = async () => {
+    setErrorMsg('');
+
+    if (!form.name.trim()) {
+      setErrorMsg('Informe o nome do fornecedor.');
+      return;
+    }
+
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setErrorMsg('E-mail inválido.');
+      return;
+    }
+
+    const payload = buildPayload(form);
+
+    if (payload.address) {
+      const a = payload.address;
+      if (!a.street || !a.number || !a.city || !a.state) {
+        setErrorMsg('Endereço incompleto. Preencha rua, número, cidade e UF.');
+        return;
+      }
+      if (a.state.length !== 2) {
+        setErrorMsg('UF deve ter exatamente 2 letras.');
+        return;
+      }
+    }
+
+    try {
+      await withLoading(
+        async () => {
+          if (isEditing && editingId) {
+            await dataStore.updateSupplier(editingId, payload);
+          } else {
+            await dataStore.addSupplier(payload);
+          }
+          router.back();
+        },
+        {
+          loading: isEditing ? 'Atualizando fornecedor...' : 'Criando fornecedor...',
+          success: isEditing ? 'Fornecedor atualizado!' : 'Fornecedor criado!',
+          error: 'Erro ao salvar fornecedor',
+        },
+      );
+    } catch (err: any) {
+      const backendMsg = err?.response?.data?.message;
+      const text = Array.isArray(backendMsg) ? backendMsg.join(', ') : backendMsg;
+      setErrorMsg(text || err?.message || 'Erro ao salvar fornecedor');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editingId) return;
+    await withLoading(
+      async () => {
+        await dataStore.removeSupplier(editingId);
+        router.back();
+      },
+      { loading: 'Removendo...', success: 'Fornecedor removido', error: 'Erro ao remover' },
+    );
+  };
+
+  if (loadingEdit) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontFamily: 'Jost_400Regular', color: theme.text, opacity: 0.5 }}>
+          Carregando fornecedor...
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={styles.container}>
+        {!isWeb && <UserHeader />}
+
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: theme.foreground }]}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ChevronLeftIcon color={theme.text} size={24} />
+          </TouchableOpacity>
+          <View style={{ flex: 1, marginLeft: 16 }}>
+            <Text style={styles.headerTitle}>
+              {isEditing ? 'Editar Fornecedor' : 'Novo Fornecedor'}
+            </Text>
+            <Text style={styles.headerSub}>
+              {isEditing ? 'Atualize os dados do fornecedor.' : 'Cadastre um novo fornecedor para o estoque.'}
+            </Text>
+          </View>
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Seção: Dados Básicos */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <TruckIcon color={theme.contrast} size={20} />
+              <Text style={styles.sectionTitle}>Dados Básicos</Text>
+            </View>
+
+            <View>
+              <Text style={styles.label}>Nome / Razão Social *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+                placeholder="Ex: Distribuidora de Alimentos LTDA"
+                placeholderTextColor={theme.text + '60'}
+                value={form.name}
+                onChangeText={(v) => updateField('name', v)}
+              />
+            </View>
+
+            <View>
+              <Text style={styles.label}>Nome de Contato</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+                placeholder="Ex: Maria Silva"
+                placeholderTextColor={theme.text + '60'}
+                value={form.contactName}
+                onChangeText={(v) => updateField('contactName', v)}
+              />
+            </View>
+
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>CNPJ</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+                  placeholder="00.000.000/0000-00"
+                  placeholderTextColor={theme.text + '60'}
+                  keyboardType="numeric"
+                  value={formatCnpj(form.cnpj)}
+                  onChangeText={(v) => updateField('cnpj', v.replace(/\D/g, ''))}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Telefone</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+                  placeholder="(11) 99999-8888"
+                  placeholderTextColor={theme.text + '60'}
+                  keyboardType="phone-pad"
+                  value={formatPhone(form.phone)}
+                  onChangeText={(v) => updateField('phone', v.replace(/\D/g, ''))}
+                />
+              </View>
+            </View>
+
+            <View>
+              <Text style={styles.label}>E-mail</Text>
+              <View style={styles.inputWrapper}>
+                <EmailIcon color={theme.text} opacity={0.4} size={16} />
+                <TextInput
+                  style={[styles.inputFlex, { color: theme.text }]}
+                  placeholder="contato@empresa.com"
+                  placeholderTextColor={theme.text + '60'}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={form.email}
+                  onChangeText={(v) => updateField('email', v)}
+                />
+              </View>
+            </View>
+
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Fornecedor Ativo</Text>
+                <Text style={styles.helperText}>
+                  Fornecedores inativos ficam ocultos nas listagens padrão.
+                </Text>
+              </View>
+              <Switch
+                value={form.isActive}
+                onValueChange={(v) => updateField('isActive', v)}
+                trackColor={{ false: '#767577', true: theme.contrast + '88' }}
+                thumbColor={form.isActive ? theme.contrast : '#f4f3f4'}
+              />
+            </View>
+          </View>
+
+          {/* Seção: Endereço */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.iconBox, { backgroundColor: theme.contrast + '22' }]}>
+                <TruckIcon color={theme.contrast} size={18} />
+              </View>
+              <Text style={styles.sectionTitle}>Endereço (Opcional)</Text>
+            </View>
+
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>CEP</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+                  placeholder="01001-000"
+                  placeholderTextColor={theme.text + '60'}
+                  keyboardType="numeric"
+                  value={formatCep(form.address.zipCode || '')}
+                  onChangeText={(v) => updateAddress('zipCode', v.replace(/\D/g, ''))}
+                />
+              </View>
+              <View style={{ flex: 2 }}>
+                <Text style={styles.label}>Rua</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+                  placeholder="Rua das Flores"
+                  placeholderTextColor={theme.text + '60'}
+                  value={form.address.street}
+                  onChangeText={(v) => updateAddress('street', v)}
+                />
+              </View>
+            </View>
+
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Número</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+                  placeholder="123"
+                  placeholderTextColor={theme.text + '60'}
+                  value={form.address.number}
+                  onChangeText={(v) => updateAddress('number', v)}
+                />
+              </View>
+              <View style={{ flex: 2 }}>
+                <Text style={styles.label}>Complemento</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+                  placeholder="Galpão B"
+                  placeholderTextColor={theme.text + '60'}
+                  value={form.address.complement}
+                  onChangeText={(v) => updateAddress('complement', v)}
+                />
+              </View>
+            </View>
+
+            <View>
+              <Text style={styles.label}>Bairro</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+                placeholder="Centro"
+                placeholderTextColor={theme.text + '60'}
+                value={form.address.neighborhood}
+                onChangeText={(v) => updateAddress('neighborhood', v)}
+              />
+            </View>
+
+            <View style={styles.row}>
+              <View style={{ flex: 3 }}>
+                <Text style={styles.label}>Cidade</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+                  placeholder="São Paulo"
+                  placeholderTextColor={theme.text + '60'}
+                  value={form.address.city}
+                  onChangeText={(v) => updateAddress('city', v)}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>UF</Text>
+                <TouchableOpacity
+                  style={[styles.pickerContainer, { backgroundColor: theme.background }]}
+                  onPress={() => setUfModalVisible(true)}
+                >
+                  <Text style={{ color: form.address.state ? theme.text : theme.text + '60', fontSize: 14 }}>
+                    {form.address.state || '—'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Seção: Observações */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.iconBox, { backgroundColor: theme.contrast + '22' }]}>
+                <NoteIcon color={theme.contrast} size={18} />
+              </View>
+              <Text style={styles.sectionTitle}>Observações</Text>
+            </View>
+            <TextInput
+              style={[
+                styles.input,
+                styles.textarea,
+                { backgroundColor: theme.background, color: theme.text },
+              ]}
+              placeholder="Prazos de entrega, condições de pagamento, etc."
+              placeholderTextColor={theme.text + '60'}
+              multiline
+              numberOfLines={4}
+              value={form.notes}
+              onChangeText={(v) => updateField('notes', v)}
+            />
+          </View>
+
+          {errorMsg ? (
+            <InlineAlert type="error" message={errorMsg} />
+          ) : null}
+
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: theme.contrast }]}
+              onPress={handleSave}
+            >
+              <Text style={styles.saveBtnText}>
+                {isEditing ? 'Salvar Alterações' : 'Criar Fornecedor'}
+              </Text>
+            </TouchableOpacity>
+
+            {isEditing ? (
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => setConfirmDelete(true)}
+              >
+                <TrashIcon color="#EF4444" size={18} />
+                <Text style={styles.deleteBtnText}>Excluir Fornecedor</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </ScrollView>
+
+        <SelectModal
+          visible={ufModalVisible}
+          onClose={() => setUfModalVisible(false)}
+          onSelect={(uf: string) => {
+            updateAddress('state', uf);
+            setUfModalVisible(false);
+          }}
+          options={UF_OPTIONS}
+          title="Selecione a UF"
+        />
+
+        <ConfirmModal
+          visible={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={handleDelete}
+          title="Excluir Fornecedor"
+          message="Esta ação não pode ser desfeita. Os itens de estoque vinculados a este fornecedor não serão afetados."
+          confirmText="Excluir"
+        />
+      </View>
+    </KeyboardAvoidingView>
+  );
+});
+
+function makeStyles(theme: any, isWeb: boolean) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingTop: isWeb ? 0 : 20,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    backBtn: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerTitle: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 24,
+      color: theme.text,
+    },
+    headerSub: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 14,
+      color: theme.text,
+      opacity: 0.6,
+      marginTop: 2,
+    },
+    scrollContent: {
+      gap: 16,
+      paddingBottom: 32,
+    },
+    card: {
+      backgroundColor: theme.foreground,
+      borderRadius: 20,
+      padding: 20,
+      gap: 14,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 4,
+    },
+    iconBox: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sectionTitle: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 16,
+      color: theme.text,
+    },
+    label: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 13,
+      color: theme.text,
+      marginBottom: 6,
+      marginLeft: 4,
+    },
+    helperText: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 12,
+      color: theme.text,
+      opacity: 0.5,
+      marginLeft: 4,
+    },
+    input: {
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      fontSize: 14,
+      fontFamily: 'Jost_400Regular',
+      outlineStyle: 'none',
+    } as any,
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: theme.background,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 4,
+    },
+    inputFlex: {
+      flex: 1,
+      fontSize: 14,
+      fontFamily: 'Jost_400Regular',
+      paddingVertical: 8,
+      outlineStyle: 'none',
+    } as any,
+    textarea: {
+      minHeight: 100,
+      textAlignVertical: 'top',
+      paddingTop: 12,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    pickerContainer: {
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+      paddingTop: 8,
+    },
+    actions: {
+      gap: 12,
+      marginTop: 8,
+    },
+    saveBtn: {
+      paddingVertical: 16,
+      borderRadius: 16,
+      alignItems: 'center',
+    },
+    saveBtnText: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 16,
+      color: '#FFFFFF',
+    },
+    deleteBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 14,
+      borderRadius: 16,
+      backgroundColor: '#EF444415',
+      borderWidth: 1,
+      borderColor: '#EF444444',
+    },
+    deleteBtnText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 14,
+      color: '#EF4444',
+    },
+  });
+}
