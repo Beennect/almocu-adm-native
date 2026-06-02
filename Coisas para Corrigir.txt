@@ -30,7 +30,7 @@
 
 # Cardápio
 [X] Responsividade também tá meio ruim
-[ ] Adicionar modal apenas para visualizar as informações daquele item do cardápio
+[X] Adicionar modal apenas para visualizar as informações daquele item do cardápio
 ## Add item
 [X] Quando adiciona um ingrediente, se for do tipo kg ou l ele não tem como selecionar quantidade, tem que permitir adicionar a quantidade para Kg e L também
 [X] Não tem quantidade de pessoas que alimenta (desnecessário)

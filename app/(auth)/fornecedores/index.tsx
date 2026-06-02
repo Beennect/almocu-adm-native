@@ -246,74 +246,80 @@ export default observer(function FornecedoresScreen() {
     );
   };
 
-  const renderCard = (s: SupplierItem) => {
+  const renderCard = (s: SupplierItem, onPress: () => void) => {
     const linkedCount = dataStore.ingredients.filter((i) => i.supplierId === s.id).length;
     return (
       <View key={s.id} style={styles.card}>
         {/* Left: Avatar + Status pill */}
-        <View style={styles.leftCol}>
-          <View style={styles.avatar}>
-            <TruckIcon color={theme.contrast} size={26} />
+        <TouchableOpacity
+          style={styles.touchableArea}
+          activeOpacity={0.7}
+          onPress={onPress}
+        >
+          <View style={styles.leftCol}>
+            <View style={styles.avatar}>
+              <TruckIcon color={theme.contrast} size={26} />
+            </View>
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: s.isActive ? theme.contrast : '#EF4444' },
+              ]}
+            >
+              <Text style={styles.statusBadgeText}>
+                {s.isActive ? 'Ativo' : 'Inativo'}
+              </Text>
+            </View>
           </View>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: s.isActive ? theme.contrast : '#EF4444' },
-            ]}
-          >
-            <Text style={styles.statusBadgeText}>
-              {s.isActive ? 'Ativo' : 'Inativo'}
-            </Text>
-          </View>
-        </View>
 
-        {/* Middle: Content */}
-        <View style={styles.content}>
-          <Text style={styles.cardTitle} numberOfLines={1}>{s.name}</Text>
-          {s.contactName ? (
-            <Text style={styles.cardSubtitle} numberOfLines={1}>{s.contactName}</Text>
-          ) : null}
-
-          <View style={styles.metaRow}>
-            {s.cnpj ? (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>CNPJ</Text>
-                <Text style={styles.metaValue}>{formatCnpj(s.cnpj)}</Text>
-              </View>
-            ) : (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Tipo</Text>
-                <Text style={styles.metaValue}>Pessoa Física</Text>
-              </View>
-            )}
-            {s.phone ? (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Telefone</Text>
-                <View style={styles.metaValueRow}>
-                  <PhoneIcon color={theme.text} opacity={0.5} size={12} />
-                  <Text style={styles.metaValue}>{formatPhone(s.phone)}</Text>
-                </View>
-              </View>
+          {/* Middle: Content */}
+          <View style={styles.content}>
+            <Text style={styles.cardTitle} numberOfLines={1}>{s.name}</Text>
+            {s.contactName ? (
+              <Text style={styles.cardSubtitle} numberOfLines={1}>{s.contactName}</Text>
             ) : null}
-            {s.address?.city ? (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Localização</Text>
-                <Text style={styles.metaValue}>
-                  {s.address.city}{s.address.state ? `/${s.address.state.toUpperCase()}` : ''}
+
+            <View style={styles.metaRow}>
+              {s.cnpj ? (
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>CNPJ</Text>
+                  <Text style={styles.metaValue}>{formatCnpj(s.cnpj)}</Text>
+                </View>
+              ) : (
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>Tipo</Text>
+                  <Text style={styles.metaValue}>Pessoa Física</Text>
+                </View>
+              )}
+              {s.phone ? (
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>Telefone</Text>
+                  <View style={styles.metaValueRow}>
+                    <PhoneIcon color={theme.text} opacity={0.5} size={12} />
+                    <Text style={styles.metaValue}>{formatPhone(s.phone)}</Text>
+                  </View>
+                </View>
+              ) : null}
+              {s.address?.city ? (
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>Localização</Text>
+                  <Text style={styles.metaValue}>
+                    {s.address.city}{s.address.state ? `/${s.address.state.toUpperCase()}` : ''}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {linkedCount > 0 ? (
+              <View style={styles.linkedBadge}>
+                <View style={[styles.linkedDot, { backgroundColor: theme.contrast }]} />
+                <Text style={styles.linkedText}>
+                  {linkedCount} item{linkedCount !== 1 ? 's' : ''} de estoque
                 </Text>
               </View>
             ) : null}
           </View>
-
-          {linkedCount > 0 ? (
-            <View style={styles.linkedBadge}>
-              <View style={[styles.linkedDot, { backgroundColor: theme.contrast }]} />
-              <Text style={styles.linkedText}>
-                {linkedCount} item{linkedCount !== 1 ? 's' : ''} de estoque
-              </Text>
-            </View>
-          ) : null}
-        </View>
+        </TouchableOpacity>
 
         {/* Vertical Divider */}
         <View style={styles.verticalDivider} />
@@ -405,7 +411,7 @@ export default observer(function FornecedoresScreen() {
           <View style={styles.grid}>
             {paginated.map((s) => (
               <View key={s.id} style={styles.gridItem}>
-                {renderCard(s)}
+                {renderCard(s, () => router.push(`/(auth)/fornecedores/${s.id}` as any))}
               </View>
             ))}
           </View>
@@ -601,6 +607,11 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       backgroundColor: theme.foreground,
       borderRadius: 24,
       padding: 20,
+      alignItems: 'center',
+    },
+    touchableArea: {
+      flex: 1,
+      flexDirection: 'row',
       alignItems: 'center',
     },
     leftCol: {
