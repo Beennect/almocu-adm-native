@@ -1,15 +1,14 @@
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon } from '@/components/shared/Icons';
+import { ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
-import Toast from 'react-native-toast-message';
 import { withLoading } from '@/utils/toast';
 import { useAppTheme } from '@/themes/colors';
+import { useRouter } from 'expo-router';
 import { observer } from 'mobx-react-lite';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -138,19 +137,9 @@ export default observer(function EstoqueScreen() {
   const theme = useAppTheme();
   const gridColumns = getGridColumns(width);
   const styles = makeStyles(theme, isWeb, gridColumns);
+  const router = useRouter();
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [unitModalVisible, setUnitModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [supplierModalVisible, setSupplierModalVisible] = useState(false);
-  const [name, setName] = useState('');
-  const [unit, setUnit] = useState('');
-  const [stock, setStock] = useState('');
-  const [supplierId, setSupplierId] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const unitOptions = ["Kg", "Litros", "Unidades"];
 
   useEffect(() => {
     dataStore.refreshSuppliers();
@@ -205,61 +194,6 @@ export default observer(function EstoqueScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [searchTerm, filterMode]);
 
-  const handleAddIngredient = async () => {
-    setErrorMsg('');
-    if (!name || !unit || !stock) {
-      setErrorMsg('Preencha todos os campos.');
-      return;
-    }
-
-    const ingredientExists = dataStore.ingredients.some(
-      item => item.name.toLowerCase().trim() === name.toLowerCase().trim() && item.id !== editingId
-    );
-
-    if (ingredientExists) {
-      setErrorMsg('Já existe um ingrediente com este nome.');
-      return;
-    }
-
-    const stockVal = parseFloat(stock.replace(',', '.'));
-    if (isNaN(stockVal)) {
-      setErrorMsg("Quantidade inválida");
-      return;
-    }
-
-    try {
-      await withLoading(
-        async () => {
-          if (editingId) {
-            await dataStore.updateIngredient(editingId, { name, unit, stock: stockVal, supplierId: supplierId || undefined });
-          } else {
-            await dataStore.addIngredient({ name, unit, stock: stockVal, supplierId: supplierId || undefined });
-          }
-          setModalVisible(false);
-          setName('');
-          setUnit('');
-          setStock('');
-          setSupplierId(null);
-          setErrorMsg('');
-          setEditingId(null);
-        },
-        { loading: 'Salvando ingrediente...', success: editingId ? "Ingrediente atualizado!" : "Ingrediente adicionado!", error: 'Erro ao salvar ingrediente' }
-      );
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao salvar ingrediente');
-    }
-  };
-
-  const openEditModal = (item: any) => {
-    setEditingId(item.id);
-    setName(item.name);
-    setUnit(item.unit || 'Unidades');
-    setStock(item.stock.toString());
-    setSupplierId(item.supplierId || null);
-    setErrorMsg('');
-    setModalVisible(true);
-  };
-
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const removeIngredient = (id: string) => {
@@ -303,15 +237,7 @@ export default observer(function EstoqueScreen() {
           <TouchableOpacity
             style={styles.plusBtn}
             activeOpacity={0.8}
-            onPress={() => {
-              setEditingId(null);
-              setName('');
-              setUnit('');
-              setStock('');
-              setSupplierId(null);
-              setErrorMsg('');
-              setModalVisible(true);
-            }}
+            onPress={() => router.push('estoque/addItem')}
           >
             <Text style={styles.plusBtnText}>+</Text>
           </TouchableOpacity>
@@ -336,7 +262,7 @@ export default observer(function EstoqueScreen() {
                 <IngredientCard
                   item={item}
                   onRemove={() => removeIngredient(item.id)}
-                  onEdit={() => openEditModal(item)}
+                  onEdit={() => router.push({ pathname: 'estoque/addItem', params: { id: item.id } })}
                   theme={theme}
                   styles={styles}
                 />
@@ -380,143 +306,6 @@ export default observer(function EstoqueScreen() {
           />
         </View>
       )}
-
-      {/* Modals */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setModalVisible(false);
-          setErrorMsg('');
-          setEditingId(null);
-          setSupplierId(null);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.foreground }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>
-              {editingId ? 'Editar Ingrediente' : 'Novo Ingrediente'}
-            </Text>
-
-            <View>
-              <Text style={styles.label}>Nome do Ingrediente</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
-                placeholder="Ex: Camarão"
-                placeholderTextColor={theme.text + '60'}
-                value={name}
-                onChangeText={setName}
-              />
-              {errorMsg ? (
-                <Text style={{ color: '#ef4444', fontFamily: 'Jost_600SemiBold', fontSize: 12, marginTop: 6, marginLeft: 4 }}>
-                  {errorMsg}
-                </Text>
-              ) : null}
-            </View>
-
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Tipo de Medida</Text>
-                <TouchableOpacity
-                  style={[styles.pickerContainer, { backgroundColor: theme.background }]}
-                  onPress={() => setUnitModalVisible(true)}
-                >
-                  <Text style={{ color: unit ? theme.text : theme.text + '60', fontSize: 14 }}>
-                    {unit || 'Selecione...'}
-                  </Text>
-                  <ChevronDownIcon color={theme.text} size={18} opacity={0.5} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Quantidade Inicial</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
-                  placeholder="Ex: 5"
-                  placeholderTextColor={theme.text + '60'}
-                  keyboardType="numeric"
-                  value={stock}
-                  onChangeText={setStock}
-                  onSubmitEditing={handleAddIngredient}
-                />
-              </View>
-            </View>
-
-            <View>
-              <View style={styles.supplierLabelRow}>
-                <TruckIcon color={theme.text} opacity={0.5} size={14} />
-                <Text style={[styles.label, { marginLeft: 6, marginBottom: 0 }]}>Fornecedor (opcional)</Text>
-              </View>
-              <TouchableOpacity
-                style={[styles.pickerContainer, { backgroundColor: theme.background }]}
-                onPress={() => setSupplierModalVisible(true)}
-              >
-                <Text
-                  style={{
-                    color: supplierId ? theme.text : theme.text + '60',
-                    fontSize: 14,
-                    flex: 1,
-                  }}
-                  numberOfLines={1}
-                >
-                  {supplierId
-                    ? dataStore.suppliers.find((s) => s.id === supplierId)?.name || 'Fornecedor'
-                    : 'Nenhum'}
-                </Text>
-                <ChevronDownIcon color={theme.text} size={18} opacity={0.5} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, { backgroundColor: theme.background }]}
-                onPress={() => {
-                  setModalVisible(false);
-                  setErrorMsg('');
-                  setEditingId(null);
-                  setSupplierId(null);
-                }}
-              >
-                <Text style={[styles.cancelBtnText, { color: theme.text }]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.confirmBtn}
-                onPress={handleAddIngredient}
-              >
-                <Text style={styles.confirmBtnText}>{editingId ? 'Salvar' : 'Adicionar'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <SelectModal
-        visible={unitModalVisible}
-        onClose={() => setUnitModalVisible(false)}
-        onSelect={(val) => {
-          setUnit(val);
-          setUnitModalVisible(false);
-        }}
-        options={unitOptions}
-        title="Selecione a Unidade"
-      />
-
-      <SelectModal
-        visible={supplierModalVisible}
-        onClose={() => setSupplierModalVisible(false)}
-        onSelect={(val: string) => {
-          if (val === 'Nenhum') {
-            setSupplierId(null);
-          } else {
-            const found = dataStore.suppliers.find((s) => s.name === val);
-            if (found) setSupplierId(found.id);
-          }
-          setSupplierModalVisible(false);
-        }}
-        options={['Nenhum', ...dataStore.suppliers.map((s) => s.name)]}
-        title="Selecione o Fornecedor"
-      />
 
       <SelectModal
         visible={filterModalVisible}
@@ -698,12 +487,6 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       opacity: 0.5,
       flex: 1,
     },
-    supplierLabelRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 6,
-      marginLeft: 4,
-    },
     cardActions: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -757,79 +540,6 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       fontSize: 14,
       color: theme.text,
       textAlign: 'center',
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 24,
-    },
-    modalContent: {
-      width: '100%',
-      maxWidth: 400,
-      borderRadius: 24,
-      padding: 24,
-      gap: 16,
-    },
-    modalTitle: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 20,
-      marginBottom: 8,
-    },
-    input: {
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      fontSize: 14,
-      fontFamily: 'Jost_400Regular',
-      outlineStyle: 'none',
-    } as any,
-    label: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 14,
-      color: theme.text,
-      marginBottom: 6,
-      marginLeft: 4,
-    },
-    row: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    pickerContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-    },
-    modalActions: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: 12,
-      marginTop: 8,
-    },
-    cancelBtn: {
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      borderRadius: 12,
-    },
-    cancelBtnText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 14,
-    },
-    confirmBtn: {
-      backgroundColor: theme.contrast,
-      borderRadius: 12,
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-    },
-    confirmBtnText: {
-      color: '#FFFFFF',
-      fontFamily: 'Jost_400Regular',
-      fontWeight: '500',
-      fontSize: 14,
     },
     paginationContainer: {
       flexDirection: 'row',

@@ -54,8 +54,10 @@ export interface Order {
 export interface IngredientItem {
   id: string;
   name: string;
+  brand?: string;
   unit: string;
   stock: number;
+  minQuantity?: number;
   supplierId?: string;
   supplierName?: string;
 }
@@ -508,8 +510,10 @@ class DataStore {
       this.ingredients = stockItemsFromApi.map((ing: any) => ({
         id: ing._id,
         name: ing.name,
+        brand: ing.brand || '',
         unit: ing.unit || 'un',
         stock: ing.quantity || 0,
+        minQuantity: ing.minQuantity || 0,
         supplierId: ing.supplierId || undefined,
       }));
       this.enrichIngredientsWithSupplierNames();
@@ -919,8 +923,10 @@ class DataStore {
   async addIngredient(ingredient: Omit<IngredientItem, 'id'>) {
     const created = await apiStockService.createStock({
       name: ingredient.name,
+      brand: ingredient.brand,
       quantity: ingredient.stock,
       unit: ingredient.unit,
+      minQuantity: ingredient.minQuantity,
       supplierId: ingredient.supplierId,
     });
 
@@ -963,8 +969,10 @@ class DataStore {
     try {
       const payload: any = {};
       if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.brand !== undefined) payload.brand = updates.brand;
       if (updates.stock !== undefined) payload.quantity = updates.stock;
       if (updates.unit !== undefined) payload.unit = updates.unit;
+      if (updates.minQuantity !== undefined) payload.minQuantity = updates.minQuantity;
       if (updates.supplierId !== undefined) payload.supplierId = updates.supplierId;
 
       await apiStockService.updateStock(id, payload);

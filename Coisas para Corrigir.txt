@@ -39,7 +39,7 @@
 [ ] Permitir a pesquisa de ingredientes 
 
 # Fornecedor
-[ ] Adicionar
+[X] Adicionar
 
 # Navbar
 [ ] Mostrar Módulos bloqueados

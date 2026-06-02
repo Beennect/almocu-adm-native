@@ -250,69 +250,89 @@ export default observer(function FornecedoresScreen() {
     const linkedCount = dataStore.ingredients.filter((i) => i.supplierId === s.id).length;
     return (
       <View key={s.id} style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleRow}>
-            <View style={[styles.avatar, { backgroundColor: theme.contrast + '22' }]}>
-              <TruckIcon color={theme.contrast} size={20} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle} numberOfLines={1}>{s.name}</Text>
-              {s.contactName ? (
-                <Text style={styles.cardSubtitle} numberOfLines={1}>{s.contactName}</Text>
-              ) : null}
-            </View>
-            <View style={[styles.statusBadge, { backgroundColor: s.isActive ? '#10B98122' : '#EF444422' }]}>
-              <Text style={[styles.statusBadgeText, { color: s.isActive ? '#10B981' : '#EF4444' }]}>
-                {s.isActive ? 'Ativo' : 'Inativo'}
-              </Text>
-            </View>
+        {/* Left: Avatar + Status pill */}
+        <View style={styles.leftCol}>
+          <View style={styles.avatar}>
+            <TruckIcon color={theme.contrast} size={26} />
+          </View>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: s.isActive ? theme.contrast : '#EF4444' },
+            ]}
+          >
+            <Text style={styles.statusBadgeText}>
+              {s.isActive ? 'Ativo' : 'Inativo'}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.cardInfo}>
-          {s.cnpj ? (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>CNPJ</Text>
-              <Text style={styles.infoValue}>{formatCnpj(s.cnpj)}</Text>
-            </View>
+        {/* Middle: Content */}
+        <View style={styles.content}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{s.name}</Text>
+          {s.contactName ? (
+            <Text style={styles.cardSubtitle} numberOfLines={1}>{s.contactName}</Text>
           ) : null}
-          {s.phone ? (
-            <View style={styles.infoRow}>
-              <PhoneIcon color={theme.text} opacity={0.5} size={14} />
-              <Text style={styles.infoValue}>{formatPhone(s.phone)}</Text>
-            </View>
-          ) : null}
-          {s.address?.city ? (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Localização</Text>
-              <Text style={styles.infoValue}>
-                {s.address.city}{s.address.state ? `/${s.address.state.toUpperCase()}` : ''}
-              </Text>
-            </View>
-          ) : null}
+
+          <View style={styles.metaRow}>
+            {s.cnpj ? (
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>CNPJ</Text>
+                <Text style={styles.metaValue}>{formatCnpj(s.cnpj)}</Text>
+              </View>
+            ) : (
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Tipo</Text>
+                <Text style={styles.metaValue}>Pessoa Física</Text>
+              </View>
+            )}
+            {s.phone ? (
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Telefone</Text>
+                <View style={styles.metaValueRow}>
+                  <PhoneIcon color={theme.text} opacity={0.5} size={12} />
+                  <Text style={styles.metaValue}>{formatPhone(s.phone)}</Text>
+                </View>
+              </View>
+            ) : null}
+            {s.address?.city ? (
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Localização</Text>
+                <Text style={styles.metaValue}>
+                  {s.address.city}{s.address.state ? `/${s.address.state.toUpperCase()}` : ''}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
           {linkedCount > 0 ? (
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoValue, { color: theme.contrast, fontFamily: 'Jost_600SemiBold' }]}>
+            <View style={styles.linkedBadge}>
+              <View style={[styles.linkedDot, { backgroundColor: theme.contrast }]} />
+              <Text style={styles.linkedText}>
                 {linkedCount} item{linkedCount !== 1 ? 's' : ''} de estoque
               </Text>
             </View>
           ) : null}
         </View>
 
-        <View style={styles.cardActions}>
+        {/* Vertical Divider */}
+        <View style={styles.verticalDivider} />
+
+        {/* Right: Actions */}
+        <View style={styles.actions}>
           <TouchableOpacity
             style={styles.actionBtn}
+            activeOpacity={0.7}
             onPress={() => router.push(`/(auth)/fornecedores/addItem?id=${s.id}` as any)}
           >
-            <EditIcon color={theme.text} size={16} />
-            <Text style={styles.actionBtnText}>Editar</Text>
+            <EditIcon color={theme.text} opacity={0.7} size={20} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionBtn}
+            activeOpacity={0.7}
             onPress={() => setConfirmDeleteId(s.id)}
           >
-            <TrashIcon color="#EF4444" size={16} />
-            <Text style={[styles.actionBtnText, { color: '#EF4444' }]}>Excluir</Text>
+            <TrashIcon color={theme.contrast} opacity={0.7} size={20} />
           </TouchableOpacity>
         </View>
       </View>
@@ -383,7 +403,11 @@ export default observer(function FornecedoresScreen() {
 
         {paginated.length > 0 ? (
           <View style={styles.grid}>
-            {paginated.map(renderCard)}
+            {paginated.map((s) => (
+              <View key={s.id} style={styles.gridItem}>
+                {renderCard(s)}
+              </View>
+            ))}
           </View>
         ) : (
           <View style={styles.emptyContainer}>
@@ -566,98 +590,129 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       flexWrap: 'wrap',
       marginHorizontal: -10,
     },
-    card: {
-      backgroundColor: theme.foreground,
-      borderRadius: 20,
-      padding: 16,
-      width: '100%',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      elevation: 2,
+    gridItem: {
+      width: `${100 / gridColumns}%`,
+      paddingHorizontal: 10,
       marginBottom: 16,
     },
-    cardHeader: {
-      marginBottom: 12,
-    },
-    cardTitleRow: {
+    card: {
+      width: '100%',
       flexDirection: 'row',
+      backgroundColor: theme.foreground,
+      borderRadius: 24,
+      padding: 20,
       alignItems: 'center',
-      gap: 12,
+    },
+    leftCol: {
+      alignItems: 'center',
+      marginRight: 16,
+      gap: 10,
     },
     avatar: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: theme.contrast + '18',
       alignItems: 'center',
       justifyContent: 'center',
     },
+    statusBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 100,
+    },
+    statusBadgeText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 11,
+      color: '#FFFFFF',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    content: {
+      flex: 1,
+      paddingRight: 8,
+    },
     cardTitle: {
       fontFamily: 'Jost_700Bold',
-      fontSize: 16,
+      fontSize: 17,
       color: theme.text,
+      marginBottom: 2,
     },
     cardSubtitle: {
       fontFamily: 'Jost_400Regular',
       fontSize: 13,
       color: theme.text,
       opacity: 0.6,
-      marginTop: 2,
-    },
-    statusBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 8,
-    },
-    statusBadgeText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 11,
-      textTransform: 'uppercase',
-    },
-    cardInfo: {
-      gap: 8,
       marginBottom: 12,
     },
-    infoRow: {
+    metaRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
+      flexWrap: 'wrap',
+      gap: 16,
     },
-    infoLabel: {
+    metaItem: {
+      gap: 2,
+    },
+    metaLabel: {
       fontFamily: 'Jost_600SemiBold',
-      fontSize: 11,
+      fontSize: 10,
       color: theme.text,
       opacity: 0.4,
       textTransform: 'uppercase',
-      minWidth: 80,
+      letterSpacing: 0.5,
     },
-    infoValue: {
-      fontFamily: 'Jost_400Regular',
-      fontSize: 14,
+    metaValue: {
+      fontFamily: 'Jost_500Medium',
+      fontSize: 13,
       color: theme.text,
-      flex: 1,
     },
-    cardActions: {
+    metaValueRow: {
       flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: 8,
-      paddingTop: 12,
-      borderTopWidth: 1,
-      borderTopColor: theme.background,
+      alignItems: 'center',
+      gap: 4,
     },
-    actionBtn: {
+    linkedBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 12,
+      alignSelf: 'flex-start',
+      backgroundColor: theme.contrast + '15',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 100,
+      marginTop: 10,
     },
-    actionBtnText: {
+    linkedDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    linkedText: {
       fontFamily: 'Jost_600SemiBold',
-      fontSize: 13,
-      color: theme.text,
+      fontSize: 11,
+      color: theme.contrast,
+    },
+    verticalDivider: {
+      width: 1,
+      alignSelf: 'stretch',
+      borderLeftWidth: 1,
+      borderColor: theme.background,
+      borderStyle: 'dashed',
+      marginHorizontal: 12,
+    },
+    actions: {
+      gap: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      alignSelf: 'center',
+    },
+    actionBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: theme.background,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     emptyContainer: {
       width: '100%',
