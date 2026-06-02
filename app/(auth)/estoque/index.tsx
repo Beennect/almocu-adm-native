@@ -3,8 +3,9 @@ import { ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon } fro
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
-import { withLoading } from '@/utils/toast';
 import { useAppTheme } from '@/themes/colors';
+import { computeStockDelta, parseAmountInput, sanitizeAmountInput } from '@/utils/stock-helpers';
+import { withLoading } from '@/utils/toast';
 import { useRouter } from 'expo-router';
 import { observer } from 'mobx-react-lite';
 import React, { useEffect, useRef, useState } from 'react';
@@ -17,6 +18,7 @@ import {
   useWindowDimensions,
   View
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: any) => (
   <View style={styles.paginationContainer}>
@@ -44,11 +46,23 @@ const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: 
 
 const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, styles }: any) => {
   const [amount, setAmount] = useState('1');
+  const parsedAmount = parseAmountInput(amount);
+  const canDecrease = (item.stock ?? 0) > 0 && (Number.isFinite(parsedAmount) ? parsedAmount > 0 : false) && (item.stock ?? 0) >= parsedAmount;
 
-  const handleUpdate = async (delta: number) => {
-    const val = parseFloat(amount.replace(',', '.'));
+  const handleUpdate = async (sign: 1 | -1) => {
+    const val = parseAmountInput(amount);
+    const { delta, error } = computeStockDelta(item.stock ?? 0, sign, val, {
+      name: item.name,
+      unit: item.unit,
+    });
+
+    if (error || delta === 0) {
+      Toast.show({ type: 'error', text1: error || 'Não foi possível ajustar o estoque.' });
+      return;
+    }
+
     await withLoading(
-      () => dataStore.updateIngredientStock(item.id, !isNaN(val) && val > 0 ? delta * val : delta),
+      () => dataStore.updateIngredientStock(item.id, delta),
       { loading: 'Ajustando estoque...', success: 'Estoque ajustado!', error: 'Erro ao ajustar estoque' }
     );
   };
@@ -81,8 +95,9 @@ const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, style
       <View style={styles.cardActions}>
         <View style={styles.qtyControls}>
           <TouchableOpacity
-            style={styles.qtyBtn}
+            style={[styles.qtyBtn, !canDecrease && styles.qtyBtnDisabled]}
             onPress={() => handleUpdate(-1)}
+            disabled={!canDecrease}
           >
             <Text style={styles.qtyBtnText}>-</Text>
           </TouchableOpacity>
@@ -90,8 +105,8 @@ const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, style
           <TextInput
             style={styles.qtyInput}
             value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
+            onChangeText={(text) => setAmount(sanitizeAmountInput(text))}
+            keyboardType="decimal-pad"
             placeholderTextColor={theme.text + '40'}
           />
 
@@ -521,6 +536,9 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       height: 32,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    qtyBtnDisabled: {
+      opacity: 0.3,
     },
     qtyBtnText: {
       fontFamily: 'Jost_700Bold',

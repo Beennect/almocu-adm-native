@@ -12,12 +12,14 @@ import { observer } from 'mobx-react-lite';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
+import { computeStockDelta, parseAmountInput, sanitizeAmountInput } from '@/utils/stock-helpers';
 import { withLoading } from '@/utils/toast';
 import {
   ChevronLeftIcon,
   EditIcon,
   TruckIcon,
 } from '@/components/shared/Icons';
+import Toast from 'react-native-toast-message';
 
 const isUnitInteger = (unit?: string) => !unit || unit === 'Unidades';
 const getStepForUnit = (unit?: string) => (isUnitInteger(unit) ? 1 : 0.1);
@@ -77,14 +79,20 @@ export default observer(function EstoqueItemDetailScreen() {
     );
   }
 
-  const handleUpdate = async (delta: number) => {
-    const val = parseFloat(amount.replace(',', '.'));
+  const handleUpdate = async (sign: 1 | -1) => {
+    const val = parseAmountInput(amount);
+    const { delta, error } = computeStockDelta(item.stock ?? 0, sign, val, {
+      name: item.name,
+      unit: item.unit,
+    });
+
+    if (error || delta === 0) {
+      Toast.show({ type: 'error', text1: error || 'Não foi possível ajustar o estoque.' });
+      return;
+    }
+
     await withLoading(
-      () =>
-        dataStore.updateIngredientStock(
-          item.id,
-          !isNaN(val) && val > 0 ? delta * val : delta
-        ),
+      () => dataStore.updateIngredientStock(item.id, delta),
       {
         loading: 'Ajustando estoque...',
         success: 'Estoque ajustado!',
@@ -94,6 +102,11 @@ export default observer(function EstoqueItemDetailScreen() {
   };
 
   const isLowStock = item.minQuantity != null && item.stock <= item.minQuantity;
+  const parsedAmount = parseAmountInput(amount);
+  const canDecrease =
+    (item.stock ?? 0) > 0 &&
+    (Number.isFinite(parsedAmount) ? parsedAmount > 0 : false) &&
+    (item.stock ?? 0) >= parsedAmount;
   const supplier = item.supplierId
     ? dataStore.suppliers.find((s) => s.id === item.supplierId)
     : null;
@@ -179,9 +192,14 @@ export default observer(function EstoqueItemDetailScreen() {
         </Text>
         <View style={styles.qtyRow}>
           <TouchableOpacity
-            style={[styles.qtyBtn, { backgroundColor: theme.background }]}
+            style={[
+              styles.qtyBtn,
+              { backgroundColor: theme.background },
+              !canDecrease && styles.qtyBtnDisabled,
+            ]}
             onPress={() => handleUpdate(-1)}
             activeOpacity={0.7}
+            disabled={!canDecrease}
           >
             <Text style={[styles.qtyBtnText, { color: theme.text }]}>
               −
@@ -229,8 +247,8 @@ export default observer(function EstoqueItemDetailScreen() {
               },
             ]}
             value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
+            onChangeText={(text) => setAmount(sanitizeAmountInput(text))}
+            keyboardType="decimal-pad"
             placeholderTextColor={theme.text + '40'}
           />
           <Text style={[styles.qtyInputHint, { color: theme.text }]}>
@@ -420,6 +438,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  qtyBtnDisabled: {
+    opacity: 0.3,
   },
   qtyBtnText: {
     fontFamily: 'Jost_700Bold',

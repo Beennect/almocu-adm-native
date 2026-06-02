@@ -1034,14 +1034,30 @@ class DataStore {
   async updateIngredientStock(id: string, delta: number) {
     const previousIngredients = [...this.ingredients];
 
-    // 🚀 Optimistic update
     const index = this.ingredients.findIndex(i => i.id === id);
-    if (index !== -1) {
-      this.ingredients[index] = {
-        ...this.ingredients[index],
-        stock: Math.max(0, this.ingredients[index].stock + delta),
-      };
+    const current = index !== -1 ? this.ingredients[index] : null;
+
+    if (!current) {
+      throw new Error('Item de estoque não encontrado.');
     }
+
+    if (!Number.isFinite(delta) || delta === 0) {
+      throw new Error('Nenhum ajuste a aplicar.');
+    }
+
+    const newStock = (current.stock ?? 0) + delta;
+    if (newStock < 0) {
+      const unit = current.unit ? ` ${current.unit}` : '';
+      throw new Error(
+        `Estoque insuficiente: "${current.name}" possui ${current.stock}${unit} em estoque.`,
+      );
+    }
+
+    // 🚀 Optimistic update
+    this.ingredients[index] = {
+      ...current,
+      stock: newStock,
+    };
 
     try {
       await apiStockService.adjustStock(id, delta);
