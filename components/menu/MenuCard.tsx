@@ -11,6 +11,7 @@ export interface MenuItem {
   image?: string;
   category?: string;
   ingredients?: any[];
+  onPress?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
 }
@@ -24,39 +25,47 @@ function formatIngredient(ing: any): string {
   return `${normalizedQty} ${unit.toLowerCase()} de ${ing.name}`;
 }
 
-export function MenuCard({ name, description, price, image, ingredients, onEdit, onDelete }: MenuItem) {
+export function MenuCard({ name, description, price, image, ingredients, onPress, onEdit, onDelete }: MenuItem) {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
 
   return (
     <View style={styles.card}>
-      {/* Left: Image & Price */}
-      <View style={styles.leftCol}>
-        <View style={styles.imageContainer}>
-          {image ? (
-            <Image source={{ uri: image }} style={styles.image} />
-          ) : (
-            <View style={styles.placeholderImage} />
+      {/* Left + Middle: tappable for detail view */}
+      <TouchableOpacity
+        style={styles.touchableArea}
+        activeOpacity={0.7}
+        onPress={onPress}
+        disabled={!onPress}
+      >
+        {/* Left: Image & Price */}
+        <View style={styles.leftCol}>
+          <View style={styles.imageContainer}>
+            {image ? (
+              <Image source={{ uri: image }} style={styles.image} />
+            ) : (
+              <View style={styles.placeholderImage} />
+            )}
+          </View>
+          <Text style={styles.price}>R$ {price.toFixed(2).replace('.', ',')}</Text>
+        </View>
+
+        {/* Middle: Content */}
+        <View style={styles.content}>
+          <Text style={styles.name}>{name}</Text>
+
+          <Text style={styles.description} numberOfLines={2}>{description}</Text>
+
+          {ingredients && ingredients.length > 0 && (
+            <View style={styles.ingredientsContainer}>
+              <Text style={styles.ingredientsHeader}>Ingredientes</Text>
+              <Text style={styles.ingredientItemText}>
+                {ingredients.map(formatIngredient).join('  •  ')}
+              </Text>
+            </View>
           )}
         </View>
-        <Text style={styles.price}>R$ {price.toFixed(2).replace('.', ',')}</Text>
-      </View>
-
-      {/* Middle: Content */}
-      <View style={styles.content}>
-        <Text style={styles.name}>{name}</Text>
-
-        <Text style={styles.description} numberOfLines={2}>{description}</Text>
-
-        {ingredients && ingredients.length > 0 && (
-          <View style={styles.ingredientsContainer}>
-            <Text style={styles.ingredientsHeader}>Ingredientes</Text>
-            <Text style={styles.ingredientItemText}>
-              {ingredients.map(formatIngredient).join('  •  ')}
-            </Text>
-          </View>
-        )}
-      </View>
+      </TouchableOpacity>
 
       {/* Vertical Divider */}
       <View style={styles.verticalDivider} />
@@ -82,6 +91,11 @@ function makeStyles(theme: any) {
       backgroundColor: theme.foreground,
       borderRadius: 24,
       padding: 16,
+      alignItems: 'center',
+    },
+    touchableArea: {
+      flex: 1,
+      flexDirection: 'row',
       alignItems: 'center',
     },
     leftCol: {

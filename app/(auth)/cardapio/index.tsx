@@ -224,6 +224,7 @@ export default observer(function CardapioScreen() {
                       <MenuCard
                         {...item}
                         image={item.image ?? undefined}
+                        onPress={() => router.push(`cardapio/${item.id}` as any)}
                         onEdit={() => handleEdit(item.id)}
                         onDelete={() => handleDelete(item.id)}
                       />
