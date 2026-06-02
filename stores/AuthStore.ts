@@ -341,27 +341,12 @@ class AuthStore {
     }
   }
 
-  async updateProfile(name: string, email: string, newPass?: string) {
-    if (!this.user) return;
-    // Mudar perfil no banco de dados do backend se aplicável
-    // Nota: Como não há um endpoint explícito de /users/update no escopo inicial do auth controller,
-    // atualizamos apenas localmente ou através do modelo local.
-    this.user.name = name;
-    this.user.email = email;
-    await AsyncStorage.setItem('user', JSON.stringify(this.user));
-
-    const emailLower = email.toLowerCase().trim();
-    const userIndex = this.users.findIndex(u => u.email === emailLower);
-    if (userIndex !== -1) {
-      this.users[userIndex].name = name;
-      if (newPass) {
-        this.users[userIndex].password = newPass;
-      }
-      await AsyncStorage.setItem('users', JSON.stringify(this.users));
-      if (Platform.OS === 'web') {
-        localStorage.setItem('users', JSON.stringify(this.users));
-      }
-    }
+  async changePassword(currentPassword: string, newPassword: string) {
+    const response = await api.patch('/auth/password', {
+      currentPassword,
+      newPassword,
+    });
+    return response.data;
   }
 }
 

@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { authStore } from '@/stores/AuthStore';
 import { dataStore } from '@/stores/DataStore';
-import { ChevronLeftIcon, UserIcon } from '@/components/shared/Icons';
+import { ChevronLeftIcon, KeyIcon } from '@/components/shared/Icons';
+import { ChangePasswordModal } from '@/components/shared/ChangePasswordModal';
+import Toast from 'react-native-toast-message';
 
 export default observer(function PerfilScreen() {
   const { width } = useWindowDimensions();
@@ -26,6 +28,15 @@ export default observer(function PerfilScreen() {
   // Simulated subscription statistics
   const menuLimit = 50;
   const currentMenuItems = dataStore.menuItems.length;
+
+  const [showChangePassword, setShowChangePassword] = useState(false);
+
+  const handlePasswordChanged = async () => {
+    setShowChangePassword(false);
+    Toast.show({ type: 'success', text1: 'Senha alterada com sucesso! Faça login novamente.' });
+    await authStore.logout();
+    router.replace('/login' as any);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -134,14 +145,21 @@ export default observer(function PerfilScreen() {
         </View>
 
         {/* CTA buttons */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.editBtn, { borderColor: theme.contrast }]}
-          onPress={() => router.push('/(auth)/config/edit-perfil' as any)}
+          onPress={() => setShowChangePassword(true)}
         >
-          <Text style={[styles.editBtnText, { color: theme.contrast }]}>Editar Dados do Perfil</Text>
+          <KeyIcon color={theme.contrast} size={18} style={{ marginRight: 8 }} />
+          <Text style={[styles.editBtnText, { color: theme.contrast }]}>Alterar Senha</Text>
         </TouchableOpacity>
 
       </ScrollView>
+
+      <ChangePasswordModal
+        visible={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        onSuccess={handlePasswordChanged}
+      />
     </View>
   );
 });
@@ -321,6 +339,7 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
   editBtn: {
+    flexDirection: 'row',
     borderWidth: 2,
     height: 52,
     borderRadius: 18,

@@ -23,6 +23,7 @@
 [X] Melhorar mensagem de erro (utilizar toast)
 [X] Tem que adicionar opção de marca
 [X] Adicionar fornecedor
+[ ] Se eu diminuir demais o estoque dá erro
 
 # Pedidos
 [ ] Não aparecem em tempo real
