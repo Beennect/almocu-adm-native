@@ -44,7 +44,7 @@ export default observer(function FiliaisScreen() {
     setCnpj(maskCnpj(value));
   };
 
-  const handleAddBranch = () => {
+  const handleAddBranch = async () => {
     if (!nome || !cnpj || !telefone || !endereco) {
       setModalError('Por favor, preencha todos os campos.');
       return;
@@ -61,7 +61,7 @@ export default observer(function FiliaisScreen() {
 
     try {
       try {
-        const newBranch = dataStore.addBranch({
+        const newBranch = await dataStore.addBranch({
           name: nome,
           cnpj,
           phone: telefone,

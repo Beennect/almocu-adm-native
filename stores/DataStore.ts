@@ -2,18 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { makeAutoObservable } from "mobx";
 import { apiMenuService } from "../services/api-menu-service";
 import { apiOrderService, mapStatusToFrontend } from "../services/api-order-service";
-import api from "../services/api-service";
+import api, { API_URL } from "../services/api-service";
 import { apiStaffService, mapRoleToFrontend } from "../services/api-staff-service";
 import { apiStockService } from "../services/api-stock-service";
 import { apiSupplierService, SupplierInput } from "../services/api-supplier-service";
 import { authStore } from "./AuthStore";
 
-const MENU_IMAGE_BASE_URL = 'http://localhost:3000';
-
 const resolveImageUrl = (imageUrl?: string | null): string | null => {
   if (!imageUrl) return null;
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
-  return `${MENU_IMAGE_BASE_URL}${imageUrl}`;
+  return `${API_URL}${imageUrl}`;
 };
 
 export interface MenuItem {
@@ -29,7 +27,7 @@ export interface MenuItem {
   available?: boolean;
 }
 
-export type OrderStatus = 'PENDENTE' | 'PREPARANDO' | 'SAIU_PARA_ENTREGA' | 'CONCLUIDO' | 'CANCELADO';
+export type OrderStatus = 'PENDENTE' | 'PREPARANDO' | 'PRONTO' | 'SAIU_PARA_ENTREGA' | 'CONCLUIDO' | 'CANCELADO';
 
 export interface StatusHistoryEntry {
   status: OrderStatus;
@@ -44,6 +42,7 @@ export interface Order {
   status: OrderStatus;
   time: string;
   createdAt: string;
+  updatedAt?: string;
   items?: any[];
   address?: {
     cep: string;
@@ -145,10 +144,18 @@ export interface InviteCodeInfo {
   expiresAt: number; // timestamp em ms
 }
 
-const DEFAULT_BRANCHES: Branch[] = [
-  { id: '1', name: 'Almocu - Filial Centro', cnpj: '12.345.678/0002-00', phone: '(11) 98765-4321', address: 'Rua São Bento, 456 - Centro, São Paulo - SP' },
-  { id: '2', name: 'Almocu - Filial Shopping', cnpj: '12.345.678/0003-00', phone: '(11) 98765-8765', address: 'Av. Paulista, 1230 - Bela Vista, São Paulo - SP' }
-];
+/** Retorna o limite de filiais de acordo com o plano */
+export function getPlanLimit(plan?: string): number {
+  const limits: Record<string, number> = {
+    BASIC: 3,
+    PROFESSIONAL: 6,
+    NETWORK: 10,
+    PREMIUM: 999,
+  };
+  return limits[plan ?? 'BASIC'] ?? limits.BASIC;
+}
+
+
 
 const DEFAULT_MODULES: ModuleItem[] = [
   { id: 'dashboard', name: 'Dashboard', description: 'Visão geral de vendas, faturamento e desempenho comercial.', price: 0, icon: 'DashboardIcon', acquired: true, showInNavbar: true },
@@ -317,14 +324,14 @@ class DataStore {
           address: 'Endereço da Filial',
         }));
         if (this.branches.length === 0) {
-          this.branches = [...DEFAULT_BRANCHES];
+          this.branches = [];
         }
       } else {
         if (!this.restaurantDetails) {
           this.restaurantDetails = null;
         }
         if (this.branches.length === 0) {
-          this.branches = [...DEFAULT_BRANCHES];
+          this.branches = [];
         }
       }
     } catch (e) {
@@ -337,7 +344,7 @@ class DataStore {
         };
       }
       if (this.branches.length === 0) {
-        this.branches = [...DEFAULT_BRANCHES];
+        this.branches = [];
       }
     } finally {
       this.isRefreshingWorkspaces = false;
@@ -476,24 +483,63 @@ class DataStore {
       const ordersList = Array.isArray(ordersData) ? ordersData : (ordersData?.items || []);
       this.orders = ordersList.map((ord: any) => {
         const dateStr = ord.createdAt ? new Date(ord.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '00:00';
+        const mappedId = ord._id;
+
+        // Preserva statusHistory local se o backend não retornar um histórico real
+        // (útil enquanto o backend antigo ainda não persiste statusHistory)
+        let mappedHistory: StatusHistoryEntry[];
+        if (ord.statusHistory && ord.statusHistory.length > 0) {
+          mappedHistory = ord.statusHistory.map((h: any) => ({
+            status: mapStatusToFrontend(h.status),
+            timestamp: h.timestamp,
+          }));
+        } else {
+          const existing = this.orders.find((o) => o.id === mappedId);
+          if (existing && existing.statusHistory.length > 1) {
+            // Mantém o histórico local que foi acumulado via optimistic updates
+            mappedHistory = existing.statusHistory;
+          } else {
+            // Fallback: entrada única com timestamp da criação
+            mappedHistory = [
+              {
+                status: mapStatusToFrontend(ord.status),
+                timestamp: ord.createdAt || new Date().toISOString(),
+              },
+            ];
+          }
+        }
+
         return {
-          id: ord._id,
-          clientName: ord.origin || 'Garçom',
+          id: mappedId,
+          clientName: ord.clientName || ord.origin || 'Cliente',
           table: ord.origin || 'Balcão',
           total: ord.totalValue,
           status: mapStatusToFrontend(ord.status),
           time: dateStr,
           createdAt: ord.createdAt || new Date().toISOString(),
-          items: ord.items ? ord.items.map((i: any) => ({
-            id: i.productId?._id || i.productId,
-            name: i.name || 'Produto',
-            quantity: i.quantity,
-            price: i.price || 0,
-          })) : [],
-          statusHistory: ord.statusHistory ? ord.statusHistory.map((h: any) => ({
-            status: mapStatusToFrontend(h.status),
-            timestamp: h.timestamp,
-          })) : [{ status: mapStatusToFrontend(ord.status), timestamp: ord.createdAt || new Date().toISOString() }],
+          updatedAt: ord.updatedAt,
+          additionalInfo: ord.observations || '',
+          address: ord.deliveryAddress
+            ? {
+                rua: ord.deliveryAddress.street || '',
+                numero: ord.deliveryAddress.number || '',
+                semNumero: !ord.deliveryAddress.number,
+                bairro: ord.deliveryAddress.neighborhood || '',
+                cidade: ord.deliveryAddress.city || '',
+                estado: ord.deliveryAddress.state || '',
+                cep: ord.deliveryAddress.zipCode || '',
+                complemento: ord.deliveryAddress.complement || '',
+              }
+            : undefined,
+          items: ord.items
+            ? ord.items.map((i: any) => ({
+                id: i.productId?._id || i.productId,
+                name: i.name || 'Produto',
+                quantity: i.quantity,
+                price: i.price || 0,
+              }))
+            : [],
+          statusHistory: mappedHistory,
         };
       });
     } catch (e) {
@@ -687,24 +733,20 @@ class DataStore {
     }
   }
 
-  async addItem(item: Omit<MenuItem, 'id'> & { imageLocalUri?: string | null }) {
-    const { imageLocalUri, ...payload } = item;
-    const created = await apiMenuService.createProduct(payload);
-    const newId = created?._id ?? created?.id;
-    if (newId && imageLocalUri) {
-      try {
-        await apiMenuService.uploadProductImage(newId, imageLocalUri);
-      } catch (uploadError) {
-        console.warn('Upload de imagem falhou (item criado sem foto):', uploadError);
-      }
+  async addItem(item: Omit<MenuItem, 'id'> & { imageBase64?: string | null }) {
+    const { imageBase64, ...payload } = item;
+    const data: any = { ...payload };
+    if (imageBase64) {
+      data.imageBase64 = imageBase64;
     }
+    const created = await apiMenuService.createProduct(data);
     await this.refreshMenu();
     return created;
   }
 
-  async updateItem(id: string, updatedData: Partial<MenuItem> & { imageLocalUri?: string | null }) {
+  async updateItem(id: string, updatedData: Partial<MenuItem> & { imageBase64?: string | null }) {
     const previousItems = [...this.menuItems];
-    const { imageLocalUri, ...payload } = updatedData;
+    const { imageBase64, ...payload } = updatedData;
 
     // 🚀 Optimistic update
     const index = this.menuItems.findIndex(i => i.id === id);
@@ -713,14 +755,11 @@ class DataStore {
     }
 
     try {
-      await apiMenuService.updateProduct(id, payload);
-      if (imageLocalUri) {
-        try {
-          await apiMenuService.uploadProductImage(id, imageLocalUri);
-        } catch (uploadError) {
-          console.warn('Upload de imagem na edição falhou (dados atualizados sem foto):', uploadError);
-        }
+      const data: any = { ...payload };
+      if (imageBase64) {
+        data.imageBase64 = imageBase64;
       }
+      await apiMenuService.updateProduct(id, data);
       await this.refreshMenu();
     } catch (error) {
       // 🔙 Reverte
@@ -763,11 +802,27 @@ class DataStore {
       throw new Error('Nenhum item válido no pedido. Verifique se os produtos foram cadastrados no cardápio.');
     }
 
+    // Mapeia address do frontend ({ rua, numero, bairro, cidade, estado, cep, complemento })
+    // para deliveryAddress do backend ({ street, number, neighborhood, city, state, zipCode, complement })
+    const deliveryAddress = order.address
+      ? {
+          street: order.address.rua || '',
+          number: order.address.numero || '',
+          neighborhood: order.address.bairro || '',
+          city: order.address.cidade || '',
+          state: order.address.estado || '',
+          zipCode: order.address.cep || '',
+          complement: order.address.complemento || '',
+        }
+      : undefined;
+
     const created = await apiOrderService.createOrder({
       items,
-      origin: order.table || order.clientName || 'Mesa',
+      clientName: order.clientName || 'Cliente',
+      origin: order.table || 'Balcão',
       observations: order.additionalInfo || '',
-      });
+      deliveryAddress,
+    });
 
     await this.refreshOrders();
     return created;
@@ -804,7 +859,11 @@ class DataStore {
     if (currentOrder.status === 'PENDENTE') {
       nextStatus = 'PREPARANDO';
     } else if (currentOrder.status === 'PREPARANDO') {
-      nextStatus = isDelivery ? 'SAIU_PARA_ENTREGA' : 'CONCLUIDO';
+      // Delivery: PREPARANDO → PRONTO → SAIU_PARA_ENTREGA → CONCLUIDO
+      // Balcão: PREPARANDO → CONCLUIDO
+      nextStatus = isDelivery ? 'PRONTO' : 'CONCLUIDO';
+    } else if (currentOrder.status === 'PRONTO') {
+      nextStatus = 'SAIU_PARA_ENTREGA';
     } else if (currentOrder.status === 'SAIU_PARA_ENTREGA') {
       nextStatus = 'CONCLUIDO';
     }
@@ -1049,7 +1108,7 @@ class DataStore {
     if (newStock < 0) {
       const unit = current.unit ? ` ${current.unit}` : '';
       throw new Error(
-        `Estoque insuficiente: "${current.name}" possui ${current.stock}${unit} em estoque.`,
+        `Estoque insuficiente.`,
       );
     }
 
@@ -1070,38 +1129,27 @@ class DataStore {
     }
   }
 
-  addBranch(branch: Omit<Branch, 'id'>): Branch {
-    const tempId = Math.random().toString(36).substr(2, 9);
-    const newBranchObj: Branch = {
-      id: tempId,
+  async addBranch(branch: Omit<Branch, 'id'>): Promise<Branch> {
+    // API-first: chama o backend antes de atualizar o estado local
+    const response = await api.post('/restaurants/branch', {
       name: branch.name,
+      parentId: authStore.user?.restaurantId,
+    });
+
+    const backendBranch = response.data;
+    const newBranch: Branch = {
+      id: backendBranch._id || backendBranch.id,
+      name: backendBranch.name || branch.name,
       cnpj: branch.cnpj,
       phone: branch.phone,
       address: branch.address,
     };
 
-    // Optimistic UI updates
-    this.branches.push(newBranchObj);
+    // Só atualiza o estado local após confirmação do backend
+    this.branches.push(newBranch);
+    await this.refreshWorkspaces();
 
-    // Call backend in the background
-    api.post('/restaurants/branch', {
-      name: branch.name,
-      parentId: authStore.user?.restaurantId,
-    }).then(async (response) => {
-      const backendBranch = response.data;
-      if (backendBranch && backendBranch._id) {
-        const found = this.branches.find(b => b.id === tempId);
-        if (found) {
-          found.id = backendBranch._id;
-        }
-      }
-      // filiais afetam o contexto do restaurante: rebusca workspaces
-      await this.refreshWorkspaces();
-    }).catch(err => {
-      console.error("Failed to sync new branch to backend", err);
-    });
-
-    return newBranchObj;
+    return newBranch;
   }
 
   async removeBranch(id: string) {
@@ -1131,7 +1179,7 @@ class DataStore {
     this.orders = [];
     this.ingredients = [];
     this.suppliers = [];
-    this.branches = [...DEFAULT_BRANCHES];
+    this.branches = [];
     this.modules = DEFAULT_MODULES.map(m => ({ ...m }));
     this.restaurantDetails = null;
     this.restaurants = [];

@@ -206,7 +206,7 @@ export default observer(function ConfigScreen() {
   // Form states
   const [restName, setRestName] = useState('');
   const [restCnpj, setRestCnpj] = useState('');
-  const [restMaxBranches, setRestMaxBranches] = useState('1');
+  const [selectedPlan, setSelectedPlan] = useState<'BASIC' | 'PROFESSIONAL' | 'NETWORK' | 'PREMIUM'>('BASIC');
   const [inviteCode, setInviteCode] = useState('');
 
   const maskCnpj = (value: string) => {
@@ -222,10 +222,12 @@ export default observer(function ConfigScreen() {
     setRestCnpj(maskCnpj(value));
   };
 
-  const handleMaxBranchesChange = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 3);
-    setRestMaxBranches(digits);
-  };
+  const PLAN_OPTIONS: Array<{ key: 'BASIC' | 'PROFESSIONAL' | 'NETWORK' | 'PREMIUM'; label: string; limit: string; description: string }> = [
+    { key: 'BASIC', label: 'BASIC', limit: '3 filiais', description: 'Para pequenos restaurantes' },
+    { key: 'PROFESSIONAL', label: 'PROFESSIONAL', limit: '6 filiais', description: 'Para redes em crescimento' },
+    { key: 'NETWORK', label: 'NETWORK', limit: '10 filiais', description: 'Para redes consolidadas' },
+    { key: 'PREMIUM', label: 'PREMIUM', limit: 'Ilimitado', description: 'Para grandes operações' },
+  ];
 
   const userName = authStore.user?.name || 'Usuário';
   const userEmail = authStore.user?.email || '';
@@ -272,22 +274,17 @@ export default observer(function ConfigScreen() {
       setCreateModalError('CNPJ inválido. Verifique os dígitos informados.');
       return;
     }
-    const parsedMaxBranches = parseInt(restMaxBranches, 10);
-    if (isNaN(parsedMaxBranches) || parsedMaxBranches < 1) {
-      setCreateModalError('A quantidade de filiais deve ser no mínimo 1.');
-      return;
-    }
     setCreateModalError('');
     setLoading(true);
     try {
       try {
-        await authStore.createRestaurantWorkspace(restName.trim(), restCnpj, parsedMaxBranches);
+        await authStore.createRestaurantWorkspace(restName.trim(), restCnpj, selectedPlan);
         setShowCreateModal(false);
         setCreateModalError('');
         setRestName('');
         setRestCnpj('');
-        setRestMaxBranches('1');
-        Toast.show({ type: 'success', text1: 'Restaurante cadastrado e cargo GERENTE atribuído!' });
+        setSelectedPlan('BASIC');
+        Toast.show({ type: 'success', text1: 'Restaurante cadastrado!' });
       } catch (err: any) {
         setCreateModalError(err?.response?.data?.message || err?.message || 'Erro ao cadastrar restaurante.');
       }
@@ -309,7 +306,7 @@ export default observer(function ConfigScreen() {
         setShowJoinModal(false);
         setJoinModalError('');
         setInviteCode('');
-        Toast.show({ type: 'success', text1: 'Ingresso realizado! Aguarde ativação pelo Gerente.' });
+        Toast.show({ type: 'success', text1: 'Ingresso realizado!' });
       } catch (err: any) {
         setJoinModalError(err?.response?.data?.message || err?.message || 'Código de convite inválido ou expirado.');
       }
@@ -334,9 +331,9 @@ export default observer(function ConfigScreen() {
         setConfirmRemoveWorkspace(false);
         setRemovingRestId('');
         setRemovingRestName('');
-        Toast.show({ type: 'success', text1: `Restaurante "${removingRestName}" removido dos seus workspaces!` });
+        Toast.show({ type: 'success', text1: `Restaurante "${removingRestName}" removido dos seus restaurantes!` });
       } catch (err: any) {
-        Toast.show({ type: 'error', text1: err?.response?.data?.message || err?.message || 'Erro ao remover workspace.' });
+        Toast.show({ type: 'error', text1: err?.response?.data?.message || err?.message || 'Erro ao remover restaurante.' });
       }
     } finally {
       setLoading(false);
@@ -373,7 +370,7 @@ export default observer(function ConfigScreen() {
         {/* WORKSPACE SECTOR CARD */}
         <View style={[styles.workspaceCard, { backgroundColor: theme.foreground }]}>
           <Text style={{ fontFamily: 'Jost_700Bold', fontSize: 12, color: theme.contrast, textTransform: 'uppercase', marginBottom: 4 }}>
-            Workspace Atual
+            Restaurante Atual
           </Text>
           
           <TouchableOpacity
@@ -385,12 +382,12 @@ export default observer(function ConfigScreen() {
               <BriefcaseIcon color={theme.contrast} size={20} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: 'Jost_700Bold', fontSize: 15, color: theme.text }} numberOfLines={1}>
-                  {dataStore.restaurantDetails?.name || 'Selecione ou Crie um Workspace'}
+                  {dataStore.restaurantDetails?.name || 'Selecione ou crie um restaurante'}
                 </Text>
                 <Text style={{ fontFamily: 'Jost_400Regular', fontSize: 12, color: theme.text, opacity: 0.6 }} numberOfLines={1}>
                   {dataStore.restaurantDetails?.name
                     ? `${dataStore.restaurantDetails.plan ? `Plano ${dataStore.restaurantDetails.plan} • ` : ''}Cargo: ${activeRole === 'GERENTE' ? 'Gerente' : activeRole === 'GARCOM' ? 'Garçom' : activeRole === 'COZINHA' ? 'Cozinha' : activeRole === 'CAIXA' ? 'Caixa' : activeRole === 'COMUM' ? 'Sem Cargo' : activeRole}`
-                    : 'Nenhum estabelecimento ativo'}
+                    : 'Nenhum restaurante ativo'}
                 </Text>
               </View>
             </View>
@@ -601,7 +598,7 @@ export default observer(function ConfigScreen() {
           setRemovingRestName('');
         }}
         onConfirm={handleRemoveWorkspace}
-        title="Remover Workspace"
+        title="Remover Restaurante"
         message={`Tem certeza que deseja remover o restaurante "${removingRestName}" da sua lista de workspaces?`}
         confirmText="Remover"
       />
@@ -616,7 +613,7 @@ export default observer(function ConfigScreen() {
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={[styles.modalContent, { backgroundColor: theme.foreground }]}>
-                <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 12 }]}>Seus Workspaces</Text>
+                <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 12 }]}>Seus restaurantes</Text>
 
                 {workspaceModalError ? <InlineAlert type="error" message={workspaceModalError} /> : null}
                 
@@ -782,18 +779,78 @@ export default observer(function ConfigScreen() {
                     />
 
                     <View style={styles.fieldLabel}>
-                      <Text style={[styles.fieldLabelText, { color: theme.text }]}>Quantidade de Filiais</Text>
-                      <Text style={[styles.fieldHint, { color: theme.text }]}>Mínimo 1</Text>
+                      <Text style={[styles.fieldLabelText, { color: theme.text }]}>Plano</Text>
+                      <Text style={[styles.fieldHint, { color: theme.text }]}>Define o limite de filiais</Text>
                     </View>
-                    <TextInput
-                      style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
-                      placeholder="1"
-                      placeholderTextColor={theme.text + '80'}
-                      value={restMaxBranches}
-                      onChangeText={handleMaxBranchesChange}
-                      keyboardType="numeric"
-                      maxLength={3}
-                    />
+                    <View style={{ gap: 8, marginBottom: 12 }}>
+                      {PLAN_OPTIONS.map((option) => {
+                        const isSelected = selectedPlan === option.key;
+                        return (
+                          <TouchableOpacity
+                            key={option.key}
+                            activeOpacity={0.7}
+                            onPress={() => setSelectedPlan(option.key)}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              backgroundColor: isSelected
+                                ? theme.contrast + '18'
+                                : theme.background,
+                              borderRadius: 12,
+                              borderWidth: 1.5,
+                              borderColor: isSelected
+                                ? theme.contrast
+                                : theme.text + '12',
+                              paddingHorizontal: 14,
+                              paddingVertical: 12,
+                            }}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={{
+                                  fontFamily: 'Jost_700Bold',
+                                  fontSize: 14,
+                                  color: theme.text,
+                                }}
+                              >
+                                {option.label}
+                              </Text>
+                              <Text
+                                style={{
+                                  fontFamily: 'Jost_400Regular',
+                                  fontSize: 12,
+                                  color: theme.text,
+                                  opacity: 0.6,
+                                  marginTop: 1,
+                                }}
+                              >
+                                {option.description}
+                              </Text>
+                            </View>
+                            <View
+                              style={{
+                                backgroundColor: isSelected
+                                  ? theme.contrast
+                                  : theme.text + '15',
+                                borderRadius: 8,
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontFamily: 'Jost_700Bold',
+                                  fontSize: 11,
+                                  color: isSelected ? '#FFFFFF' : theme.text,
+                                }}
+                              >
+                                {option.limit}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   </View>
                 </ScrollView>
 
@@ -804,7 +861,7 @@ export default observer(function ConfigScreen() {
                     disabled={loading}
                     activeOpacity={0.85}
                   >
-                    {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.actionBtnText}>Criar Restaurante (Gerente)</Text>}
+                    {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.actionBtnText}>Criar Restaurante</Text>}
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: theme.background, borderWidth: 1, borderColor: theme.text + '30' }]}
@@ -944,7 +1001,7 @@ export default observer(function ConfigScreen() {
                     onPress={handleJoinRestaurant}
                     disabled={loading}
                   >
-                    {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.actionBtnText}>Ingressar no Workspace</Text>}
+                    {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.actionBtnText}>Ingressar</Text>}
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: theme.background, borderWidth: 1, borderColor: theme.text + '30' }]}

@@ -29,7 +29,7 @@ export const computeStockDelta = (
     const unit = options?.unit ? ` ${options.unit}` : '';
     return {
       delta: 0,
-      error: `Estoque insuficiente: ${label} possui ${currentStock}${unit} em estoque.`,
+      error: `Estoque insuficiente.`,
     };
   }
 

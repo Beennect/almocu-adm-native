@@ -9,6 +9,8 @@ export interface MenuItemInput {
   image?: string | null;
   isActive?: boolean;
   stockProductId?: string;
+  /** Data URI da imagem (data:image/...;base64,XXXX) para enviar junto com o JSON */
+  imageBase64?: string | null;
 }
 
 const toBackendQuantity = (raw: any) => {
@@ -41,6 +43,11 @@ export const apiMenuService = {
       ingredients: sanitizeIngredients(data.ingredients),
     };
 
+    // Inclui a imagem em base64 se existir
+    if (data.imageBase64) {
+      payload.imageBase64 = data.imageBase64;
+    }
+
     const response = await api.post('/api/menu', payload);
     return response.data;
   },
@@ -56,22 +63,12 @@ export const apiMenuService = {
       payload.ingredients = sanitizeIngredients(data.ingredients);
     }
 
+    // Inclui a imagem em base64 se existir
+    if (data.imageBase64) {
+      payload.imageBase64 = data.imageBase64;
+    }
+
     const response = await api.patch(`/api/menu/${id}`, payload);
-    return response.data;
-  },
-
-  async uploadProductImage(productId: string, fileUri: string) {
-    const form = new FormData();
-    form.append('image', {
-      uri: fileUri,
-      name: `product-${Date.now()}.jpg`,
-      type: 'image/jpeg',
-    } as any);
-
-    const response = await api.post(`/api/menu/${productId}/upload`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      transformRequest: (data: any) => data,
-    });
     return response.data;
   },
 

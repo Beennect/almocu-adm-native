@@ -37,9 +37,7 @@ type FilterMode =
   | 'pessoa_fisica'
   | 'recentes'
   | 'antigos'
-  | 'com_estoque'
-  | `cidade:${string}`
-  | `uf:${string}`;
+  | 'com_estoque';
 
 const MAIN_FILTER_LABELS: Record<string, string> = {
   todos: 'Todos',
@@ -78,8 +76,7 @@ const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: 
 );
 
 const getGridColumns = (width: number) => {
-  if (width >= 1440) return 3;
-  if (width >= 1024) return 2;
+  if (width >= 1440) return 2;
   return 1;
 };
 
@@ -112,8 +109,6 @@ export default observer(function FornecedoresScreen() {
   const [filterMode, setFilterMode] = useState<FilterMode>('todos');
   const [currentPage, setCurrentPage] = useState(1);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [cityModalVisible, setCityModalVisible] = useState(false);
-  const [ufModalVisible, setUfModalVisible] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const itemsPerPage = isWeb ? 12 : 6;
@@ -126,22 +121,6 @@ export default observer(function FornecedoresScreen() {
     setCurrentPage(1);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [searchTerm, filterMode]);
-
-  const cityOptions = (() => {
-    const set = new Set<string>();
-    dataStore.suppliers.forEach((s) => {
-      if (s.address?.city) set.add(s.address.city);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  })();
-
-  const ufOptions = (() => {
-    const set = new Set<string>();
-    dataStore.suppliers.forEach((s) => {
-      if (s.address?.state) set.add(s.address.state.toUpperCase());
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  })();
 
   const activeRole = authStore.activeRole;
   if (activeRole !== 'GERENTE') {
@@ -156,11 +135,8 @@ export default observer(function FornecedoresScreen() {
     );
   }
 
-  const filterLabel = (mode: FilterMode) => {
-    if (mode.startsWith('cidade:')) return `Cidade: ${mode.replace('cidade:', '')}`;
-    if (mode.startsWith('uf:')) return `UF: ${mode.replace('uf:', '')}`;
-    return MAIN_FILTER_LABELS[mode] || 'Todos';
-  };
+  const filterLabel = (mode: FilterMode) =>
+    MAIN_FILTER_LABELS[mode] || 'Todos';
 
   const processSuppliers = () => {
     let list = [...dataStore.suppliers];
@@ -199,14 +175,7 @@ export default observer(function FornecedoresScreen() {
           .filter((id): id is string => !!id),
       );
       list = list.filter((s) => ids.has(s.id));
-    } else if (filterMode.startsWith('cidade:')) {
-      const city = filterMode.replace('cidade:', '');
-      list = list.filter((s) => s.address?.city === city);
-    } else if (filterMode.startsWith('uf:')) {
-      const uf = filterMode.replace('uf:', '').toUpperCase();
-      list = list.filter((s) => s.address?.state?.toUpperCase() === uf);
     }
-
     if (filterMode === 'alfabetica') {
       list.sort((a, b) => a.name.localeCompare(b.name));
     } else if (filterMode === 'recentes') {
@@ -233,17 +202,21 @@ export default observer(function FornecedoresScreen() {
   const handleDelete = async () => {
     if (!confirmDeleteId) return;
     const supplierName = dataStore.suppliers.find((s) => s.id === confirmDeleteId)?.name;
-    await withLoading(
-      async () => {
-        await dataStore.removeSupplier(confirmDeleteId);
-        setConfirmDeleteId(null);
-      },
-      {
-        loading: 'Removendo fornecedor...',
-        success: `Fornecedor "${supplierName || ''}" removido`,
-        error: 'Erro ao remover fornecedor',
-      },
-    );
+    try {
+      await withLoading(
+        async () => {
+          await dataStore.removeSupplier(confirmDeleteId);
+          setConfirmDeleteId(null);
+        },
+        {
+          loading: 'Removendo fornecedor...',
+          success: `Fornecedor "${supplierName || ''}" removido`,
+          error: 'Erro ao remover fornecedor',
+        },
+      );
+    } catch {
+      // Erro já exibido via toast pelo withLoading — não propaga para error boundary
+    }
   };
 
   const renderCard = (s: SupplierItem, onPress: () => void) => {
@@ -353,7 +326,7 @@ export default observer(function FornecedoresScreen() {
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar por nome, CNPJ, cidade..."
+            placeholder="Buscar..."
             placeholderTextColor={theme.text + '80'}
             value={searchTerm}
             onChangeText={setSearchTerm}
@@ -366,26 +339,6 @@ export default observer(function FornecedoresScreen() {
           >
             <Text style={styles.filterBtnText} numberOfLines={1}>{filterLabel(filterMode)}</Text>
           </TouchableOpacity>
-          {cityOptions.length > 0 ? (
-            <TouchableOpacity
-              style={styles.filterBtn}
-              onPress={() => setCityModalVisible(true)}
-            >
-              <Text style={styles.filterBtnText} numberOfLines={1}>
-                {filterMode.startsWith('cidade:') ? filterMode.replace('cidade:', '') : 'Cidade'}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-          {ufOptions.length > 0 ? (
-            <TouchableOpacity
-              style={styles.filterBtn}
-              onPress={() => setUfModalVisible(true)}
-            >
-              <Text style={styles.filterBtnText} numberOfLines={1}>
-                {filterMode.startsWith('uf:') ? filterMode.replace('uf:', '') : 'UF'}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
           <TouchableOpacity
             style={styles.plusBtn}
             activeOpacity={0.8}
@@ -469,32 +422,6 @@ export default observer(function FornecedoresScreen() {
         }}
         options={MAIN_FILTER_KEYS.map((k) => MAIN_FILTER_LABELS[k])}
         title="Filtrar Por"
-      />
-
-      <SelectModal
-        visible={cityModalVisible}
-        onClose={() => setCityModalVisible(false)}
-        onSelect={(city: string) => {
-          setFilterMode(`cidade:${city}` as FilterMode);
-          setCityModalVisible(false);
-        }}
-        options={['Todas', ...cityOptions]}
-        title="Filtrar por Cidade"
-      />
-
-      <SelectModal
-        visible={ufModalVisible}
-        onClose={() => setUfModalVisible(false)}
-        onSelect={(uf: string) => {
-          if (uf === 'Todas') {
-            setFilterMode('todos');
-          } else {
-            setFilterMode(`uf:${uf}` as FilterMode);
-          }
-          setUfModalVisible(false);
-        }}
-        options={['Todas', ...ufOptions]}
-        title="Filtrar por UF"
       />
 
       <ConfirmModal

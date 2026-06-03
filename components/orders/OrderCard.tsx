@@ -23,6 +23,7 @@ interface OrderCardProps {
   elapsedTime: string;
   items?: OrderItem[];
   createdAt: string;
+  updatedAt?: string;
   table?: string;
   address?: any;
   statusHistory: StatusHistoryEntry[];
@@ -32,6 +33,7 @@ interface OrderCardProps {
 const STATUS_LABELS: Record<string, string> = {
   PENDENTE: 'Pendente',
   PREPARANDO: 'Preparando',
+  PRONTO: 'Pronto',
   SAIU_PARA_ENTREGA: 'Saiu para Entrega',
   CONCLUIDO: 'Concluído',
   CANCELADO: 'Cancelado',
@@ -40,6 +42,7 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   PENDENTE: '#F59E0B',
   PREPARANDO: '#3B82F6',
+  PRONTO: '#10B981',
   SAIU_PARA_ENTREGA: '#8B5CF6',
   CONCLUIDO: '#10B981',
   CANCELADO: '#EF4444',
@@ -48,6 +51,7 @@ const STATUS_COLORS: Record<string, string> = {
 const NEXT_STATUS_LABELS: Record<string, string> = {
   PENDENTE: 'Aceitar →',
   PREPARANDO: 'Finalizar →',
+  PRONTO: 'Saiu para Entrega →',
   SAIU_PARA_ENTREGA: 'Entregar →',
   CONCLUIDO: 'Concluído ✓',
   CANCELADO: 'Cancelado',
@@ -64,20 +68,39 @@ function formatDuration(ms: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function useStageTimer(statusHistory: StatusHistoryEntry[], isFinal: boolean, createdAt: string) {
+function useStageTimer(
+  statusHistory: StatusHistoryEntry[],
+  isFinal: boolean,
+  createdAt: string,
+  updatedAt?: string,
+) {
   const [elapsed, setElapsed] = useState('00:00');
 
   useEffect(() => {
     const update = () => {
+      const start = new Date(createdAt).getTime();
+
       if (isFinal) {
-        // Show total duration: terminal status timestamp - creation timestamp
-        const start = new Date(createdAt).getTime();
-        const end = new Date(statusHistory[statusHistory.length - 1].timestamp).getTime();
-        setElapsed(formatDuration(end - start));
+        const lastEntry = statusHistory[statusHistory.length - 1];
+
+        // Se temos statusHistory com múltiplas entradas, usa a última como fim
+        if (lastEntry && statusHistory.length > 1) {
+          const end = new Date(lastEntry.timestamp).getTime();
+          setElapsed(formatDuration(end - start));
+          return;
+        }
+
+        // Fallback: usa updatedAt do backend (disponível após refresh)
+        // Se não houver, usa a timestamp da única entrada (evita NaN)
+        if (updatedAt) {
+          setElapsed(formatDuration(new Date(updatedAt).getTime() - start));
+        } else if (lastEntry) {
+          setElapsed(formatDuration(new Date(lastEntry.timestamp).getTime() - start));
+        }
         return;
       }
 
-      // Show current stage duration: now - current status timestamp
+      // Em andamento: duração desde a entrada atual até agora
       const currentEntry = statusHistory[statusHistory.length - 1];
       if (!currentEntry) return;
 
@@ -90,12 +113,12 @@ function useStageTimer(statusHistory: StatusHistoryEntry[], isFinal: boolean, cr
 
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [statusHistory, isFinal, createdAt]);
+  }, [statusHistory, isFinal, createdAt, updatedAt]);
 
   return elapsed;
 }
 
-export function OrderCard({ id, orderNumber, customerName, status, total, items, createdAt, table, address, statusHistory, additionalInfo }: OrderCardProps) {
+export function OrderCard({ id, orderNumber, customerName, status, total, items, createdAt, updatedAt, table, address, statusHistory, additionalInfo }: OrderCardProps) {
   const theme = useAppTheme();
   const styles = makeStyles(theme, status);
   const router = useRouter();
@@ -112,7 +135,7 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
   const [closing, setClosing] = useState(false);
 
   const isFinal = status === 'CONCLUIDO' || status === 'CANCELADO';
-  const displayTimer = useStageTimer(statusHistory, isFinal, createdAt);
+  const displayTimer = useStageTimer(statusHistory, isFinal, createdAt, updatedAt);
 
   const handleAdvanceStatus = async () => {
     if (!isFinal) {
@@ -159,7 +182,8 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
 
   // Status transitions for labels
   const getNextLabel = () => {
-    if (status === 'PREPARANDO' && address) return 'Enviar →';
+    if (status === 'PREPARANDO' && address) return 'Pronto →';
+    if (status === 'PRONTO') return 'Saiu para Entrega →';
     return NEXT_STATUS_LABELS[status] ?? 'Status';
   };
 
@@ -266,27 +290,142 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
               {/* Status History / Durations */}
               <Text style={[styles.modalSectionTitle, { color: theme.text }]}>Histórico de Tempos</Text>
               <View style={{ gap: 8, marginBottom: 16 }}>
-                {statusHistory.map((entry, idx) => {
-                  const nextEntry = statusHistory[idx + 1];
-                  const startTime = new Date(entry.timestamp).getTime();
-                  const endTime = nextEntry ? new Date(nextEntry.timestamp).getTime() : Date.now();
-                  const duration = formatDuration(endTime - startTime);
-                  
-                  return (
-                    <View key={idx} style={styles.modalInfoRow}>
-                      <Text style={[styles.modalValue, { color: theme.text, opacity: 0.6 }]}>{STATUS_LABELS[entry.status]}</Text>
-                      <Text style={[styles.modalValue, { color: theme.text, fontFamily: 'Jost_700Bold' }]}>
-                        {idx === statusHistory.length - 1 && !isFinal ? `Em andamento (${duration})` : duration}
-                      </Text>
-                    </View>
+                {(() => {
+                  // Filtra estágios terminais (CONCLUIDO/CANCELADO) da exibição,
+                  // mas ainda os considera no cálculo do total
+                  const activeStages = statusHistory.filter(
+                    (e) =>
+                      e.status !== 'CONCLUIDO' && e.status !== 'CANCELADO',
                   );
-                })}
-                <View style={[styles.modalInfoRow, { marginTop: 8, borderTopWidth: 1, borderTopColor: theme.background, paddingTop: 8 }]}>
-                  <Text style={[styles.modalLabel, { color: theme.contrast, opacity: 1 }]}>Tempo Gasto</Text>
-                  <Text style={[styles.modalValue, { color: theme.contrast, fontFamily: 'Jost_700Bold', fontSize: 16 }]}>
-                    {formatDuration((isFinal ? new Date(statusHistory[statusHistory.length - 1]?.timestamp || createdAt).getTime() : Date.now()) - new Date(createdAt || Date.now()).getTime())}
-                  </Text>
-                </View>
+
+                  // Se não há estágios ativos (ex: só Concluído), não exibe nada
+                  if (activeStages.length === 0) {
+                    return (
+                      <Text
+                        style={[
+                          styles.modalValue,
+                          {
+                            color: theme.text,
+                            opacity: 0.4,
+                            textAlign: 'center',
+                            paddingVertical: 12,
+                          },
+                        ]}
+                      >
+                        Histórico de tempos não disponível.
+                      </Text>
+                    );
+                  }
+
+                  // Pré-calcula durações individuais de cada estágio
+                  const stageDurations = activeStages.map((entry, idx) => {
+                    // Encontra o próximo status NA ORDEM REAL (statusHistory completo)
+                    const realIdx = statusHistory.indexOf(entry);
+                    const nextEntry = statusHistory[realIdx + 1];
+                    const startTime = new Date(entry.timestamp).getTime();
+                    // Para o último estágio ativo:
+                    //   - Se o pedido foi finalizado, a etapa terminou na timestamp do próximo
+                    //   - Se ainda está ativo, usa o momento atual
+                    const endTime = nextEntry
+                      ? new Date(nextEntry.timestamp).getTime()
+                      : Date.now();
+                    return {
+                      entry,
+                      durationMs: endTime - startTime,
+                      isLast:
+                        realIdx === statusHistory.length - 1 ||
+                        (nextEntry &&
+                          (nextEntry.status === 'CONCLUIDO' ||
+                            nextEntry.status === 'CANCELADO')),
+                    };
+                  });
+
+                  // Tempo Gasto = soma explícita de todas as durações
+                  const totalMs = stageDurations.reduce(
+                    (sum, s) => sum + s.durationMs,
+                    0,
+                  );
+
+                  return (
+                    <>
+                      {stageDurations.map((stage, idx) => (
+                        <View key={idx} style={styles.modalInfoRow}>
+                          <Text
+                            style={[
+                              styles.modalValue,
+                              { color: theme.text, opacity: 0.6 },
+                            ]}
+                          >
+                            {STATUS_LABELS[stage.entry.status]}
+                          </Text>
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.modalValue,
+                                {
+                                  color: theme.text,
+                                  fontFamily: 'Jost_700Bold',
+                                },
+                              ]}
+                            >
+                              {formatDuration(stage.durationMs)}
+                            </Text>
+                            {stage.isLast && !isFinal && (
+                              <View
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: 4,
+                                  backgroundColor: '#10B981',
+                                }}
+                              />
+                            )}
+                          </View>
+                        </View>
+                      ))}
+
+                      {/* Total — soma explícita de todos os estágios */}
+                      <View
+                        style={[
+                          styles.modalInfoRow,
+                          {
+                            marginTop: 8,
+                            borderTopWidth: 1,
+                            borderTopColor: theme.background,
+                            paddingTop: 8,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.modalLabel,
+                            { color: theme.contrast, opacity: 1 },
+                          ]}
+                        >
+                          Tempo Gasto
+                        </Text>
+                        <Text
+                          style={[
+                            styles.modalValue,
+                            {
+                              color: theme.contrast,
+                              fontFamily: 'Jost_700Bold',
+                              fontSize: 16,
+                            },
+                          ]}
+                        >
+                          {formatDuration(totalMs)}
+                        </Text>
+                      </View>
+                    </>
+                  );
+                })()}
               </View>
 
               {additionalInfo && (
@@ -329,14 +468,14 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
                         router.push(`/(auth)/pedidos/addPedido?editOrderId=${id}` as any);
                       }}
                     >
-                      <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>📝 Editar / Retirar Itens</Text>
+                      <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Retirar Itens</Text>
                     </TouchableOpacity>
                     
                     <TouchableOpacity 
                       style={[styles.modalCloseBtn, { backgroundColor: '#10B981' }]} 
                       onPress={() => setCheckoutVisible(true)}
                     >
-                      <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>💰 Fechar Conta (Nota)</Text>
+                      <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Fechar Conta (Nota)</Text>
                     </TouchableOpacity>
                   </View>
                 )}

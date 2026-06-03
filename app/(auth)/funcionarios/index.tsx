@@ -12,6 +12,7 @@ import { observer } from 'mobx-react-lite';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { authStore } from '@/stores/AuthStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import { dataStore, StaffMember } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
 import { AlertIcon, CheckIcon, ChevronDownIcon, StarIcon, TrashIcon, UsersIcon } from '@/components/shared/Icons';
@@ -22,7 +23,7 @@ export default observer(function FuncionariosScreen() {
   const theme = useAppTheme();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<'COMUM' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'GERENTE'>('COMUM');
+  const [activeTab, setActiveTab] = useState<'COMUM' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'GERENTE'>('COMUM');
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [roleModalMember, setRoleModalMember] = useState<StaffMember | null>(null);
   const [roleModalMessage, setRoleModalMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
@@ -34,20 +35,22 @@ export default observer(function FuncionariosScreen() {
     GARCOM: 'Garçom',
     COZINHA: 'Cozinha',
     CAIXA: 'Caixa',
+    ENTREGADOR: 'Entregador',
     COMUM: 'Sem Cargo',
     INDEFINIDO: 'Indefinido',
   };
 
-  const assignableRoles: Array<'GARCOM' | 'COZINHA' | 'CAIXA' | 'GERENTE'> = ['GARCOM', 'COZINHA', 'CAIXA', 'GERENTE'];
+  const assignableRoles: Array<'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'GERENTE'> = [
+    'GARCOM', 'COZINHA', 'CAIXA', 'ENTREGADOR', 'GERENTE',
+  ];
 
-  const activeRole = authStore.activeRole;
-  if (activeRole !== 'GERENTE') {
+  if (!permissionStore.can('staff:view')) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
         <AlertIcon color={theme.contrast} size={44} />
         <Text style={{ fontFamily: 'Jost_700Bold', fontSize: 18, color: theme.text, marginTop: 12 }}>Acesso Negado</Text>
         <Text style={{ fontFamily: 'Jost_400Regular', fontSize: 14, color: theme.text, opacity: 0.6, marginTop: 6, textAlign: 'center' }}>
-          Esta página é restrita apenas para Gerentes do restaurante.
+          Você não tem permissão para gerenciar a equipe.
         </Text>
       </View>
     );
@@ -199,7 +202,7 @@ export default observer(function FuncionariosScreen() {
       </View>
 
       {/* Spotlight highlight */}
-      {highlightEmployee && (
+      {/*highlightEmployee && (
         <View style={[styles.spotlightCard, { backgroundColor: theme.contrast + '15', borderColor: theme.contrast }]}>
           <StarIcon color={theme.contrast} size={24} />
           <View style={{ flex: 1 }}>
@@ -209,7 +212,7 @@ export default observer(function FuncionariosScreen() {
             </Text>
           </View>
         </View>
-      )}
+      )*/}
 
       {/* Segmented Navigation Tabs */}
       <View style={styles.tabContainer}>

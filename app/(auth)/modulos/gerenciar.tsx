@@ -52,8 +52,8 @@ export default observer(function ModulosGerenciarScreen() {
     Toast.show({
       type: 'success',
       text1: value
-        ? `Atalho "${module.name}" adicionado à barra de navegação!`
-        : `Atalho "${module.name}" removido da barra de navegação!`
+        ? `Atalho "${module.name}" adicionado!`
+        : `Atalho "${module.name}" removido!`
     });
   };
 

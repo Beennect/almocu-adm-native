@@ -126,7 +126,7 @@ export default observer(function ModulosIndexScreen() {
             <View style={styles.congratsIconBox}>
               <CheckIcon color={theme.contrast} size={32} />
             </View>
-            <Text style={[styles.congratsText, { color: theme.text }]}>Você possui todos os módulos disponíveis contratados!</Text>
+            <Text style={[styles.congratsText, { color: theme.text }]}>Você possui todos os módulos disponíveis no momento!</Text>
           </View>
         )}
 

@@ -133,7 +133,7 @@ export default observer(function HistoricoScreen() {
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar por cliente ou código..."
+            placeholder="Buscar..."
             placeholderTextColor={theme.text + '80'}
             value={searchTerm}
             onChangeText={setSearchTerm}
@@ -163,6 +163,7 @@ export default observer(function HistoricoScreen() {
                       elapsedTime={order.time}
                       items={order.items}
                       createdAt={order.createdAt}
+                      updatedAt={order.updatedAt}
                       table={order.table}
                       address={order.address}
                       statusHistory={order.statusHistory || []}

@@ -11,9 +11,10 @@ import { UserHeader } from '@/components/shared/UserHeader';
 import { dataStore, SupplierAddress } from '@/stores/DataStore';
 import { useAppTheme } from '@/themes/colors';
 import { withLoading } from '@/utils/toast';
+import { apiSupplierService, CnpjLookupResult } from '@/services/api-supplier-service';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { observer } from 'mobx-react-lite';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -71,6 +72,31 @@ const formatCnpj = (raw: string) => {
   if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
   if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+};
+
+const isValidCnpj = (raw: string) => {
+  const cleaned = raw.replace(/\D/g, '');
+  if (cleaned.length !== 14) return false;
+  if (/^(\d)\1{13}$/.test(cleaned)) return false;
+
+  const calc = (digits: number[]) => {
+    const multipliers =
+      digits.length === 12
+        ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const sum = digits.reduce((acc, d, i) => acc + d * multipliers[i], 0);
+    const remainder = sum % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+
+  const digits = cleaned.split('').map(Number);
+  const firstCheck = calc(digits.slice(0, 12));
+  if (firstCheck !== digits[12]) return false;
+
+  const secondCheck = calc(digits.slice(0, 13));
+  if (secondCheck !== digits[13]) return false;
+
+  return true;
 };
 
 const formatPhone = (raw: string) => {
@@ -137,6 +163,7 @@ export default observer(function FornecedorFormScreen() {
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [cepError, setCepError] = useState('');
+  const [cnpjLoading, setCnpjLoading] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
 
   useEffect(() => {
@@ -165,8 +192,7 @@ export default observer(function FornecedorFormScreen() {
     }
 
     setLoadingEdit(true);
-    import('@/services/api-supplier-service')
-      .then(({ apiSupplierService }) => apiSupplierService.getSupplier(editingId))
+    apiSupplierService.getSupplier(editingId)
       .then((s: any) => {
         setForm({
           name: s.name || '',
@@ -241,9 +267,70 @@ export default observer(function FornecedorFormScreen() {
     }
   };
 
+  // CNPJ auto-fetch: quando o CNPJ atinge 14 dígitos, busca na BrasilAPI
+  useEffect(() => {
+    const clean = (form.cnpj || '').replace(/\D/g, '');
+    if (clean.length === 14 && !isEditing) {
+      handleFetchCnpj(clean);
+    }
+  }, [form.cnpj]);
+
+  const handleFetchCnpj = async (cleanCnpj: string) => {
+    // Se o nome já foi preenchido, não sobrescrever
+    if (form.name.trim()) return;
+
+    setCnpjLoading(true);
+    try {
+      const data = await apiSupplierService.lookupCnpj(cleanCnpj);
+      if (!data) return;
+
+      const companyName = data.razao_social || data.nome_fantasia || '';
+      if (!companyName) return;
+
+      setForm((prev) => {
+        const next = { ...prev, name: companyName };
+
+        if (data.logradouro) {
+          next.address = {
+            ...next.address,
+            street: data.logradouro,
+            number: data.numero || 'S/N',
+            neighborhood: data.bairro || next.address.neighborhood,
+            city: data.municipio || next.address.city,
+            state: data.uf || next.address.state,
+            zipCode: data.cep ? data.cep.replace(/\D/g, '') : next.address.zipCode,
+          };
+        }
+
+        if (data.email) {
+          next.email = data.email;
+        }
+
+        if (data.ddd_telefone_1 && data.telefone_1) {
+          next.phone = `(${data.ddd_telefone_1}) ${data.telefone_1}`;
+        }
+
+        return next;
+      });
+    } catch {
+      // Silencia erro de lookup — não bloqueia o cadastro
+    } finally {
+      setCnpjLoading(false);
+    }
+  };
+
   const handleNext = () => {
     if (!form.name.trim()) {
       Toast.show({ type: 'error', text1: 'Informe o nome do fornecedor.' });
+      return;
+    }
+    const cleanCnpj = form.cnpj.replace(/\D/g, '');
+    if (!cleanCnpj) {
+      Toast.show({ type: 'error', text1: 'CNPJ é obrigatório.' });
+      return;
+    }
+    if (!isValidCnpj(cleanCnpj)) {
+      Toast.show({ type: 'error', text1: 'CNPJ inválido. Verifique os dígitos.' });
       return;
     }
     if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
@@ -260,6 +347,16 @@ export default observer(function FornecedorFormScreen() {
   const handleSave = async () => {
     if (!form.name.trim()) {
       Toast.show({ type: 'error', text1: 'Informe o nome do fornecedor.' });
+      return;
+    }
+
+    const cleanCnpj = form.cnpj.replace(/\D/g, '');
+    if (!cleanCnpj) {
+      Toast.show({ type: 'error', text1: 'CNPJ é obrigatório.' });
+      return;
+    }
+    if (!isValidCnpj(cleanCnpj)) {
+      Toast.show({ type: 'error', text1: 'CNPJ inválido. Verifique os dígitos.' });
       return;
     }
 
@@ -444,15 +541,20 @@ export default observer(function FornecedorFormScreen() {
 
                 <View style={styles.row}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>CNPJ</Text>
-                    <TextInput
-                      style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
-                      placeholder="00.000.000/0000-00"
-                      placeholderTextColor={theme.text + '60'}
-                      keyboardType="numeric"
-                      value={formatCnpj(form.cnpj)}
-                      onChangeText={(v) => updateField('cnpj', v.replace(/\D/g, ''))}
-                    />
+                    <Text style={styles.label}>CNPJ *</Text>
+                    <View style={[styles.inputWrapper, { backgroundColor: theme.background }]}>
+                      <TextInput
+                        style={[styles.inputFlex, { color: theme.text }]}
+                        placeholder="00.000.000/0000-00"
+                        placeholderTextColor={theme.text + '60'}
+                        keyboardType="numeric"
+                        value={formatCnpj(form.cnpj)}
+                        onChangeText={(v) => updateField('cnpj', v.replace(/\D/g, ''))}
+                      />
+                      {cnpjLoading ? (
+                        <ActivityIndicator color={theme.contrast} size="small" />
+                      ) : null}
+                    </View>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Telefone</Text>

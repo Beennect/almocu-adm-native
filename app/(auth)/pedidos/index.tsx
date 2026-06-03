@@ -20,7 +20,7 @@ const SORT_LABELS: Record<SortMode, string> = {
   status: 'Status ↕',
 };
 
-const STATUS_ORDER = ['PENDENTE', 'PREPARANDO', 'CONCLUIDO', 'CANCELADO'];
+const STATUS_ORDER = ['PENDENTE', 'PREPARANDO', 'PRONTO', 'SAIU_PARA_ENTREGA', 'CONCLUIDO', 'CANCELADO'];
 
 export default observer(function PedidosScreen() {
   const { width } = useWindowDimensions();
@@ -184,6 +184,7 @@ export default observer(function PedidosScreen() {
                       elapsedTime={order.time}
                       items={order.items}
                       createdAt={order.createdAt}
+                      updatedAt={order.updatedAt}
                       table={order.table}
                       address={order.address}
                       statusHistory={order.statusHistory || []}

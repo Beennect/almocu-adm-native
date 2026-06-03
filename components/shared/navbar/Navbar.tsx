@@ -26,6 +26,7 @@ import {
 import { themeStore } from "../../../stores/ThemeStore";
 import { authStore } from "../../../stores/AuthStore";
 import { dataStore } from "../../../stores/DataStore";
+import { permissionStore } from "../../../stores/PermissionStore";
 import { NavButton } from "./NavButton";
 
 const ICON_COMPONENTS: Record<string, React.FC<any>> = {
@@ -52,34 +53,17 @@ export const Navbar = observer(function Navbar() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const allModules = dataStore.modules || [];
-  const activeRole = authStore.activeRole;
   const hasRestaurant = !!authStore.user?.restaurantId;
-  
-  // Active acquired modules filtered by role permissions
-  const activeModules = allModules.filter(m => {
-    if (!hasRestaurant || activeRole === 'INDEFINIDO') return false;
-    
-    if (activeRole === 'GARCOM') {
-      return m.id === 'cardapio' || m.id === 'pedidos';
-    }
-    
-    if (activeRole === 'COZINHA') {
-      return m.id === 'pedidos' || m.id === 'ingredientes' || m.id === 'cardapio';
-    }
-    
-    if (activeRole === 'CAIXA') {
-      return m.id === 'pedidos' || m.id === 'cardapio';
-    }
-    
-    if (activeRole === 'COMUM') {
-      return m.id === 'cardapio';
-    }
-    
-    return m.acquired && m.showInNavbar;
-  });
+  const allowedModuleIds = permissionStore.getAllowedModuleIds();
 
-  const blockedModules = activeRole === 'GERENTE' 
-    ? allModules.filter(m => !m.acquired) 
+  // Módulos que a role pode acessar E que estão adquiridos
+  const activeModules = hasRestaurant
+    ? allModules.filter(m => allowedModuleIds.has(m.id) && m.acquired && m.showInNavbar)
+    : [];
+
+  // Módulos que a role pode acessar mas NÃO estão adquiridos (bloqueados)
+  const blockedModules = hasRestaurant
+    ? allModules.filter(m => allowedModuleIds.has(m.id) && !m.acquired)
     : [];
 
   // Logic to determine active tab from pathname

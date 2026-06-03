@@ -95,7 +95,7 @@ export const IngredientPickerModal: React.FC<IngredientPickerModalProps> = ({
                   <SearchIcon color={theme.text + '80'} size={18} style={styles.searchIcon} />
                   <TextInput
                     style={[styles.searchInput, { color: theme.text }]}
-                    placeholder="Buscar ingrediente..."
+                    placeholder="Buscar..."
                     placeholderTextColor={theme.text + '60'}
                     value={searchQuery}
                     onChangeText={setSearchQuery}

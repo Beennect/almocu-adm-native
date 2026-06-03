@@ -1,12 +1,12 @@
 import api from './api-service';
 
-export type UserRole = 'OWNER' | 'MANAGER' | 'WAITER' | 'KITCHEN' | 'CASHIER' | 'COMMON';
+export type UserRole = 'OWNER' | 'MANAGER' | 'WAITER' | 'KITCHEN' | 'CASHIER' | 'DELIVERY' | 'COMMON';
 
-export type FrontRole = 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM' | 'INDEFINIDO';
+export type FrontRole = 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'COMUM' | 'INDEFINIDO';
 
 // Mapeamento de roles do frontend para o backend e vice-versa
-// O frontend usa: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM' | 'INDEFINIDO'
-// O backend usa: 'OWNER' | 'MANAGER' | 'WAITER' | 'KITCHEN' | 'CASHIER' | 'COMMON'
+// O frontend usa: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'COMUM' | 'INDEFINIDO'
+// O backend usa: 'OWNER' | 'MANAGER' | 'WAITER' | 'KITCHEN' | 'CASHIER' | 'DELIVERY' | 'COMMON'
 export function mapRoleToFrontend(role: string): FrontRole {
   switch (role) {
     case 'OWNER':
@@ -18,6 +18,8 @@ export function mapRoleToFrontend(role: string): FrontRole {
       return 'COZINHA';
     case 'CASHIER':
       return 'CAIXA';
+    case 'DELIVERY':
+      return 'ENTREGADOR';
     case 'COMMON':
       return 'COMUM';
     default:
@@ -35,6 +37,8 @@ export function mapRoleToBackend(role: FrontRole): UserRole {
       return 'KITCHEN';
     case 'CAIXA':
       return 'CASHIER';
+    case 'ENTREGADOR':
+      return 'DELIVERY';
     case 'COMUM':
       return 'COMMON';
     default:

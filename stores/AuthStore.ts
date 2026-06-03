@@ -4,7 +4,9 @@ import { Platform } from "react-native";
 import api from "../services/api-service";
 import { dataStore } from "./DataStore";
 
-function mapBackendRoleToFrontend(role: string): 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM' | 'INDEFINIDO' {
+export type FrontRole = 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'COMUM' | 'INDEFINIDO';
+
+function mapBackendRoleToFrontend(role: string): FrontRole {
   switch (role) {
     case 'OWNER':
     case 'MANAGER':
@@ -15,6 +17,8 @@ function mapBackendRoleToFrontend(role: string): 'GERENTE' | 'GARCOM' | 'COZINHA
       return 'COZINHA';
     case 'CASHIER':
       return 'CAIXA';
+    case 'DELIVERY':
+      return 'ENTREGADOR';
     case 'COMMON':
       return 'COMUM';
     default:
@@ -62,9 +66,31 @@ class AuthStore {
     }
   }
 
-  get activeRole(): 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM' | 'INDEFINIDO' {
+  get activeRole(): FrontRole {
     if (!this.user || !this.user.restaurantId) return 'INDEFINIDO';
     return this.user.restaurantRoles?.[this.user.restaurantId] || 'INDEFINIDO';
+  }
+
+  /**
+   * Retorna true se a role ativa é uma das que podem gerenciar staff (alterar cargos, remover membros).
+   * No frontend, tanto OWNER quanto MANAGER mapeiam para 'GERENTE'.
+   */
+  get canManageStaff(): boolean {
+    return this.activeRole === 'GERENTE';
+  }
+
+  /**
+   * Retorna true se a role ativa é OWNER original (para ações exclusivas como suspender restaurante).
+   * Só é OWNER se backend retornou 'OWNER' — que mapeia para 'GERENTE'.
+   * Como perdemos a distinção no frontend, usamos uma flag extra salva no login.
+   */
+  /**
+   * Retorna true se o usuário é OWNER (dono) do restaurante ativo.
+   * Diferente de MANAGER, o OWNER pode suspender restaurante e criar filiais.
+   */
+  get isOwner(): boolean {
+    if (!this.user?.restaurantId) return false;
+    return this.user.restaurantBackendRoles?.[this.user.restaurantId] === 'OWNER';
   }
 
   async register(email: string, pass: string, name: string) {
@@ -164,10 +190,12 @@ class AuthStore {
     backendUser: any,
   ) {
     // Converter as roles do backend para o formato reativo do frontend
-    const restaurantRoles: Record<string, string> = {};
+    const restaurantRoles: Record<string, FrontRole> = {};
+    const restaurantBackendRoles: Record<string, string> = {};
     if (backendUser.restaurants) {
       backendUser.restaurants.forEach((r: any) => {
         restaurantRoles[r.id] = mapBackendRoleToFrontend(r.role);
+        restaurantBackendRoles[r.id] = r.role; // preserva 'OWNER' vs 'MANAGER'
       });
     }
 
@@ -178,6 +206,7 @@ class AuthStore {
       name: backendUser.name,
       accountType: 'business',
       restaurantRoles,
+      restaurantBackendRoles,
       restaurantId: backendUser.activeRestaurantId || '',
     };
 
@@ -212,14 +241,14 @@ class AuthStore {
     dataStore.clear();
   }
 
-  async createRestaurantWorkspace(name: string, cnpj: string, maxBranches: number) {
+  async createRestaurantWorkspace(name: string, cnpj: string, plan: string = 'BASIC') {
     if (!this.user) return;
 
     // Criar o restaurante master no backend
     const response = await api.post('/restaurants', {
       name,
       cnpj,
-      maxBranches,
+      plan,
     });
 
     const newRestaurant = response.data; // { _id, name, cnpj, plan, maxBranches, status, ... }
@@ -229,6 +258,8 @@ class AuthStore {
     this.user.restaurantId = newRestaurantId;
     if (!this.user.restaurantRoles) this.user.restaurantRoles = {};
     this.user.restaurantRoles[newRestaurantId] = 'GERENTE';
+    if (!this.user.restaurantBackendRoles) this.user.restaurantBackendRoles = {};
+    this.user.restaurantBackendRoles[newRestaurantId] = 'OWNER';
 
     await AsyncStorage.setItem('user', JSON.stringify(this.user));
     await AsyncStorage.setItem('selected_restaurant_id', newRestaurantId);
@@ -238,7 +269,7 @@ class AuthStore {
       id: newRestaurantId,
       name: newRestaurant.name,
       cnpj: newRestaurant.cnpj,
-      maxBranches: typeof newRestaurant.maxBranches === 'number' ? newRestaurant.maxBranches : maxBranches,
+      maxBranches: typeof newRestaurant.maxBranches === 'number' ? newRestaurant.maxBranches : 3,
       plan: newRestaurant.plan || 'BASIC',
       status: newRestaurant.status || 'active',
       inviteCode: newRestaurant.inviteCode,
@@ -261,15 +292,19 @@ class AuthStore {
     const myRestaurants = myRestResponse.data;
 
     // Atualizar as roles e o ID ativo
-    const restaurantRoles: Record<string, string> = {};
+    const restaurantRoles: Record<string, FrontRole> = {};
+    const restaurantBackendRoles: Record<string, string> = {};
     myRestaurants.forEach((r: any) => {
       if (r.restaurantId) {
-        restaurantRoles[r.restaurantId._id] = mapBackendRoleToFrontend(r.role);
+        const rid = r.restaurantId._id || r.restaurantId;
+        restaurantRoles[rid] = mapBackendRoleToFrontend(r.role);
+        restaurantBackendRoles[rid] = r.role;
       }
     });
 
     this.user.restaurantId = targetRestId;
     this.user.restaurantRoles = restaurantRoles;
+    this.user.restaurantBackendRoles = restaurantBackendRoles;
 
     await AsyncStorage.setItem('user', JSON.stringify(this.user));
     await AsyncStorage.setItem('selected_restaurant_id', targetRestId);
@@ -301,6 +336,9 @@ class AuthStore {
     if (this.user.restaurantRoles) {
       delete this.user.restaurantRoles[restaurantId];
     }
+    if (this.user.restaurantBackendRoles) {
+      delete this.user.restaurantBackendRoles[restaurantId];
+    }
 
     const remainingIds = Object.keys(this.user.restaurantRoles || {});
     if (this.user.restaurantId === restaurantId) {
@@ -329,6 +367,10 @@ class AuthStore {
         this.user.restaurantRoles = {
           ...this.user.restaurantRoles,
           [data.restaurantId]: frontRole,
+        };
+        this.user.restaurantBackendRoles = {
+          ...this.user.restaurantBackendRoles,
+          [data.restaurantId]: data.activeRole,
         };
         // Se o restaurantId retornado for diferente do ativo, atualiza também
         if (data.restaurantId && data.restaurantId !== this.user.restaurantId) {

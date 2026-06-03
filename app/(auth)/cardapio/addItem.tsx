@@ -44,7 +44,7 @@ import Toast from 'react-native-toast-message';
 import { withLoading } from '@/utils/toast';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { observer } from 'mobx-react-lite';
-import { compressImageForUpload, formatBytes, IMAGE_UPLOAD_MAX_BYTES } from '@/utils/image-compression';
+import { compressImageForUpload, readFileAsBase64, formatBytes, IMAGE_UPLOAD_MAX_BYTES } from '@/utils/image-compression';
 
 export default observer(function AddItemScreen() {
   const { width } = useWindowDimensions();
@@ -62,7 +62,7 @@ export default observer(function AddItemScreen() {
     additionalInfo: '',
     photo: null,
   });
-  const [photoLocalUri, setPhotoLocalUri] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
   const [photoOriginalSize, setPhotoOriginalSize] = useState<number | null>(null);
 
@@ -86,7 +86,7 @@ export default observer(function AddItemScreen() {
           additionalInfo: item.description,
           photo: item.image || null,
         });
-        setPhotoLocalUri(null);
+        setImageBase64(null);
         if (item.ingredients) {
           setIngredients(item.ingredients);
         }
@@ -100,14 +100,14 @@ export default observer(function AddItemScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
       aspect: [1, 1],
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
     });
     if (result.canceled || !result.assets[0]?.uri) return;
     const originalUri = result.assets[0].uri;
     setIsCompressingPhoto(true);
     try {
       const compressed = await compressImageForUpload(originalUri);
-      setPhotoLocalUri(compressed.uri);
+      setImageBase64(compressed.base64 || null);
       setPhotoOriginalSize(compressed.size);
       setFormData(prev => ({ ...prev, photo: compressed.uri }));
       if (compressed.size > IMAGE_UPLOAD_MAX_BYTES) {
@@ -119,7 +119,10 @@ export default observer(function AddItemScreen() {
       }
     } catch (err) {
       console.warn('Falha ao comprimir imagem:', err);
-      setPhotoLocalUri(originalUri);
+      // Tenta ler base64 da original mesmo sem compressão
+      readFileAsBase64(originalUri)
+        .then(base64 => setImageBase64(base64))
+        .catch(() => {});
       setFormData(prev => ({ ...prev, photo: originalUri }));
     } finally {
       setIsCompressingPhoto(false);
@@ -236,8 +239,8 @@ export default observer(function AddItemScreen() {
       category: formData.category,
       ingredients: ingredients,
     };
-    if (photoLocalUri) {
-      itemData.imageLocalUri = photoLocalUri;
+    if (imageBase64) {
+      itemData.imageBase64 = imageBase64;
     }
 
     await withLoading(
