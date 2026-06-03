@@ -1,24 +1,27 @@
 # Agentes:
-## Agentes
-- ProblemSolver: Especializado em enteder e corrigir problemas de código
-- Builder: Para implementar novos recursos
 
-- Discution: Agente para poder debater e discutir sobre o ideias e implementações do projeto, ele vai ter conhecimento completo do projeto, eu vou perguntar para ele as coisas e ele vai me responder, vou dar ideias e ele vai falar se é viavel implementar (Deep Seek)
+## SuperAgentes: É a camada superior, na qual é quem vai receber os prompts do usuário, eles não tocam no código, mas são mais sobre fluxos de desenvolvimento (não é que exista super agentes, seria um agente focados em resolver problemas espécificos), (é quem vai ter conhecimento do projeto todo)
+- ProblemSolver (Deep Seek): Especializado em enteder e corrigir problemas de código
+- Builder (Deep Seek): Para implementar novos recursos
+- Discution (Deep Seek): Agente para poder debater e discutir sobre o ideias e implementações do projeto, ele vai ter conhecimento completo do projeto, eu vou perguntar para ele as coisas e ele vai me responder, vou dar ideias e ele vai falar se é viavel implementar. Ele não tem um fluxo, ele tem conhecimento do projeto, sobre o que está sendo feito, e pode enviar o Code Reviewer para olhar o código e executar comandos para comfirmar hipoteses
 
-## Subagentes
-- Coder (Sub Agente) (local): Especializado na linguagem daquele projeto, após cada alteração vai criar um documento markdown sobre cada alteração que foi feita, e o mótivo (MiniMax)
-- Code Reviewer (Sub Agente) (local): Analisa(MiniMax)
-- Documentação (Sub Agente) (global): Ele vê as alterações que foram feitas e atualiza a documentação que é o AGENTS.MD
-- Tester (Sub Agente)
+## Agentes: É a camada que vai receber ordem dos Superagentes, focado em tarefas especificas, eles não botam a mão na massa, mas delega os subagentes, poderia até dizer que eles estão mais para um fluxo de trabalho do que agentes, mas é bom deixar como agente para ficar especializado naquele fluxo
+- ProblemIdentifier
+- PropostSolution
+- SolutionImplementation
 
+## Subagentes: Realiza o trabalho braçal de colocar a mão no código e implementar os recursos, corrigir, documentar, etc... 
+- Coder (local) (MiniMax): Especializado na linguagem daquele projeto, após cada alteração vai criar um documento markdown sobre cada alteração que foi feita, e o mótivo 
+- Code Reviewer (Global) (MiniMax): Analisa o código a procura de erros de sintaxe, erros de lógica, duplicação desnecessária de código, ver se está sendo implementado as boas práticas, etc...
+- Documenter (global) (Deepseek): Ele vê as alterações que foram feitas e atualiza a documentação que é o AGENTS.MD
+- Tester (local) (Deepseek): Executa comandos para ver se o recurso ou a correção do bug foi implementada corretamente
 
 # Fluxo de Trabalho
-## Agentes
-
+## Agentes (quando não definido subagente que vai realizar aquela atividade, é o próprio agente que vai realizar aquela atividade)
 - ProblemIdentifier(problema a ser resolvido)
     1. Recebe o prompt compreendendo qual é o problema que o usuário está reclamando (se necessário pedir mais informações para ter mais detalhes e compreender melhor a dor do usuário)
-	2. Identifica o problema no código, pensar quais são os possiveis problemas, confirmando isso no código
-	3. após montar as hipoteses, se possivel realizar testes para confirmar as hipoteses com comandos ou execução de testes
+	2. (Code Reviewer) Identifica o problema no código, pensar quais são os possiveis problemas, confirmando isso no código
+	3. (Tester) após montar as hipoteses, se possivel realizar testes para confirmar as hipoteses com comandos ou execução de testes
 	4. com isso decidir os problemas, e montar um arquivo markdown apresentando quais são as possiveis causas do problema
 
 - PropostSolution(Recebe situações para implementações de recursos ou problemas a serem corrigidos)
@@ -28,13 +31,13 @@
 	4. Espera aprovação ou pedido de alteração do usuário
 	
 - SolutionImplementation(Recebe plano de implementação)
-	1. Após aprovação começa a realizar o desenvolvimento conforme os passos do plano de implementação
-	2. Após implementação realiza um build para ver se não tem erros de syntaxe
-	3. Um tester de código se aplicavel
-	4. Documentação das alterações
-	5. Apresentar em um arquivo para o usuário de maneira resumida o que foi feito
+	1. (Coder) Após aprovação começa a realizar o desenvolvimento conforme os passos do plano de implementação
+	2. (Code Reviewer) Após implementação realiza um build para ver se não tem erros de syntaxe
+	3. (Tester) Um tester de código se aplicavel
+	4. (Documenter) Documentação das alterações
+	5. Retorna um arquivo para o usuário de maneira resumida o que foi feito
 
-Super Agentes:
+## SuperAgentes:
 (Obs: sempre no primeiro prompt, se eles não tiverem contexto de nada, eles primeiro vão analisar o projeto como um todo, a documentação AGENTS.MD para poder entender melhor o projeto, e posteriormente vão continuar a realizar o fluxo de desenvolvimento proposto)
 
 - Builder: Feito para realizar a implementação de novos recursos e funcionalidades na aplicação
@@ -47,8 +50,3 @@ Super Agentes:
 	1. ProblemIdentifier(problema)
 	2. PropostSolution(markdown com os problemas)
 	3. SolutionImplementation(proposta de solução do propost solution)
-		
-
-Fluxo
-1. Orquestrador: Recebe o prompt do usuário e compreende o que ele quer ou o problema
-2. Code Reviewer: Analisa o código
