@@ -4,6 +4,7 @@
   "default_agent": "builder",
   "permission": {
     "edit": "deny",
-    "bash": "deny"
+    "bash": "deny",
+    "task": "allow"
   }
 }

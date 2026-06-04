@@ -2,384 +2,163 @@
 
 ## Visão Geral
 
-A arquitetura é dividida em quatro camadas:
+A arquitetura opencode é dividida em duas camadas de agentes:
 
-1. **SuperAgentes** → Responsáveis por compreender o contexto global do projeto e iniciar fluxos de trabalho.
-2. **Agentes de Workflow** → Responsáveis por análise, planejamento e coordenação.
-3. **Subagentes de Execução** → Responsáveis por implementação, testes, revisão e documentação.
-4. **Camada de Conhecimento** → Responsável por preservar contexto, decisões e histórico do projeto.
+1. **Primary agents** → Orquestradores. Interagem com o usuário e despacham subagents.
+2. **Subagents** → Produtores de artefato (planners) ou executores (doers).
+
+### Regra fundamental do opencode
+
+**Subagents não podem chamar outros subagents.** A ferramenta `task` (que despacha) só está disponível para primary agents. Por isso, toda a coordenação está concentrada nos primary agents.
+
+### Por que só 2 camadas (e não 3)
+
+A proposta original tinha SuperAgentes → Workflow → Execução. No opencode, isso colapsa:
+
+- Os antigos "SuperAgentes" viram **primary agents** (únicos que despacham).
+- Os antigos "Workflow" e "Execução" são ambos **subagents**, mas com papéis distintos:
+  - **Workflow agents (planners)**: produzem artefatos Markdown. **Não chamam ninguém.**
+  - **Executors (doers)**: fazem o trabalho e retornam resultado em texto. **Não gravam artefato.**
 
 ---
 
-# SuperAgentes
+# Primary Agents (Orquestradores)
 
-Os SuperAgentes recebem solicitações do usuário, possuem visão global do projeto e nunca alteram código diretamente.
+Os 3 primary agents recebem solicitações do usuário, possuem visão global do projeto e coordenam todos os subagents.
 
 ## Builder
 
-Responsável por implementar novas funcionalidades e melhorias.
+Orquestrador do **fluxo de implementação** de novas funcionalidades e melhorias.
 
-### Fluxo
+### Fluxo de Orquestração
 
-1. Compreender a solicitação do usuário.
-2. Solicitar mais informações quando necessário.
-3. Avaliar viabilidade técnica.
-4. Acionar o Architect.
-5. Acionar o Task Planner.
-6. Acionar o Solution Designer.
-7. Solicitar aprovação do usuário.
-8. Acionar o Implementation Manager.
+1. **Compreensão** — entender a demanda, pedir clarificações.
+2. **Planejamento** — criar `.opencode/artifacts/<sessao>/` e `status.md`; despachar architect → task-planner → solution-designer.
+3. **Aprovação Humana** — apresentar o plano e aguardar aprovação explícita do usuário.
+4. **Geração do Roteiro** — despachar implementation-manager.
+5. **Execução** — seguir o roteiro despachando coder → code-reviewer → security-reviewer → tester → documenter.
+6. **Consolidação** — gerar `final-report.md`.
+
+Ver `.opencode/agent/builder.md` para detalhes completos, incluindo o protocolo de status tracking.
 
 ---
 
 ## ProblemSolver
 
-Responsável por identificar, analisar e corrigir problemas.
+Orquestrador do **fluxo de correção** de problemas.
 
-### Fluxo
+### Fluxo de Orquestração
 
-1. Receber descrição do problema.
-2. Acionar Problem Identifier.
-3. Acionar Root Cause Analyzer.
-4. Acionar Solution Designer.
-5. Solicitar aprovação do usuário.
-6. Acionar Implementation Manager.
+1. **Compreensão** — receber descrição do problema.
+2. **Identificação e Análise** — despachar problem-identifier → root-cause-analyzer.
+3. **Solução e Aprovação** — despachar solution-designer; apresentar e aguardar aprovação.
+4. **Geração do Roteiro** — despachar implementation-manager.
+5. **Execução** — idem ao Builder.
+6. **Consolidação** — gerar `final-report.md` com seção extra "Validação da Correção".
+
+Ver `.opencode/agent/problem-solver.md` para detalhes.
 
 ---
 
 ## Discussion
 
-Responsável por discussões estratégicas, arquitetura e tomada de decisões.
+Orquestrador de **discussões estratégicas** (sem fluxo fixo).
 
-### Responsabilidades
+### Comportamento
 
-* Responder dúvidas sobre o projeto.
-* Avaliar viabilidade técnica.
-* Sugerir melhorias arquiteturais.
-* Debater soluções.
-* Consultar documentação e base de conhecimento.
-* Acionar revisões ou testes para validar hipóteses.
+- Atua como consultor técnico.
+- Pode despachar **apenas**: `architect`, `code-reviewer`, `security-reviewer` para validar hipóteses concretas.
+- **NÃO** despacha: coder, tester, documenter, task-planner, solution-designer, implementation-manager.
+- **NÃO** cria `status.md` — análises sob demanda são efêmeras.
+- Se a discussão virar demanda de implementação, recomenda o `builder`.
+- Se virar relato de bug, recomenda o `problem-solver`.
 
-### Observação
-
-Não possui fluxo fixo.
+Ver `.opencode/agent/discussion.md` para detalhes.
 
 ---
 
-# Agentes de Workflow
+# Subagents: Workflow Agents (Planners)
 
-Responsáveis por análise, planejamento e coordenação.
+Workflow agents são **produtores de artefato**. Recebem input + path, escrevem um Markdown estruturado em `.opencode/artifacts/<sessao>/<NN-nome>.md` com frontmatter de status, e retornam um resumo curto.
 
----
+**Não chamam outros subagents.** Toda a coordenação é dos primary agents.
 
-## Architect
+## Tabela de Workflow Agents
 
-Responsável por avaliar impactos arquiteturais.
+| Agente | Artefato | Conteúdo |
+|---|---|---|
+| `architect` | `01-arquitetura.md` | Módulos afetados, impacto, padrões, riscos, diretrizes |
+| `task-planner` | `02-tarefas.md` | Lista de tarefas com dependências e complexidade |
+| `problem-identifier` | `01-sintomas.md` | Sintomas, áreas afetadas, evidências, perguntas em aberto |
+| `root-cause-analyzer` | `02-causa-raiz.md` | Hipóteses, validações, causa raiz confirmada |
+| `solution-designer` | `03-solucao.md` | Decisões, alternativas descartadas, plano, validações |
+| `implementation-manager` | `04-roteiro-execucao.md` | Sequência numerada de execução + regras de iteração |
 
-### Responsabilidades
-
-* Identificar módulos afetados.
-* Avaliar impacto das alterações.
-* Definir padrões arquiteturais.
-* Evitar duplicação de soluções.
-* Garantir aderência à arquitetura existente.
-* Produzir documento arquitetural para implementação.
-
----
-
-## Task Planner
-
-Responsável por decompor demandas complexas.
-
-### Responsabilidades
-
-Transformar objetivos amplos em tarefas menores e executáveis.
-
-### Exemplo
-
-Entrada:
-
-```text
-Implementar sistema de pagamentos
-```
-
-Saída:
-
-```text
-1. Estruturar modelos
-2. Criar integração com gateway
-3. Criar endpoints
-4. Implementar webhooks
-5. Criar testes
-6. Atualizar documentação
-```
+**Permissões:** `edit: { ".opencode/artifacts/**": "allow" }`, `bash: deny`.
 
 ---
 
-## Problem Identifier
+# Subagents: Executors (Doers)
 
-Responsável por identificar sintomas e áreas afetadas.
+Executors são agentes que **fazem o trabalho** e **retornam resultado em texto na resposta**. Eles NÃO gravam artefato.
 
-### Fluxo
+**Não chamam outros subagents.** Quem os chama é o primary agent (builder/problem-solver).
 
-1. Compreender o problema relatado.
-2. Solicitar informações adicionais quando necessário.
-3. Acionar Code Reviewer para localizar possíveis pontos de falha.
-4. Acionar Tester para reproduzir o problema.
-5. Gerar relatório inicial contendo sintomas identificados.
+## Tabela de Executors
 
----
+| Agente | Papel | Resultado retornado | Permissões |
+|---|---|---|---|
+| `coder` | Implementa código mobile (React Native/Expo) | Relatório de implementação em texto | `edit: **/*: allow` (artifacts deny), `bash: ask` |
+| `coder-backend` | Implementa código backend (NestJS/Bun) em `almocu-back/` | Relatório em texto | `edit: **/*: allow` (artifacts deny), `bash: ask` |
+| `code-reviewer` | Revisa código (read-only) | Análise de code review em texto | `edit: deny`, `bash: ask` |
+| `security-reviewer` | Revisa segurança (read-only) | Análise de vulnerabilidades em texto | `edit: deny`, `bash: ask` |
+| `tester` | Executa testes e builds (read-only) | Resultados de testes em texto | `edit: deny`, `bash: ask` |
+| `documenter` | Atualiza docs oficiais | Proposta de atualização em texto; após aprovação, aplica | `edit: AGENTS.md/CHANGELOG.md/DECISIONS.md: allow`, `bash: deny` |
 
-## Root Cause Analyzer
-
-Responsável por identificar a causa raiz do problema.
-
-### Fluxo
-
-1. Receber relatório do Problem Identifier.
-2. Validar hipóteses levantadas.
-3. Executar testes adicionais quando necessário.
-4. Confirmar a causa raiz.
-5. Produzir relatório técnico contendo evidências.
+**Nenhum executor grava artefato em `.opencode/artifacts/**`.** O primary agrega os resultados no `status.md` e no `final-report.md`.
 
 ---
 
-## Solution Designer
-
-Responsável por definir a melhor solução.
-
-### Fluxo
-
-1. Receber problema ou solicitação.
-2. Avaliar alternativas.
-3. Selecionar soluções aderentes ao projeto.
-4. Apresentar opções ao usuário.
-5. Receber aprovação.
-6. Gerar plano de implementação em Markdown.
-
----
-
-## Implementation Manager
-
-Responsável por coordenar a execução.
-
-### Fluxo
-
-1. Receber plano aprovado.
-2. Acionar Coder.
-3. Acionar Code Reviewer.
-4. Acionar Security Reviewer.
-5. Acionar Tester.
-6. Acionar Documenter.
-7. Gerar relatório final.
-
----
-
-# Subagentes de Execução
-
-Responsáveis pela execução prática das tarefas.
-
----
-
-## Coder (Local)
-
-Modelo sugerido: MiniMax
-
-### Responsabilidades
-
-* Implementar código.
-* Corrigir bugs.
-* Refatorar código.
-* Seguir plano de implementação.
-* Produzir relatório técnico das alterações realizadas.
-
-### Saída
-
-Arquivo:
-
-```text
-implementation-report.md
-```
-
-Contendo:
-
-* Arquivos alterados.
-* Alterações realizadas.
-* Motivo das alterações.
-
----
-
-## Code Reviewer (Global)
-
-Modelo sugerido: MiniMax
-
-### Responsabilidades
-
-* Revisão de sintaxe.
-* Revisão lógica.
-* Identificação de duplicação.
-* Aplicação de boas práticas.
-* Avaliação de manutenibilidade.
-* Verificação de aderência arquitetural.
-
----
-
-## Security Reviewer (Global)
-
-### Responsabilidades
-
-Analisar riscos relacionados a:
-
-* SQL Injection
-* XSS
-* SSRF
-* Secrets expostas
-* Controle de permissões
-* Autenticação
-* Autorização
-* Dependências vulneráveis
-* Rate Limiting
-
----
-
-## Tester (Local)
-
-Modelo sugerido: DeepSeek
-
-### Responsabilidades
-
-* Executar testes automatizados.
-* Executar builds.
-* Validar correções.
-* Validar novas funcionalidades.
-* Reproduzir bugs reportados.
-
----
-
-## Documenter (Global)
-
-Modelo sugerido: DeepSeek
-
-### Responsabilidades
-
-Atualizar documentação do projeto com base nas alterações realizadas.
-
-### Documentos atualizados
-
-#### AGENTS.md
-
-Contém:
-
-* Estrutura do projeto.
-* Fluxos de desenvolvimento.
-* Padrões adotados.
-
-#### CHANGELOG.md
-
-Contém:
-
-* Histórico de alterações.
-
-#### DECISIONS.md
-
-Contém:
-
-* Decisões arquiteturais.
-* Justificativas.
-* Alternativas consideradas.
-
----
-
-# Ciclo de Revisão
-
-Toda implementação deve passar pelo seguinte fluxo:
-
-```text
-Implementação
-      ↓
-Code Review
-      ↓
-Security Review
-      ↓
-Testes
-      ↓
-Aprovado?
-      ↓
-   NÃO
-      ↓
-Correção
-      ↓
-Nova Revisão
-      ↓
-Aprovado
-```
-
-### Configuração sugerida
-
-```text
-max_review_iterations = 3
-```
-
-Após atingir o limite, solicitar intervenção humana.
-
----
-
-# Camada de Conhecimento
-
-Responsável por preservar contexto do projeto.
-
----
-
-## AGENTS.md
-
-Documenta:
-
-* Arquitetura de agentes.
-* Fluxos de trabalho.
-* Padrões operacionais.
-
----
-
-## CHANGELOG.md
-
-Documenta:
-
-* Alterações realizadas.
-* Correções.
-* Novas funcionalidades.
-
----
-
-## DECISIONS.md
-
-Documenta:
-
-* Decisões técnicas.
-* Motivações.
-* Alternativas descartadas.
-
----
-
-## Project Knowledge Base
-
-Base permanente de conhecimento utilizada pelos SuperAgentes.
-
-### Conteúdo
-
-* Arquitetura do sistema.
-* Regras de negócio.
-* Convenções do projeto.
-* Decisões históricas.
-* Padrões adotados.
-* Lições aprendidas.
-
-### Consumidores
-
-* Builder
-* ProblemSolver
-* Discussion
-* Architect
-* Solution Designer
+# Rastreamento de Status
+
+O **primary agent** é o único responsável por manter o status dos artefatos e da execução.
+
+## Mecanismos
+
+1. **Frontmatter YAML** em cada artefato de planning:
+   ```yaml
+   ---
+   status: generated
+   generated_by: <agent-name>
+   generated_at: <ISO 8601>
+   session: <sessao>
+   artifact_id: <NN-nome>
+   ---
+   ```
+   O planner define `status: generated` na escrita inicial. O primary atualiza o campo `status:` à medida que o fluxo avança.
+
+2. **Dashboard `status.md`** em `.opencode/artifacts/<sessao>/status.md`. Criado pelo primary na Fase 1, atualizado a cada transição. Visão agregada com tabelas de artefatos e etapas de execução.
+
+## Valores de status
+
+**Artefatos de planning** (campo `status:` no frontmatter):
+- `generated` — planner gerou, primary ainda não validou
+- `validated` — primary leu e validou
+- `awaiting_approval` — apresentado ao usuário, aguardando OK
+- `approved` — usuário aprovou
+- `rejected` — usuário pediu ajustes
+- `in_execution` — roteiro aprovado, execução em andamento
+- `completed` — execução finalizada com sucesso
+- `failed` — execução falhou, escalonado para humano
+
+**Etapas de execução** (coluna no `status.md`):
+- `pending`, `running`, `passed`, `failed`, `iterating`
+
+## Quem atualiza
+
+- **Workflow agents**: definem `status: generated` na escrita inicial. Não atualizam mais.
+- **Primary agents**: atualizam o frontmatter de cada artefato via `edit` (mudando apenas a linha `status:`), e mantêm o `status.md` atualizado.
+- **Executors**: não atualizam nada (não gravam artefato).
 
 ---
 
@@ -388,27 +167,29 @@ Base permanente de conhecimento utilizada pelos SuperAgentes.
 ```text
 Usuário
    ↓
-Builder
+Builder (primary) — cria .opencode/artifacts/<sessao>/
    ↓
-Architect
+Architect (workflow) → 01-arquitetura.md
    ↓
-Task Planner
+Task Planner (workflow) → 02-tarefas.md
    ↓
-Solution Designer
+Solution Designer (workflow) → 03-solucao.md
    ↓
-Aprovação do Usuário
+Aprovação Humana
    ↓
-Implementation Manager
+Implementation Manager (workflow) → 04-roteiro-execucao.md
    ↓
-Coder
+Coder (executor) — resultado em texto
    ↓
-Code Reviewer
+Code Reviewer (executor) — resultado em texto
    ↓
-Security Reviewer
+Security Reviewer (executor) — resultado em texto
    ↓
-Tester
+Tester (executor) — resultado em texto
    ↓
-Documenter
+Documenter (executor) — proposta em texto + aplica após aprovação
+   ↓
+Builder (primary) — gera final-report.md
    ↓
 Entrega Final
 ```
@@ -420,112 +201,140 @@ Entrega Final
 ```text
 Usuário
    ↓
-ProblemSolver
+ProblemSolver (primary) — cria .opencode/artifacts/<sessao>/
    ↓
-Problem Identifier
+Problem Identifier (workflow) → 01-sintomas.md
    ↓
-Root Cause Analyzer
+Root Cause Analyzer (workflow) → 02-causa-raiz.md
    ↓
-Solution Designer
+Solution Designer (workflow) → 03-solucao.md
    ↓
-Aprovação do Usuário
+Aprovação Humana
    ↓
-Implementation Manager
+Implementation Manager (workflow) → 04-roteiro-execucao.md
    ↓
-Coder
+Coder (executor) — resultado em texto
    ↓
-Code Reviewer
+Code Reviewer, Security Reviewer, Tester (executors) — resultados em texto
    ↓
-Security Reviewer
+Documenter (executor)
    ↓
-Tester
+ProblemSolver (primary) — gera final-report.md
    ↓
-Documenter
-   ↓
-Entrega Final
+Entrega Final + Validação da Correção
 ```
+
+---
+
+# Ciclo de Revisão
+
+```text
+Implementação (Coder)
+      ↓
+Code Review
+      ↓
+Security Review
+      ↓
+Testes
+      ↓
+Aprovado?
+   ↓   ↓
+  SIM  NÃO → Correção (Coder) → Nova Revisão
+   ↓
+Documentação
+   ↓
+Entrega
+```
+
+**`max_review_iterations = 3`**. Após atingir o limite, o primary escala para intervenção humana.
+
+---
+
+# Camada de Conhecimento
+
+Responsável por preservar contexto do projeto.
+
+## AGENTS.md
+
+Este documento. Documenta:
+- Arquitetura de agentes.
+- Fluxos de trabalho.
+- Padrões adotados.
+- Regras operacionais.
+
+## CHANGELOG.md
+
+Histórico de alterações. Mantido pelo `documenter`.
+
+## DECISIONS.md
+
+Decisões arquiteturais (formato ADR). Mantido pelo `documenter`.
+
+## Project Knowledge Base
+
+Base permanente de conhecimento consultada pelos agentes. Conteúdo:
+- Arquitetura do sistema.
+- Regras de negócio.
+- Convenções do projeto.
+- Decisões históricas.
+- Padrões adotados.
+- Lições aprendidas.
+
+**Consumidores:** Builder, ProblemSolver, Discussion, Architect, Solution Designer.
+
+---
 
 # Regras Operacionais
 
 ## 1. Responsabilidade Única
 
-Cada agente deve atuar apenas dentro de sua responsabilidade definida.
+Cada agente deve atuar apenas dentro de sua responsabilidade definida. Se existir um agente especializado para uma tarefa, ela deve ser delegada.
 
-Se existir um agente especializado para uma tarefa, ela deve ser delegada.
+## 2. Proibição de Implementação (exceto Coder/Coder Backend)
 
----
-
-## 2. Proibição de Implementação
-
-Somente agentes com:
-
-```yaml
-can_modify_code: true
-```
-
-podem alterar arquivos de código.
-
-Todos os demais agentes devem apenas analisar, planejar, revisar ou documentar.
-
----
+Somente `coder` e `coder-backend` alteram código. Todos os demais agentes analisam, planejam, revisam ou documentam.
 
 ## 3. Proibição de Autoaprovação
 
-O agente que planeja não implementa.
-
-O agente que implementa não revisa.
-
-O agente que revisa não corrige.
-
----
+- O agente que planeja (workflow) não implementa.
+- O agente que implementa (coder) não revisa.
+- O agente que revisa (code-reviewer, security-reviewer) não corrige.
 
 ## 4. Delegação Obrigatória
 
-Ao receber uma tarefa fora de sua responsabilidade, o agente deve delegá-la ao agente apropriado.
-
-Não é permitido assumir funções de outro agente.
-
----
+- Primary agents despacham subagents via `task`.
+- Subagents NÃO despacham outros subagents.
 
 ## 5. Respeito ao Escopo
 
-Os agentes devem executar apenas o que foi solicitado.
-
-Não devem adicionar funcionalidades, refatorações ou alterações não previstas no plano aprovado.
-
----
+Os agentes executam apenas o que foi solicitado. Não devem adicionar funcionalidades, refatorações ou alterações não previstas no plano aprovado.
 
 ## 6. Aprovação Humana
 
 Exigem aprovação explícita do usuário:
-
-* Mudanças arquiteturais
-* Alterações de banco de dados
-* Alterações de APIs públicas
-* Remoção de funcionalidades
-* Mudança de stack
-
----
+- Mudanças arquiteturais
+- Alterações de banco de dados
+- Alterações de APIs públicas
+- Remoção de funcionalidades
+- Mudança de stack
+- Mudanças em docs oficiais (AGENTS.md, CHANGELOG.md, DECISIONS.md — `documenter` aplica após aprovação do usuário)
 
 ## 7. Hierarquia de Autoridade
 
-AGENTS.md possui prioridade máxima.
-
-Em caso de conflito:
-
-1. AGENTS.md
+AGENTS.md (raiz) possui prioridade máxima. Em caso de conflito:
+1. AGENTS.md (raiz)
 2. Workflow atual
 3. Instrução recebida
 4. Autonomia do agente
 
----
-
 ## 8. Regra de Ouro
 
-Nenhum agente pode simultaneamente:
+Nenhum agente pode simultaneamente planejar + implementar + validar. Toda alteração passa por agentes distintos.
 
-* Planejar
-* Implementar
-* Validar
+## 9. Regra do opencode: Subagent não chama subagent
 
-Toda alteração deve passar por agentes distintos.
+A ferramenta `task` está disponível apenas para primary agents. Workflow agents e executors retornam resultado ao orquestrador, que despacha o próximo passo.
+
+## 10. Rastreamento de Status é responsabilidade do Primary
+
+Apenas o primary agent atualiza o campo `status:` no frontmatter dos artefatos e mantém o `status.md`. Workflow agents definem `generated` na escrita inicial. Executors não gravam artefato.
