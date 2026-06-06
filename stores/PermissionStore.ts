@@ -82,9 +82,9 @@ const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
     'menu:view',
     'orders:view',
     'orders:create',
-    'orders:cancel',
-    'orders:close-bill',
-    'orders:edit-items',
+    'orders:cancel',          // TODO 2026-06-06: backend rejeita WAITER em PATCH /orders/:id/status (DEC-004). UI continua exibindo botão; reavaliar em sessão dedicada.
+    'orders:close-bill',      // TODO 2026-06-06: mesmo motivo (PATCH /orders/:id/status sem WAITER).
+    'orders:edit-items',      // TODO 2026-06-06: DELETE /orders/:id só OWNER/MANAGER; fluxo update quebra para WAITER. Reavaliar.
     'dashboard:view',
     'config:view',
   ],
@@ -98,7 +98,7 @@ const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
   CAIXA: [
     'menu:view',
     'orders:view',
-    'orders:close-bill',
+    'orders:close-bill',      // TODO 2026-06-06: backend rejeita CASHIER em PATCH /orders/:id/status. Reavaliar em sessão dedicada.
     'dashboard:view',
     'config:view',
   ],

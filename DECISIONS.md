@@ -84,3 +84,67 @@ A função `getRoleRank` foi mantida (pode ser usada em outro lugar) mas deixou 
 - **Manter hierarquia mas com ranks únicos por role**: rejeitada — cria acoplamento conceitual entre roles e "níveis"; membership estrito é mais simples e elimina bugs de colisão.
 - **Whitelist por endpoint** (cada controller declara suas roles em código): rejeitada — replicaria lógica do `RolesGuard` em cada controller; membership estrito centraliza.
 - **Ignorar `RolesGuard` e usar só middleware**: rejeitada — quebra o padrão NestJS de guards declarativos via `@Roles`.
+
+---
+
+## DEC-003 — Service-to-service pattern (rotas `/internal/*`)
+
+- **Data:** 2026-06-06
+- **Sessão:** `20260606-waiter-order-bug`
+- **Status:** Aceita
+
+**Contexto**
+
+O `OrderService.create()` chamava a rota pública `PATCH /stock/:id/adjust` (no `StockController`) propagando o header `x-user-role: <role>` do usuário. O `StockController` tem class-level `@Roles('OWNER', 'MANAGER')`, então o `RolesGuard` membership estrito (DEC-002) rejeitava roles como WAITER/CASHIER/DELIVERY/COMMON com `ForbiddenException("Acesso negado: necessário cargo OWNER ou MANAGER")`. O `OrderService` **já usava** a rota interna `POST /internal/stock/batch` para consulta de estoque (correto, sem `x-user-role`), mas **NÃO** havia equivalente interno para mutação. O sintoma se manifestava quando um WAITER tentava criar pedido: o `OrderController.create` aceitava WAITER (correto), mas a dedução de estoque falhava em uma chamada interna secundária.
+
+**Decisão**
+
+Toda chamada entre microserviços que **muta estado** deve usar uma rota `/internal/*` autenticada por `x-internal-key` (validado via `validateInternalKey` em `apps/stock/src/internal/internal.controller.ts`). Chamadas internas **nunca** devem propagar `x-user-role` nem `Authorization: <jwt>` — usar apenas `x-tenant-id` (contexto) e `x-internal-key` (autenticação de serviço).
+
+**Consequências**
+
+- (+) Isola mutações internas do `RolesGuard`, evitando dependência de roles do usuário em chamadas service-to-service.
+- (+) Padrão consistente com `POST /internal/stock/batch` e `GET /internal/stock/:id` (pré-existentes).
+- (+) Remove vetor de privilege escalation (CR2) para o caminho `OrderService → StockService`.
+- (-) Cria endpoints "duplos" (interno + público) — manter disciplina ao adicionar novos.
+- (-) CR2 permanece latente em outros vetores (JwtStrategy confia em `x-user-role`, CORS permite o header). Tratamento em sessão dedicada.
+
+**Referências**
+
+- `almocu-back/apps/stock/src/internal/internal.controller.ts` — `adjustInternal` (PATCH `:id/adjust`).
+- `almocu-back/apps/order/src/order/order.service.ts` — call sites 220-237 e 245-262.
+- `02-causa-raiz.md §3.1 (CR1)`, `§3.3 (CR3)`.
+
+---
+
+## DEC-004 — Alinhamento front/back (abilities pendentes — manter UI)
+
+- **Data:** 2026-06-06
+- **Sessão:** `20260606-waiter-order-bug`
+- **Status:** Aceita
+
+**Contexto**
+
+O `PermissionStore` (frontend) concede `orders:cancel`, `orders:close-bill`, `orders:edit-items` para GARCOM e `orders:close-bill` para CAIXA, mas o backend (`@Roles` em `apps/order/src/order/order.controller.ts:144` e `allowedTransitions` em `order.service.ts:388-405`) rejeita essas roles. Resultado: o frontend exibe botões ("Cancelar Pedido", "Fechar Conta", "Retirar Itens") que retornam erro 403 quando clicados.
+
+**Decisão (2026-06-06)**
+
+**Manter** as abilities no `PermissionStore` para GARCOM e CAIXA. Decisão de produto: o usuário quer preservar a UI atual; a correção do backend virá em sessão dedicada. Adicionar comentário `// TODO 2026-06-06: ...` inline em cada ability sinalizando que o backend rejeita (preservar a chave para fácil reativação futura).
+
+**Consequências**
+
+- (+) UI preservada conforme decisão de produto.
+- (-) Frontend continua exibindo botões que retornam erro 403 — usuário ciente.
+- (-) Trabalho de alinhamento (ajustar `OrderService.updateStatus` e `@Roles` no `order.controller.ts:144`) fica em sessão futura.
+
+**Ações realizadas nesta sessão**
+
+- `stores/PermissionStore.ts` (linhas 85-87 e 101): comentários `TODO 2026-06-06` adicionados ao lado de 4 abilities. Nenhuma ability removida.
+
+**Pendência (sessão futura)**
+
+- Decidir se WAITER pode cancelar/fechar conta de pedido (e em quais status).
+- Decidir se CASHIER pode fechar conta.
+- Se aprovado: ajustar `OrderService.updateStatus` (`allowedTransitions`) e `order.controller.ts:144` (`@Roles(...)`).
+- Reativar as abilities no `PermissionStore`.
+- Atualizar esta DEC.
