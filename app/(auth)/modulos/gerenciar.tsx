@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore, ModuleItem } from '@/stores/DataStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import Toast from 'react-native-toast-message';
 import {
   BagIcon,
@@ -11,11 +12,10 @@ import {
   ChevronLeftIcon,
   ClocheIcon,
   DashboardIcon,
+  ModulesIcon,
   FileTextIcon,
   FoodStoreIcon,
-  ModulesIcon,
-  PinIcon,
-  ShieldCheckIcon,
+  TruckIcon,
   UsersIcon,
 } from '@/components/shared/Icons';
 
@@ -25,9 +25,8 @@ const MODULE_ICONS: Record<string, React.FC<any>> = {
   BagIcon,
   ClocheIcon,
   FileTextIcon,
-  ShieldCheckIcon,
-  PinIcon,
   FoodStoreIcon,
+  TruckIcon,
   UsersIcon,
 };
 
@@ -61,9 +60,9 @@ export default observer(function ModulosGerenciarScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header Row */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(auth)/modulos' as any)}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(auth)/config' as any)}>
           <ChevronLeftIcon color={theme.text} size={24} />
-          <Text style={[styles.backText, { color: theme.text }]}>Módulos</Text>
+          <Text style={[styles.backText, { color: theme.text }]}>Voltar</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>Gerenciar Abas</Text>
         <View style={{ width: 80 }} />
@@ -109,6 +108,18 @@ export default observer(function ModulosGerenciarScreen() {
           })}
         </View>
 
+          {/* Link para loja de módulos — apenas GERENTE */}
+          {permissionStore.can('modules-store:view') && (
+            <TouchableOpacity
+              style={[styles.storeLink, { backgroundColor: theme.foreground }]}
+              onPress={() => router.push('/(auth)/modulos' as any)}
+            >
+              <ModulesIcon color={theme.contrast} size={20} />
+              <Text style={[styles.storeLinkText, { color: theme.contrast }]}>
+                Ver todos os módulos disponíveis
+              </Text>
+            </TouchableOpacity>
+          )}
       </ScrollView>
     </View>
   );
@@ -164,6 +175,21 @@ const styles = StyleSheet.create({
     gap: 14,
     borderWidth: 1,
     borderColor: '#9CA3AF15',
+  },
+  storeLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#9CA3AF15',
+  },
+  storeLinkText: {
+    fontFamily: 'Jost_700Bold',
+    fontSize: 14,
   },
   iconBox: {
     width: 40,

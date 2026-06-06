@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore, ModuleItem } from '@/stores/DataStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import { UserHeader } from '@/components/shared/UserHeader';
 import {
   BagIcon,
   CardapioIcon,
   CheckIcon,
+  ChevronLeftIcon,
   ClocheIcon,
   DashboardIcon,
   FileTextIcon,
@@ -36,6 +38,12 @@ export default observer(function ModulosIndexScreen() {
   const isWeb = width >= 768;
   const theme = useAppTheme();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!permissionStore.can('modules-store:view')) {
+      router.replace('/(auth)');
+    }
+  }, []);
 
   const allModules = dataStore.modules || [];
 
@@ -92,20 +100,16 @@ export default observer(function ModulosIndexScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {!isWeb && <UserHeader />}
 
-      {/* Header switches */}
-      <View style={styles.topRow}>
-        <View>
-          <Text style={[styles.title, { color: theme.text }]}>Módulos Almocu</Text>
-          <Text style={[styles.subtitle, { color: theme.text }]}>Turbine seu restaurante ativando ferramentas adicionais sob demanda.</Text>
-        </View>
-        
-        <TouchableOpacity 
-          style={[styles.gerenciarBtn, { backgroundColor: theme.contrast }]} 
-          onPress={() => router.push('/(auth)/modulos/gerenciar' as any)}
-        >
-          <Text style={styles.gerenciarBtnText}>Gerenciar Abas</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(auth)/modulos/gerenciar' as any)}>
+          <ChevronLeftIcon color={theme.text} size={24} />
+          <Text style={[styles.backText, { color: theme.text }]}>Voltar</Text>
         </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Módulos Almocu</Text>
+        <View style={{ width: 80 }} />
       </View>
+      <Text style={[styles.subtitle, { color: theme.text }]}>Turbine seu restaurante ativando ferramentas adicionais sob demanda.</Text>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         
@@ -141,33 +145,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
   },
-  topRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
-    flexWrap: 'wrap',
-    gap: 12,
+    marginBottom: 4,
   },
-  title: {
+  headerTitle: {
     fontFamily: 'Jost_700Bold',
-    fontSize: 20,
+    fontSize: 18,
+    textAlign: 'center',
   },
   subtitle: {
     fontFamily: 'Jost_400Regular',
     fontSize: 14,
     opacity: 0.6,
-    marginTop: 2,
+    textAlign: 'center',
+    marginBottom: 24,
   },
-  gerenciarBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 14,
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    width: 80,
   },
-  gerenciarBtnText: {
-    fontFamily: 'Jost_700Bold',
-    color: '#FFFFFF',
-    fontSize: 13,
+  backText: {
+    fontFamily: 'Jost_600SemiBold',
+    fontSize: 15,
   },
   sectionTitle: {
     fontFamily: 'Jost_700Bold',

@@ -60,8 +60,9 @@ const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
     'staff:invite',
     'dashboard:view',
     'restaurant:manage',
-    'restaurant:suspend',     // será filtrado por isOwner
+    'restaurant:suspend',       // será filtrado por isOwner
     'restaurant:create-branch', // será filtrado por isOwner
+    'restaurant:delete',        // será filtrado por isOwner
     'suppliers:view',
     'suppliers:manage',
     'config:view',
@@ -75,27 +76,26 @@ const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
     'menu:view',
     'orders:view',
     'orders:create',
-    'dashboard:view',
     'config:view',
   ],
   COZINHA: [
     'menu:view',
+    'menu:create',
+    'menu:edit',
     'orders:view',
     'orders:update-status',
-    'dashboard:view',
+    'stock:view',
     'config:view',
   ],
   CAIXA: [
     'menu:view',
     'orders:view',
-    'dashboard:view',
+    'orders:update-status',
     'config:view',
   ],
   ENTREGADOR: [
-    'menu:view',
     'orders:view',
     'orders:update-status',
-    'dashboard:view',
     'config:view',
   ],
   COMUM: [
@@ -114,6 +114,7 @@ const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
 const OWNER_ONLY_ABILITIES: Ability[] = [
   'restaurant:suspend',
   'restaurant:create-branch',
+  'restaurant:delete',
 ];
 
 class PermissionStore {

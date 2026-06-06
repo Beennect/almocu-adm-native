@@ -30,6 +30,7 @@ import {
   CardapioIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   ClipboardIcon,
   CloseIcon,
   FoodStoreIcon,
@@ -75,6 +76,7 @@ function SettingRow({
   isLast,
   theme,
   danger,
+  accent,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -85,7 +87,9 @@ function SettingRow({
   isLast?: boolean;
   theme: any;
   danger?: boolean;
+  accent?: boolean;
 }) {
+  const accentColor = theme.contrast || '#1D7B4F';
   return (
     <TouchableOpacity
       activeOpacity={onPress ? 0.7 : 1}
@@ -93,7 +97,7 @@ function SettingRow({
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.foreground,
+        backgroundColor: accent ? accentColor + '0D' : theme.foreground,
         paddingHorizontal: 20,
         paddingVertical: 16,
         borderTopLeftRadius: isFirst ? 20 : 0,
@@ -108,7 +112,7 @@ function SettingRow({
         width: 40,
         height: 40,
         borderRadius: 12,
-        backgroundColor: danger ? '#EF444422' : theme.background,
+        backgroundColor: danger ? '#EF444422' : accent ? accentColor + '22' : theme.background,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 14,
@@ -119,7 +123,7 @@ function SettingRow({
         <Text style={{
           fontFamily: 'Jost_600SemiBold',
           fontSize: 15,
-          color: danger ? '#EF4444' : theme.text,
+          color: danger ? '#EF4444' : accent ? accentColor : theme.text,
         }}>
           {label}
         </Text>
@@ -127,15 +131,17 @@ function SettingRow({
           <Text style={{
             fontFamily: 'Jost_400Regular',
             fontSize: 13,
-            color: theme.text,
-            opacity: 0.5,
+            color: accent ? accentColor : theme.text,
+            opacity: accent ? 0.7 : 0.5,
             marginTop: 1,
           }}>
             {sublabel}
           </Text>
         )}
       </View>
-      {right}
+      {right || (accent && (
+        <ChevronRightIcon color={accentColor} size={18} />
+      ))}
     </TouchableOpacity>
   );
 }
@@ -454,16 +460,15 @@ export default observer(function ConfigScreen() {
                     sublabel="Cadastrar e alternar entre filiais da rede"
                     onPress={() => router.push('/(auth)/config/filiais' as any)}
                   />
+                  <SettingRow
+                    theme={theme}
+                    icon={<ModulesIcon color={theme.text} size={18} />}
+                    label="Gerenciar Módulos"
+                    sublabel="Personalizar abas na barra de navegação"
+                    onPress={() => router.push('/(auth)/modulos/gerenciar' as any)}
+                  />
                 </>
               )}
-              <SettingRow
-                isLast
-                theme={theme}
-                icon={<ModulesIcon color={theme.text} size={18} />}
-                label="Gerenciar Módulos"
-                sublabel="Ativar/desativar abas e atalhos na barra de navegação"
-                onPress={() => router.push('/(auth)/modulos/gerenciar' as any)}
-              />
             </View>
 
             {/* Aparência */}
@@ -490,30 +495,33 @@ export default observer(function ConfigScreen() {
               />
             </View>
 
-            {/* Dados */}
-            <SectionLabel label="Dados" theme={theme} />
-            <View style={{ borderRadius: 20, overflow: 'hidden' }}>
-              <SettingRow
-                isFirst
-                theme={theme}
-                icon={<ClipboardIcon color={theme.text} size={18} />}
-                label="Total de Pedidos"
-                sublabel={`${dataStore.orders.length} registrado${dataStore.orders.length !== 1 ? 's' : ''}`}
-              />
-              <SettingRow
-                theme={theme}
-                icon={<CardapioIcon color={theme.text} size={18} />}
-                label="Itens no Cardápio"
-                sublabel={`${dataStore.menuItems.length} item${dataStore.menuItems.length !== 1 ? 's' : ''}`}
-              />
-              <SettingRow
-                isLast
-                theme={theme}
-                icon={<SpoonIcon color={theme.text} size={18} />}
-                label="Ingredientes"
-                sublabel={`${dataStore.ingredients.length} no estoque`}
-              />
-            </View>
+            {activeRole === 'GERENTE' && (
+              <>
+                <SectionLabel label="Dados" theme={theme} />
+                <View style={{ borderRadius: 20, overflow: 'hidden' }}>
+                  <SettingRow
+                    isFirst
+                    theme={theme}
+                    icon={<ClipboardIcon color={theme.text} size={18} />}
+                    label="Total de Pedidos"
+                    sublabel={`${dataStore.orders.length} registrado${dataStore.orders.length !== 1 ? 's' : ''}`}
+                  />
+                  <SettingRow
+                    theme={theme}
+                    icon={<CardapioIcon color={theme.text} size={18} />}
+                    label="Itens no Cardápio"
+                    sublabel={`${dataStore.menuItems.length} item${dataStore.menuItems.length !== 1 ? 's' : ''}`}
+                  />
+                  <SettingRow
+                    isLast
+                    theme={theme}
+                    icon={<SpoonIcon color={theme.text} size={18} />}
+                    label="Ingredientes"
+                    sublabel={`${dataStore.ingredients.length} no estoque`}
+                  />
+                </View>
+              </>
+            )}
 
             {/* Gerenciamento */}
             {activeRole === 'GERENTE' && (
@@ -621,6 +629,7 @@ export default observer(function ConfigScreen() {
                   {userWorkspaces.length > 0 ? (
                     userWorkspaces.map((item, index) => {
                       const isActive = authStore.user?.restaurantId === item.id;
+                      const isOwner = authStore.user?.restaurantBackendRoles?.[item.id] === 'OWNER';
                       return (
                         <View 
                           key={`my-${item.id}-${index}`}
@@ -656,19 +665,21 @@ export default observer(function ConfigScreen() {
                             {isActive && <CheckIcon color={theme.contrast} size={16} style={{ marginRight: 4 }} />}
                           </TouchableOpacity>
                           
-                          {/* Remove button */}
-                          <TouchableOpacity
-                            style={{ paddingHorizontal: 16, paddingVertical: 14, borderLeftWidth: 1, borderLeftColor: theme.text + '08' }}
-                            activeOpacity={0.7}
-                            onPress={() => {
-                              setShowWorkspaceModal(false);
-                              setRemovingRestId(item.id);
-                              setRemovingRestName(item.name);
-                              setTimeout(() => setConfirmRemoveWorkspace(true), 300);
-                            }}
-                          >
-                            <TrashIcon color="#EF4444" size={16} />
-                          </TouchableOpacity>
+                          {/* Remove button — apenas OWNER do restaurante */}
+                          {isOwner && (
+                            <TouchableOpacity
+                              style={{ paddingHorizontal: 16, paddingVertical: 14, borderLeftWidth: 1, borderLeftColor: theme.text + '08' }}
+                              activeOpacity={0.7}
+                              onPress={() => {
+                                setShowWorkspaceModal(false);
+                                setRemovingRestId(item.id);
+                                setRemovingRestName(item.name);
+                                setTimeout(() => setConfirmRemoveWorkspace(true), 300);
+                              }}
+                            >
+                              <TrashIcon color="#EF4444" size={16} />
+                            </TouchableOpacity>
+                          )}
                         </View>
                       );
                     })
@@ -927,7 +938,9 @@ export default observer(function ConfigScreen() {
                     </View>
                     <Text style={[styles.viewModalCardLabel, { color: theme.text }]}>Filiais</Text>
                     <Text style={[styles.viewModalCardValue, { color: theme.text }]} numberOfLines={1}>
-                      {dataStore.restaurantDetails?.maxBranches ?? 1}
+                      {dataStore.restaurantDetails?.maxBranches === 999 || dataStore.restaurantDetails?.plan === 'PREMIUM'
+                        ? 'Ilimitado'
+                        : dataStore.restaurantDetails?.maxBranches ?? 1}
                     </Text>
                   </View>
                 </View>

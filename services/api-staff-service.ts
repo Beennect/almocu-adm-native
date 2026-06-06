@@ -69,4 +69,17 @@ export const apiStaffService = {
     const response = await api.get(`/restaurants/${restaurantId}/invite-code`);
     return response.data;
   },
+
+  /** Busca estatísticas de performance dos funcionários no order service */
+  async getStaffPerformance(restaurantId: string): Promise<{
+    userId: string;
+    totalOrders: number;
+    totalRevenue: number;
+    dishesPrepared: number;
+  }[]> {
+    const response = await api.get(`/orders/staff-performance`, {
+      headers: { 'x-restaurant-id': restaurantId },
+    });
+    return response.data;
+  },
 };

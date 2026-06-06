@@ -15,7 +15,7 @@ import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
 import { withLoading } from '@/utils/toast';
-import { CheckIcon, ClockIcon, FoodStoreIcon, StarIcon } from '@/components/shared/Icons';
+import { ClockIcon, FoodStoreIcon } from '@/components/shared/Icons';
 
 interface SelfCartItem {
   id: string;
@@ -33,8 +33,8 @@ export default observer(function AutoatendimentoScreen() {
 
   const [cart, setCart] = useState<SelfCartItem[]>([]);
   const [clientName, setClientName] = useState('');
-  const [rating, setRating] = useState(5);
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+
 
   // Initialize workspace data based on query restaurantId
   useEffect(() => {
@@ -107,12 +107,7 @@ export default observer(function AutoatendimentoScreen() {
     }
   };
 
-  const handleSubmitSatisfaction = () => {
-    // Add review rating globally to average score of the workspace
-    dataStore.accumulateRating(rating);
-    setFeedbackSubmitted(true);
-    Toast.show({ type: 'success', text1: 'Obrigado pela sua avaliação! Volte sempre.' });
-  };
+
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { backgroundColor: theme.background }]}>
@@ -238,37 +233,6 @@ export default observer(function AutoatendimentoScreen() {
               onPress={handleSendOrder}
             >
               <Text style={styles.checkoutBtnText}>Enviar para Cozinha</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {/* Table Checkout & Satisfaction Rating */}
-      <View style={[styles.cartCard, { backgroundColor: theme.foreground }]}>
-        <Text style={[styles.cartTitle, { color: theme.text }]}>Encerrar mesa & Avaliar</Text>
-        <Text style={[styles.cartSub, { color: theme.text, opacity: 0.5 }]}>
-          Gostou do nosso atendimento? Avalie sua experiência para nos ajudar a melhorar!
-        </Text>
-
-        {feedbackSubmitted ? (
-          <View style={{ alignItems: 'center', paddingVertical: 12 }}>
-            <CheckIcon color="#10B981" size={32} />
-            <Text style={{ fontFamily: 'Jost_700Bold', color: '#10B981', marginTop: 6 }}>Obrigado por nos avaliar!</Text>
-          </View>
-        ) : (
-          <View style={{ marginTop: 12 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginVertical: 12 }}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity key={star} onPress={() => setRating(star)}>
-                  <StarIcon color={star <= rating ? '#FBBF24' : theme.text + '33'} size={32} />
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity
-              style={[styles.checkoutBtn, { backgroundColor: '#10B981' }]}
-              onPress={handleSubmitSatisfaction}
-            >
-              <Text style={styles.checkoutBtnText}>Enviar Avaliação Geral</Text>
             </TouchableOpacity>
           </View>
         )}

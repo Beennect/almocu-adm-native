@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'rea
 import { useAppTheme } from '@/themes/colors';
 import { dataStore, OrderStatus, StatusHistoryEntry } from '@/stores/DataStore';
 import { authStore } from '@/stores/AuthStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import Toast from 'react-native-toast-message';
 import { useRouter } from 'expo-router';
 import { InlineAlert } from '@/components/shared/InlineAlert';
@@ -128,22 +129,23 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
   const [checkoutVisible, setCheckoutVisible] = useState(false);
   const [splitCount, setSplitCount] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDITO' | 'DEBITO' | 'DINHEIRO'>('PIX');
-  const [rating, setRating] = useState(5);
+
   const [detailsError, setDetailsError] = useState('');
   const [cancelling, setCancelling] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
   const [closing, setClosing] = useState(false);
 
   const isFinal = status === 'CONCLUIDO' || status === 'CANCELADO';
+  // COZINHA não pode avançar de PRONTO (backend rejeita KITCHEN para 'entregue')
+  const canAdvance = !isFinal && !(activeRole === 'COZINHA' && status === 'PRONTO');
   const displayTimer = useStageTimer(statusHistory, isFinal, createdAt, updatedAt);
 
   const handleAdvanceStatus = async () => {
-    if (!isFinal) {
-      try {
-        await dataStore.updateOrderStatus(id);
-      } catch (error) {
-        Toast.show({ type: 'error', text1: 'Erro ao atualizar status do pedido' });
-      }
+    if (!canAdvance) return;
+    try {
+      await dataStore.updateOrderStatus(id);
+    } catch (error) {
+      Toast.show({ type: 'error', text1: 'Erro ao atualizar status do pedido' });
     }
   };
 
@@ -168,7 +170,7 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
     setCheckoutError('');
     try {
       try {
-        await dataStore.closeOrder(id, paymentMethod, rating);
+        await dataStore.closeOrder(id, paymentMethod);
         setCheckoutVisible(false);
         setDetailsVisible(false);
         Toast.show({ type: 'success', text1: 'Conta fechada com sucesso!' });
@@ -183,6 +185,7 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
   // Status transitions for labels
   const getNextLabel = () => {
     if (status === 'PREPARANDO' && address) return 'Pronto →';
+    if (status === 'PRONTO' && !address) return 'Concluir →';
     if (status === 'PRONTO') return 'Saiu para Entrega →';
     return NEXT_STATUS_LABELS[status] ?? 'Status';
   };
@@ -238,14 +241,15 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
           <TouchableOpacity style={styles.detailsBtn} activeOpacity={0.7} onPress={() => setDetailsVisible(true)}>
             <Text style={styles.detailsBtnText}>Detalhes</Text>
           </TouchableOpacity>
+        {permissionStore.can('orders:update-status') && canAdvance && (
           <TouchableOpacity 
-            style={[styles.statusBtn, isFinal && styles.statusBtnDisabled]} 
+            style={styles.statusBtn} 
             activeOpacity={0.7} 
             onPress={handleAdvanceStatus}
-            disabled={isFinal}
           >
             <Text style={styles.statusBtnText}>{getNextLabel()}</Text>
           </TouchableOpacity>
+        )}
         </View>
       </View>
 
@@ -459,7 +463,7 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
               </View>
 
               <View style={styles.modalActions}>
-                {!isFinal && (activeRole === 'GARCOM' || activeRole === 'GERENTE') && (
+                {!isFinal && activeRole === 'GERENTE' && (
                   <View style={{ gap: 10, marginBottom: 12 }}>
                     <TouchableOpacity 
                       style={[styles.modalCloseBtn, { backgroundColor: theme.contrast }]} 
@@ -471,16 +475,18 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
                       <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Retirar Itens</Text>
                     </TouchableOpacity>
                     
-                    <TouchableOpacity 
-                      style={[styles.modalCloseBtn, { backgroundColor: '#10B981' }]} 
-                      onPress={() => setCheckoutVisible(true)}
-                    >
-                      <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Fechar Conta (Nota)</Text>
-                    </TouchableOpacity>
+                    {permissionStore.can('orders:update-status') && (
+                      <TouchableOpacity 
+                        style={[styles.modalCloseBtn, { backgroundColor: '#10B981' }]} 
+                        onPress={() => setCheckoutVisible(true)}
+                      >
+                        <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Fechar Conta (Nota)</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
 
-                {!isFinal && (
+                {!isFinal && permissionStore.can('orders:delete') && (
                   <TouchableOpacity
                     style={[styles.modalCancelBtn, { backgroundColor: '#EF4444' + '22', borderColor: '#EF4444' + '44', opacity: cancelling ? 0.6 : 1 }]}
                     onPress={handleCancel}
@@ -567,16 +573,6 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
                     <Text style={[styles.methodText, { color: theme.text }, paymentMethod === method && { color: theme.contrast, fontWeight: '700' }]}>
                       {method === 'CREDITO' ? 'Crédito' : method === 'DEBITO' ? 'Débito' : method === 'DINHEIRO' ? 'Dinheiro' : 'PIX'}
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Satisfaction Selector */}
-              <Text style={[styles.modalSectionTitle, { color: theme.text }]}>Avaliação Geral (Satisfação)</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginVertical: 12 }}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity key={star} onPress={() => setRating(star)}>
-                    <Text style={{ fontSize: 32, color: star <= rating ? '#FBBF24' : theme.text + '33' }}>★</Text>
                   </TouchableOpacity>
                 ))}
               </View>

@@ -11,26 +11,28 @@ export interface MenuItem {
   image?: string;
   category?: string;
   ingredients?: any[];
+  available?: boolean;
   onPress?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
 }
 
 function formatIngredient(ing: any): string {
-  const qty = ing.quantity;
+  const qty = ing.quantity ? String(ing.quantity).replace('.', ',') : '';
   const unit = ing.unit;
-  if (!qty) return ing.name || '';
-  const normalizedQty = String(qty).replace('.', ',');
-  if (!unit || unit === 'Unidades') return `${normalizedQty} ${ing.name}`;
-  return `${normalizedQty} ${unit.toLowerCase()} de ${ing.name}`;
+  const name = ing.name || 'Ingrediente';
+  if (!qty) return name;
+  if (!unit || unit === 'Unidades') return `${qty} ${name}`;
+  return `${qty} ${unit.toLowerCase()} de ${name}`;
 }
 
-export function MenuCard({ name, description, price, image, ingredients, onPress, onEdit, onDelete }: MenuItem) {
+export function MenuCard({ name, description, price, image, ingredients, available = true, onPress, onEdit, onDelete }: MenuItem) {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
+  const isOutOfStock = available === false;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, isOutOfStock && { opacity: 0.6 }]}>
       {/* Left + Middle: tappable for detail view */}
       <TouchableOpacity
         style={styles.touchableArea}
@@ -52,7 +54,14 @@ export function MenuCard({ name, description, price, image, ingredients, onPress
 
         {/* Middle: Content */}
         <View style={styles.content}>
-          <Text style={styles.name}>{name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.name}>{name}</Text>
+            {isOutOfStock && (
+              <View style={{ backgroundColor: '#EF4444', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 11 }}>ESGOTADO</Text>
+              </View>
+            )}
+          </View>
 
           <Text style={styles.description} numberOfLines={2}>{description}</Text>
 
@@ -72,12 +81,16 @@ export function MenuCard({ name, description, price, image, ingredients, onPress
 
       {/* Right: Actions */}
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onEdit}>
-          <EditIcon color={theme.text} opacity={0.7} size={20} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onDelete}>
-          <TrashIcon color={theme.contrast} opacity={0.7} size={20} />
-        </TouchableOpacity>
+        {onEdit && (
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onEdit}>
+            <EditIcon color={theme.text} opacity={0.7} size={20} />
+          </TouchableOpacity>
+        )}
+        {onDelete && (
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onDelete}>
+            <TrashIcon color={theme.contrast} opacity={0.7} size={20} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

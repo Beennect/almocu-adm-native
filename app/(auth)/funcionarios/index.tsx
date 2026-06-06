@@ -23,7 +23,7 @@ export default observer(function FuncionariosScreen() {
   const theme = useAppTheme();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<'COMUM' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'GERENTE'>('COMUM');
+  const [activeTab, setActiveTab] = useState<'COMUM' | 'GARCOM' | 'COZINHA' | 'ENTREGADOR' | 'GERENTE'>('COMUM');
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [roleModalMember, setRoleModalMember] = useState<StaffMember | null>(null);
   const [roleModalMessage, setRoleModalMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
@@ -34,14 +34,13 @@ export default observer(function FuncionariosScreen() {
     GERENTE: 'Gerente',
     GARCOM: 'Garçom',
     COZINHA: 'Cozinha',
-    CAIXA: 'Caixa',
     ENTREGADOR: 'Entregador',
     COMUM: 'Sem Cargo',
     INDEFINIDO: 'Indefinido',
   };
 
-  const assignableRoles: Array<'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'GERENTE'> = [
-    'GARCOM', 'COZINHA', 'CAIXA', 'ENTREGADOR', 'GERENTE',
+  const assignableRoles: Array<'GARCOM' | 'COZINHA' | 'ENTREGADOR' | 'GERENTE'> = [
+    'GARCOM', 'COZINHA', 'ENTREGADOR', 'GERENTE',
   ];
 
   if (!permissionStore.can('staff:view')) {
@@ -106,7 +105,7 @@ export default observer(function FuncionariosScreen() {
     }
   };
 
-  const handleRoleChange = (email: string, role: 'GARCOM' | 'COZINHA' | 'CAIXA' | 'GERENTE') => {
+  const handleRoleChange = (email: string, role: 'GARCOM' | 'COZINHA' | 'ENTREGADOR' | 'GERENTE') => {
     try {
       dataStore.assignStaffRole(email, role);
       Toast.show({ type: 'success', text1: `Cargo alterado para ${roleLabels[role]}` });
@@ -128,7 +127,7 @@ export default observer(function FuncionariosScreen() {
   const staffFiltered = dataStore.staff.filter(s => s.role === activeTab);
 
   // Spotlight employee
-  const highlightEmployee = dataStore.staff.find(s => s.role === 'GARCOM' || s.role === 'COZINHA' || s.role === 'CAIXA');
+  const highlightEmployee = dataStore.staff.find(s => s.role === 'GARCOM' || s.role === 'COZINHA' || s.role === 'ENTREGADOR');
 
   return (
     <>
@@ -216,7 +215,7 @@ export default observer(function FuncionariosScreen() {
 
       {/* Segmented Navigation Tabs */}
       <View style={styles.tabContainer}>
-        {(['COMUM', 'GARCOM', 'COZINHA', 'CAIXA', 'GERENTE'] as const).map((tab) => (
+        {(['COMUM', 'GARCOM', 'COZINHA', 'ENTREGADOR', 'GERENTE'] as const).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[
@@ -230,7 +229,7 @@ export default observer(function FuncionariosScreen() {
               { color: theme.text },
               activeTab === tab && { fontWeight: '700', color: theme.contrast }
             ]}>
-              {tab === 'COMUM' ? 'Sem Cargo' : tab === 'GARCOM' ? 'Garçons' : tab === 'COZINHA' ? 'Cozinha' : tab === 'CAIXA' ? 'Caixa' : 'Gerentes'}
+              {tab === 'COMUM' ? 'Sem Cargo' : tab === 'GARCOM' ? 'Garçons' : tab === 'COZINHA' ? 'Cozinha' : tab === 'ENTREGADOR' ? 'Entregadores' : 'Gerentes'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -251,7 +250,7 @@ export default observer(function FuncionariosScreen() {
               key={member.userId}
               style={[styles.memberCard, { backgroundColor: theme.foreground }]}
               activeOpacity={0.7}
-              onPress={() => router.push(`/(auth)/funcionarios/${member.email}` as any)}
+              onPress={() => router.push(`/(auth)/funcionarios/${member.userId}` as any)}
             >
               <View style={styles.memberInfo}>
                 <View style={[styles.avatar, { backgroundColor: theme.contrast + '22' }]}>

@@ -29,16 +29,16 @@ export default observer(function FuncionarioPerformanceScreen() {
   const isWeb = width >= 768;
   const theme = useAppTheme();
   const router = useRouter();
-  const { id: employeeEmail } = useLocalSearchParams();
+  const { id: employeeId } = useLocalSearchParams();
 
   // Refresh staff data when screen mounts
   useEffect(() => {
     dataStore.refreshStaff();
   }, []);
 
-  // Find the employee in active restaurant staff list
+  // Find the employee in active restaurant staff list by userId
   const employee = dataStore.staff.find(
-    (s) => s.email.toLowerCase() === (employeeEmail as string).toLowerCase()
+    (s) => s.userId === (employeeId as string)
   );
 
   if (!employee) {
@@ -93,12 +93,6 @@ export default observer(function FuncionarioPerformanceScreen() {
               </View>
 
               <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <StarIcon color={theme.contrast} size={32} />
-                <Text style={[styles.statValue, { color: theme.text }]}>{stats.ratingAverage || '5.0'}</Text>
-                <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Média de Avaliação</Text>
-              </View>
-
-              <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
                 <MoneyIcon color={theme.contrast} size={32} />
                 <Text style={[styles.statValue, { color: theme.text }]}>
                   R$ {(stats.revenueGenerated || 0).toFixed(2).replace('.', ',')}
@@ -122,11 +116,7 @@ export default observer(function FuncionarioPerformanceScreen() {
                 <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Tempo Médio de Preparo</Text>
               </View>
 
-              <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <StarIcon color={theme.contrast} size={32} />
-                <Text style={[styles.statValue, { color: theme.text }]}>{stats.ratingAverage || '5.0'}</Text>
-                <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Média de Satisfação</Text>
-              </View>
+
             </>
           )}
 
@@ -144,11 +134,7 @@ export default observer(function FuncionarioPerformanceScreen() {
                 <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Equipe Contratada</Text>
               </View>
 
-              <View style={[styles.statCard, { backgroundColor: theme.foreground }]}>
-                <StarIcon color={theme.contrast} size={32} />
-                <Text style={[styles.statValue, { color: theme.text }]}>{stats.ratingAverage || '4.9'}</Text>
-                <Text style={[styles.statLabel, { color: theme.text, opacity: 0.5 }]}>Nota Geral da Loja</Text>
-              </View>
+
             </>
           )}
 
@@ -178,18 +164,6 @@ export default observer(function FuncionarioPerformanceScreen() {
                 <Text style={[styles.itemBadge, { color: theme.text }]}>R$ 75,00</Text>
               </View>
 
-              <View style={[styles.historyItem, { backgroundColor: theme.foreground }]}>
-                <StarIcon color={theme.contrast} size={20} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.itemTitle, { color: theme.text }]}>Avaliação 5 Estrelas Recebida</Text>
-                  <Text style={[styles.itemSub, { color: theme.text, opacity: 0.5 }]}>Ontem, 20:30 • Atendimento Geral</Text>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 2 }}>
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <StarIcon key={s} color="#FBBF24" size={12} />
-                  ))}
-                </View>
-              </View>
             </>
           )}
 

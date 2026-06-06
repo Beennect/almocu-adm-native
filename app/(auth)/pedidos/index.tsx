@@ -7,6 +7,7 @@ import { OrderCard } from '../../../components/orders/OrderCard';
 import { UserHeader } from '../../../components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
 import { authStore } from '@/stores/AuthStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import Toast from 'react-native-toast-message';
 import { AlertIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
 
@@ -30,6 +31,12 @@ export default observer(function PedidosScreen() {
   const styles = makeStyles(theme, isWeb);
   const scrollRef = useRef<ScrollView>(null);
 
+  useEffect(() => {
+    if (!permissionStore.can('orders:view')) {
+      router.replace('/(auth)');
+    }
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('newest');
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,13 +48,19 @@ export default observer(function PedidosScreen() {
   }, [searchTerm, sortMode]);
 
   const activeRole = authStore.activeRole;
+  const canSeeHistory = activeRole === 'GERENTE' || activeRole === 'CAIXA' || activeRole === 'ENTREGADOR';
 
-  // Only active orders for active dashboard, with KDS filters if Kitchen staff
+  // Only active orders for active dashboard, with role-based filters
   const allOrders = (dataStore.orders || []).filter(order => {
     if (order.status === 'CONCLUIDO' || order.status === 'CANCELADO') return false;
     
     if (activeRole === 'COZINHA') {
       return order.status === 'PENDENTE' || order.status === 'PREPARANDO';
+    }
+
+    // ENTREGADOR só vê pedidos com endereço de entrega e status acionável por ele
+    if (activeRole === 'ENTREGADOR') {
+      return !!order.address && (order.status === 'PRONTO' || order.status === 'SAIU_PARA_ENTREGA');
     }
     
     return true;
@@ -90,9 +103,11 @@ export default observer(function PedidosScreen() {
           <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
             <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(auth)/pedidos/historico' as any)}>
-            <Text style={styles.tabBtnText}>Histórico</Text>
-          </TouchableOpacity>
+          {canSeeHistory && (
+            <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(auth)/pedidos/historico' as any)}>
+              <Text style={styles.tabBtnText}>Histórico</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -148,7 +163,7 @@ export default observer(function PedidosScreen() {
             <Text style={styles.orderBtnText}>{SORT_LABELS[sortMode]}</Text>
           </TouchableOpacity>
 
-          {isWeb ? (
+          {permissionStore.can('orders:create') && (isWeb ? (
             <TouchableOpacity style={styles.createBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
               <Text style={styles.createBtnText}>Criar Pedido</Text>
             </TouchableOpacity>
@@ -156,7 +171,7 @@ export default observer(function PedidosScreen() {
             <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
               <Text style={styles.plusBtnText}>+</Text>
             </TouchableOpacity>
-          )}
+          ))}
         </View>
       </View>
 

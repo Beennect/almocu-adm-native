@@ -59,3 +59,4 @@
 [X] Quando faço login, e vou para selecionar um workspace, todos os workspaces estão como "Restaurantes <id>", só volta ao normal (Nome e o CNPJ embaixo) quando seleciono um workspace
 [X] Se eu não estiver com nenhum workspace selecionado eu ainda consigo acessar pela URL, o que não deveria acontecer
 [ ] Quando eu logo com cargo Common, eu no front tenho acesso ao cardápio, e o cardápio que apareceu foi o de outro restaurante, provavelmente deve ser pq está em cache
+

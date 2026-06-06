@@ -12,6 +12,7 @@ import { observer } from 'mobx-react-lite';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import { computeStockDelta, parseAmountInput, sanitizeAmountInput } from '@/utils/stock-helpers';
 import { withLoading } from '@/utils/toast';
 import {
@@ -37,6 +38,14 @@ export default observer(function EstoqueItemDetailScreen() {
   const { id } = useLocalSearchParams();
 
   const [amount, setAmount] = useState('1');
+
+  useEffect(() => {
+    if (!permissionStore.can('stock:view')) {
+      router.replace('/(auth)');
+    }
+  }, []);
+
+  const canEditStock = permissionStore.can('stock:edit');
 
   useEffect(() => {
     dataStore.refreshStock();
@@ -139,18 +148,20 @@ export default observer(function EstoqueItemDetailScreen() {
             Detalhes e ajustes de quantidade
           </Text>
         </View>
-        <TouchableOpacity
-          style={[styles.editBtn, { backgroundColor: theme.foreground }]}
-          onPress={() =>
-            router.push({
-              pathname: 'estoque/addItem' as any,
-              params: { id: item.id },
-            })
-          }
-          activeOpacity={0.7}
-        >
-          <EditIcon color={theme.contrast} size={22} />
-        </TouchableOpacity>
+        {canEditStock && (
+          <TouchableOpacity
+            style={[styles.editBtn, { backgroundColor: theme.foreground }]}
+            onPress={() =>
+              router.push({
+                pathname: 'estoque/addItem' as any,
+                params: { id: item.id },
+              })
+            }
+            activeOpacity={0.7}
+          >
+            <EditIcon color={theme.contrast} size={22} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.nameRow}>
@@ -191,20 +202,22 @@ export default observer(function EstoqueItemDetailScreen() {
           Quantidade em Estoque
         </Text>
         <View style={styles.qtyRow}>
-          <TouchableOpacity
-            style={[
-              styles.qtyBtn,
-              { backgroundColor: theme.background },
-              !canDecrease && styles.qtyBtnDisabled,
-            ]}
-            onPress={() => handleUpdate(-1)}
-            activeOpacity={0.7}
-            disabled={!canDecrease}
-          >
-            <Text style={[styles.qtyBtnText, { color: theme.text }]}>
-              −
-            </Text>
-          </TouchableOpacity>
+          {canEditStock && (
+            <TouchableOpacity
+              style={[
+                styles.qtyBtn,
+                { backgroundColor: theme.background },
+                !canDecrease && styles.qtyBtnDisabled,
+              ]}
+              onPress={() => handleUpdate(-1)}
+              activeOpacity={0.7}
+              disabled={!canDecrease}
+            >
+              <Text style={[styles.qtyBtnText, { color: theme.text }]}>
+                −
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <View
             style={[
@@ -225,36 +238,40 @@ export default observer(function EstoqueItemDetailScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.qtyBtn, { backgroundColor: theme.contrast }]}
-            onPress={() => handleUpdate(1)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.qtyBtnText, { color: '#FFFFFF' }]}>+</Text>
-          </TouchableOpacity>
+          {canEditStock && (
+            <TouchableOpacity
+              style={[styles.qtyBtn, { backgroundColor: theme.contrast }]}
+              onPress={() => handleUpdate(1)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.qtyBtnText, { color: '#FFFFFF' }]}>+</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        <View style={styles.qtyInputRow}>
-          <Text style={[styles.qtyInputLabel, { color: theme.text }]}>
-            Incremento:
-          </Text>
-          <TextInput
-            style={[
-              styles.qtyInput,
-              {
-                backgroundColor: theme.background,
-                color: theme.text,
-              },
-            ]}
-            value={amount}
-            onChangeText={(text) => setAmount(sanitizeAmountInput(text))}
-            keyboardType="decimal-pad"
-            placeholderTextColor={theme.text + '40'}
-          />
-          <Text style={[styles.qtyInputHint, { color: theme.text }]}>
-            (use +/− para aplicar)
-          </Text>
-        </View>
+        {canEditStock && (
+          <View style={styles.qtyInputRow}>
+            <Text style={[styles.qtyInputLabel, { color: theme.text }]}>
+              Incremento:
+            </Text>
+            <TextInput
+              style={[
+                styles.qtyInput,
+                {
+                  backgroundColor: theme.background,
+                  color: theme.text,
+                },
+              ]}
+              value={amount}
+              onChangeText={(text) => setAmount(sanitizeAmountInput(text))}
+              keyboardType="decimal-pad"
+              placeholderTextColor={theme.text + '40'}
+            />
+            <Text style={[styles.qtyInputHint, { color: theme.text }]}>
+              (use +/− para aplicar)
+            </Text>
+          </View>
+        )}
 
         {item.minQuantity != null && item.minQuantity > 0 ? (
           <Text

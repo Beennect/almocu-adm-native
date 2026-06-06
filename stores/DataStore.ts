@@ -7,6 +7,7 @@ import { apiStaffService, mapRoleToFrontend } from "../services/api-staff-servic
 import { apiStockService } from "../services/api-stock-service";
 import { apiSupplierService, SupplierInput } from "../services/api-supplier-service";
 import { authStore } from "./AuthStore";
+import { permissionStore } from "./PermissionStore";
 
 const resolveImageUrl = (imageUrl?: string | null): string | null => {
   if (!imageUrl) return null;
@@ -43,6 +44,8 @@ export interface Order {
   time: string;
   createdAt: string;
   updatedAt?: string;
+  userId?: string;
+  deliveryUserId?: string;
   items?: any[];
   address?: {
     cep: string;
@@ -114,25 +117,22 @@ export interface RestaurantDetails {
   id: string;
   name: string;
   cnpj: string;
-  maxBranches?: number;
-  plan?: 'BASIC' | 'PROFESSIONAL' | 'NETWORK' | 'PREMIUM';
-  status?: 'active' | 'pending' | 'suspended';
-  logoUrl?: string;
+  maxBranches: number;
+  plan: string;
+  status: string;
   inviteCode?: string;
   inviteCodeExpires?: string;
-  ratingAverage?: number;
-  ratingCount?: number;
+  branches?: Branch[];
 }
 
 export interface StaffMember {
   userId: string;
   name: string;
   email: string;
-  role: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM' | 'INDEFINIDO';
+  role: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'COMUM' | 'INDEFINIDO';
   customDescription?: string;
   performanceStats?: {
     tablesServed?: number;
-    ratingAverage?: number;
     dishesPrepared?: number;
     revenueGenerated?: number;
     speedAverageMinutes?: number;
@@ -173,8 +173,6 @@ const DEFAULT_RESTAURANT: RestaurantDetails = {
   maxBranches: 1,
   plan: 'BASIC',
   status: 'active',
-  ratingAverage: 4.8,
-  ratingCount: 15,
 };
 
 class DataStore {
@@ -216,28 +214,25 @@ class DataStore {
       return;
     }
 
-    const settled = await Promise.allSettled([
+    const refreshes: Promise<any>[] = [
       this.refreshWorkspaces(),
       this.refreshInviteCode(),
       this.refreshMenu(),
-      this.refreshStock(),
       this.refreshSuppliers().then(() => this.enrichIngredientsWithSupplierNames()),
-      this.refreshStaff(),
       this.refreshOrders(),
-    ]);
+      this.refreshStock(), // ingredients sempre carregados (necessários p/ exibir ingredientes nos itens do cardápio)
+    ];
+
+    // Só carrega funcionários se for gerente
+    if (authStore.activeRole === 'GERENTE') {
+      refreshes.push(this.refreshStaff());
+    }
+
+    const settled = await Promise.allSettled(refreshes);
 
     settled.forEach((result, idx) => {
       if (result.status === 'rejected') {
-        const labels = [
-          'refreshWorkspaces',
-          'refreshInviteCode',
-          'refreshMenu',
-          'refreshStock',
-          'refreshSuppliers',
-          'refreshStaff',
-          'refreshOrders',
-        ];
-        console.warn(`[DataStore.init] ${labels[idx]} falhou:`, result.reason);
+        console.warn(`[DataStore.init] refresh falhou:`, result.reason);
       }
     });
 
@@ -254,13 +249,9 @@ class DataStore {
       const loadedModules = storedModules ? JSON.parse(storedModules) : [];
       this.modules = DEFAULT_MODULES.map((defMod) => {
         const found = loadedModules.find((m: any) => m.id === defMod.id);
-        const isGerente = authStore.activeRole === 'GERENTE';
 
         // PERSISTIR o showInNavbar salvo pelo usuário, não o default
-        let showInNavbar = found ? found.showInNavbar : defMod.showInNavbar;
-        if (defMod.id === 'funcionarios' || defMod.id === 'fornecedores') {
-          showInNavbar = isGerente;
-        }
+        const showInNavbar = found ? found.showInNavbar : defMod.showInNavbar;
         return found
           ? { ...defMod, acquired: found.acquired, showInNavbar }
           : { ...defMod, showInNavbar };
@@ -302,8 +293,6 @@ class DataStore {
             plan: rDetails.plan || 'BASIC',
             status: rDetails.status || 'active',
             inviteCode: rDetails.inviteCode,
-            ratingAverage: 5.0,
-            ratingCount: 1,
           };
         } else if (!this.restaurantDetails) {
           this.restaurantDetails = {
@@ -518,6 +507,8 @@ class DataStore {
           time: dateStr,
           createdAt: ord.createdAt || new Date().toISOString(),
           updatedAt: ord.updatedAt,
+          userId: ord.userId?._id || ord.userId,
+          deliveryUserId: ord.deliveryUserId?._id || ord.deliveryUserId || undefined,
           additionalInfo: ord.observations || '',
           address: ord.deliveryAddress
             ? {
@@ -555,17 +546,39 @@ class DataStore {
     this.isRefreshingStaff = true;
     const restId = authStore.user.restaurantId;
     try {
-      const staffData = await apiStaffService.getStaff(restId, 1, 50);
-      const staffList = Array.isArray(staffData) ? staffData : (staffData?.items || []);
+      const [staffData, perfData] = await Promise.allSettled([
+        apiStaffService.getStaff(restId, 1, 50),
+        apiStaffService.getStaffPerformance(restId),
+      ]);
+
+      const staffList = staffData.status === 'fulfilled'
+        ? (Array.isArray(staffData.value) ? staffData.value : (staffData.value?.items || []))
+        : [];
+
+      // Índice de performance por userId para merge rápido
+      const perfMap = new Map<string, { totalOrders: number; totalRevenue: number; dishesPrepared: number }>();
+      if (perfData.status === 'fulfilled' && Array.isArray(perfData.value)) {
+        for (const stat of perfData.value) {
+          perfMap.set(stat.userId, stat);
+        }
+      }
+
       this.staff = staffList.map((st: any) => {
         const rawUserId = st.userId;
         const userId = typeof rawUserId === 'string' ? rawUserId : (rawUserId?._id || rawUserId?.id || '');
+        const perf = perfMap.get(userId);
         return {
           userId,
           name: rawUserId?.name || 'Funcionário',
           email: rawUserId?.email || rawUserId?.username || 'email@restaurante.com',
           role: mapRoleToFrontend(st.role),
-          performanceStats: { tablesServed: 10, ratingAverage: 4.9, dishesPrepared: 5, revenueGenerated: 250.00 }
+          performanceStats: perf
+            ? {
+                tablesServed: perf.totalOrders,
+                dishesPrepared: perf.dishesPrepared,
+                revenueGenerated: perf.totalRevenue,
+              }
+            : undefined,
         };
       });
       const userKey = authStore.user!.email;
@@ -786,6 +799,29 @@ class DataStore {
     }
   }
 
+  /**
+   * Retorna funcionários ENTREGADOR que não estão ocupados
+   * (sem pedido em SAIU_PARA_ENTREGA ativo).
+   * Útil para o seletor de entregador no formulário de pedido.
+   */
+  getAvailableDeliveryPersons(): StaffMember[] {
+    const deliveryStaff = this.staff.filter((s) => s.role === 'ENTREGADOR');
+
+    // IDs de entregadores que estão em rota de entrega ativa
+    const busyIds = new Set<string>();
+    for (const order of this.orders) {
+      if (order.status === 'SAIU_PARA_ENTREGA' && order.deliveryUserId) {
+        busyIds.add(order.deliveryUserId);
+      }
+    }
+
+    return deliveryStaff.map((s) => ({
+      ...s,
+      // Marca como indisponível se estiver em rota
+      customDescription: busyIds.has(s.userId) ? 'Em entrega' : undefined,
+    }));
+  }
+
   async addOrder(order: Omit<Order, 'id' | 'status' | 'time' | 'createdAt' | 'statusHistory'>) {
     const isValidMongoId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
 
@@ -822,6 +858,7 @@ class DataStore {
       origin: order.table || 'Balcão',
       observations: order.additionalInfo || '',
       deliveryAddress,
+      deliveryUserId: (order as any).deliveryUserId || undefined,
     });
 
     await this.refreshOrders();
@@ -859,11 +896,21 @@ class DataStore {
     if (currentOrder.status === 'PENDENTE') {
       nextStatus = 'PREPARANDO';
     } else if (currentOrder.status === 'PREPARANDO') {
-      // Delivery: PREPARANDO → PRONTO → SAIU_PARA_ENTREGA → CONCLUIDO
-      // Balcão: PREPARANDO → CONCLUIDO
-      nextStatus = isDelivery ? 'PRONTO' : 'CONCLUIDO';
+      // COZINHA só pode ir até PRONTO (backend restringe KITCHEN a 'em_preparo'/'pronto')
+      // Demais roles: delivery vai pra PRONTO, balcão vai direto pra CONCLUIDO
+      if (authStore.activeRole === 'COZINHA') {
+        nextStatus = 'PRONTO';
+      } else {
+        nextStatus = isDelivery ? 'PRONTO' : 'CONCLUIDO';
+      }
     } else if (currentOrder.status === 'PRONTO') {
-      nextStatus = 'SAIU_PARA_ENTREGA';
+      // COZINHA não pode avançar de PRONTO (backend rejeita)
+      if (authStore.activeRole === 'COZINHA') {
+        return null;
+      }
+      // Delivery: PRONTO → SAIU_PARA_ENTREGA
+      // Balcão: PRONTO → CONCLUIDO (após COZINHA marcar como pronto)
+      nextStatus = isDelivery ? 'SAIU_PARA_ENTREGA' : 'CONCLUIDO';
     } else if (currentOrder.status === 'SAIU_PARA_ENTREGA') {
       nextStatus = 'CONCLUIDO';
     }
@@ -927,12 +974,11 @@ class DataStore {
     }
   }
 
-  async closeOrder(id: string, paymentMethod: string, rating: number) {
+  async closeOrder(id: string, paymentMethod: string) {
     const orderIndex = this.orders.findIndex(o => o.id === id);
     if (orderIndex === -1) return;
 
     const previousOrders = this.orders.map(o => ({ ...o }));
-    const previousRestaurantDetails = this.restaurantDetails ? { ...this.restaurantDetails } : null;
 
     try {
       // 🚀 Optimistic update
@@ -947,31 +993,13 @@ class DataStore {
         };
       }
 
-      if (rating > 0) {
-        this.accumulateRating(rating);
-      }
-
       await apiOrderService.updateOrderStatus(id, 'CONCLUIDO');
       await this.refreshOrders();
     } catch (error) {
       // 🔙 Reverte
       this.orders = previousOrders;
-      if (previousRestaurantDetails) {
-        this.restaurantDetails = previousRestaurantDetails;
-      }
       console.error("Failed to close order:", error);
       throw error;
-    }
-  }
-
-  accumulateRating(rating: number) {
-    if (this.restaurantDetails) {
-      const currentAvg = this.restaurantDetails.ratingAverage ?? 5.0;
-      const currentCount = this.restaurantDetails.ratingCount ?? 0;
-      const newCount = currentCount + 1;
-      const newAvg = parseFloat(((currentAvg * currentCount + rating) / newCount).toFixed(1));
-      this.restaurantDetails.ratingAverage = newAvg;
-      this.restaurantDetails.ratingCount = newCount;
     }
   }
 

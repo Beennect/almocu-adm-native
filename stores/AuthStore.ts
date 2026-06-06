@@ -143,36 +143,30 @@ class AuthStore {
     await AsyncStorage.setItem('auth_token', token);
 
     try {
-      // Decodifica o JWT (payload base64) para extrair dados básicos do usuário.
-      // Atenção: decode sem verificar assinatura. A validação real é feita pelo backend
-      // em qualquer requisição autenticada.
-      let jwtPayload: { sub?: string; username?: string; globalRoles?: string[] } = {};
-      try {
-        const parts = token.split('.');
-        if (parts.length === 3) {
-          const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-          const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4);
-          jwtPayload = JSON.parse(atob(padded));
-        }
-      } catch (decodeErr) {
-        console.warn('Falha ao decodificar JWT no loginWithToken', decodeErr);
-      }
-
-      // Busca o perfil canônico (apenas dados do token ativo, sem email/name/restaurants[])
+      // Busca o perfil canônico — o endpoint /auth/me agora retorna restaurants[]
+      // com as roles do usuário em cada restaurante
       const meResponse = await api.get('/auth/me');
       const meData = meResponse.data || {};
 
-      // O backend /auth/me ainda não retorna restaurants[]; quando há restaurantId ativo,
-      // inferimos um único item para popular restaurantRoles com a role atual.
-      const restaurants = meData.restaurantId
-        ? [{ id: meData.restaurantId, role: meData.activeRole }]
-        : [];
+      if (!meData || typeof meData !== 'object') {
+        throw new Error('Resposta inválida do /auth/me');
+      }
+
+      // Extrai restaurants[] do payload. Fallback para o formato antigo
+      // (quando o backend ainda não retorna restaurants[]) para compatibilidade
+      // durante deploys rolling.
+      const restaurants =
+        meData.restaurants && meData.restaurants.length > 0
+          ? meData.restaurants
+          : meData.restaurantId
+            ? [{ id: meData.restaurantId, role: meData.activeRole }]
+            : [];
 
       const backendUser = {
-        id: meData.id ?? jwtPayload.sub,
-        email: jwtPayload.username || '',
-        name: jwtPayload.username || '',
-        globalRoles: meData.globalRoles ?? jwtPayload.globalRoles ?? ['user'],
+        id: meData.id,
+        email: meData.email || meData.username || '',
+        name: meData.name || meData.username || '',
+        globalRoles: meData.globalRoles ?? ['user'],
         activeRestaurantId: meData.restaurantId || '',
         restaurants,
       };
@@ -358,26 +352,42 @@ class AuthStore {
   }
 
   async refreshProfile() {
-    if (!this.user?.restaurantId) return;
+    if (!this.user?.id) return;
     try {
       const response = await api.get('/auth/me');
       const data = response.data;
-      if (data.activeRole && data.restaurantId) {
-        const frontRole = mapBackendRoleToFrontend(data.activeRole);
-        this.user.restaurantRoles = {
-          ...this.user.restaurantRoles,
-          [data.restaurantId]: frontRole,
-        };
-        this.user.restaurantBackendRoles = {
-          ...this.user.restaurantBackendRoles,
-          [data.restaurantId]: data.activeRole,
-        };
-        // Se o restaurantId retornado for diferente do ativo, atualiza também
-        if (data.restaurantId && data.restaurantId !== this.user.restaurantId) {
-          this.user.restaurantId = data.restaurantId;
+
+      // Reconstroi restaurantRoles a partir dos dados frescos do backend
+      const restaurantRoles: Record<string, FrontRole> = {};
+      const restaurantBackendRoles: Record<string, string> = {};
+
+      if (data.restaurants && data.restaurants.length > 0) {
+        for (const r of data.restaurants) {
+          restaurantRoles[r.id] = mapBackendRoleToFrontend(r.role);
+          restaurantBackendRoles[r.id] = r.role;
         }
-        await AsyncStorage.setItem('user', JSON.stringify(this.user));
+      } else if (data.restaurantId && data.activeRole) {
+        // Fallback para resposta antiga (backend desatualizado)
+        restaurantRoles[data.restaurantId] = mapBackendRoleToFrontend(data.activeRole);
+        restaurantBackendRoles[data.restaurantId] = data.activeRole;
       }
+
+      // Só sobrescreve as roles se o backend retornou dados válidos
+      if (Object.keys(restaurantRoles).length > 0) {
+        this.user.restaurantRoles = restaurantRoles;
+        this.user.restaurantBackendRoles = restaurantBackendRoles;
+      }
+
+      // Atualiza restaurantId se veio do backend
+      if (data.restaurantId) {
+        this.user.restaurantId = data.restaurantId;
+      }
+
+      // Atualiza dados básicos
+      if (data.email) this.user.email = data.email;
+      if (data.name) this.user.name = data.name;
+
+      await AsyncStorage.setItem('user', JSON.stringify(this.user));
     } catch (e) {
       console.warn('refreshProfile() falhou:', e);
     }

@@ -7,6 +7,7 @@ import { UserHeader } from '../../../components/shared/UserHeader';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
 import { observer } from 'mobx-react-lite';
 import { dataStore } from '@/stores/DataStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import Toast from 'react-native-toast-message';
 import { withLoading } from '@/utils/toast';
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from '@/components/shared/Icons';
@@ -143,6 +144,9 @@ export default observer(function CardapioScreen() {
   const totalPages = pages.length || 1;
   const paginatedData = pages[currentPage - 1] || [];
 
+  const canEdit = permissionStore.can('menu:edit');
+  const canDelete = permissionStore.can('menu:delete');
+
   const handleDelete = (id: string) => {
     setConfirmDeleteId(id);
   };
@@ -188,7 +192,7 @@ export default observer(function CardapioScreen() {
             <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
           </TouchableOpacity>
 
-          {isWeb ? (
+          {permissionStore.can('menu:create') && (isWeb ? (
             <TouchableOpacity
               style={styles.createBtn}
               activeOpacity={0.8}
@@ -204,7 +208,7 @@ export default observer(function CardapioScreen() {
             >
               <Text style={styles.plusBtnText}>+</Text>
             </TouchableOpacity>
-          )}
+          ))}
         </View>
       </View>
 
@@ -225,8 +229,8 @@ export default observer(function CardapioScreen() {
                         {...item}
                         image={item.image ?? undefined}
                         onPress={() => router.push(`cardapio/${item.id}` as any)}
-                        onEdit={() => handleEdit(item.id)}
-                        onDelete={() => handleDelete(item.id)}
+                        onEdit={canEdit ? () => handleEdit(item.id) : undefined}
+                        onDelete={canDelete ? () => handleDelete(item.id) : undefined}
                       />
                     </View>
                   ))}

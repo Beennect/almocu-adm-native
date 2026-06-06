@@ -84,7 +84,9 @@ export default observer(function AddPedidoScreen() {
   const [infoText, setInfoText] = useState('');
 
   const mesaOptions = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
-  const itemOptions = (dataStore.menuItems || []).map((item) => item.name);
+  const itemOptions = (dataStore.menuItems || [])
+    .filter((item) => item.available !== false)
+    .map((item) => item.name);
 
   const total = useMemo(() => {
     if (!cart || cart.length === 0) return 0;

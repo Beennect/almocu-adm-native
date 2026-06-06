@@ -3,6 +3,7 @@ import { ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon } fro
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import { useAppTheme } from '@/themes/colors';
 import { computeStockDelta, parseAmountInput, sanitizeAmountInput } from '@/utils/stock-helpers';
 import { withLoading } from '@/utils/toast';
@@ -44,7 +45,7 @@ const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: 
   </View>
 );
 
-const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, styles }: any) => {
+const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, styles, canEdit, canDelete }: any) => {
   const [amount, setAmount] = useState('1');
   const parsedAmount = parseAmountInput(amount);
   const canDecrease = (item.stock ?? 0) > 0 && (Number.isFinite(parsedAmount) ? parsedAmount > 0 : false) && (item.stock ?? 0) >= parsedAmount;
@@ -92,42 +93,46 @@ const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, style
         </View>
       </TouchableOpacity>
 
-      <View style={styles.cardActions}>
-        <View style={styles.qtyControls}>
-          <TouchableOpacity
-            style={[styles.qtyBtn, !canDecrease && styles.qtyBtnDisabled]}
-            onPress={() => handleUpdate(-1)}
-            disabled={!canDecrease}
-          >
-            <Text style={styles.qtyBtnText}>-</Text>
-          </TouchableOpacity>
+      {canEdit && (
+        <View style={styles.cardActions}>
+          <View style={styles.qtyControls}>
+            <TouchableOpacity
+              style={[styles.qtyBtn, !canDecrease && styles.qtyBtnDisabled]}
+              onPress={() => handleUpdate(-1)}
+              disabled={!canDecrease}
+            >
+              <Text style={styles.qtyBtnText}>-</Text>
+            </TouchableOpacity>
 
-          <TextInput
-            style={styles.qtyInput}
-            value={amount}
-            onChangeText={(text) => setAmount(sanitizeAmountInput(text))}
-            keyboardType="decimal-pad"
-            placeholderTextColor={theme.text + '40'}
-          />
+            <TextInput
+              style={styles.qtyInput}
+              value={amount}
+              onChangeText={(text) => setAmount(sanitizeAmountInput(text))}
+              keyboardType="decimal-pad"
+              placeholderTextColor={theme.text + '40'}
+            />
 
-          <TouchableOpacity
-            style={styles.qtyBtn}
-            onPress={() => handleUpdate(1)}
-          >
-            <Text style={styles.qtyBtnText}>+</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.qtyBtn}
+              onPress={() => handleUpdate(1)}
+            >
+              <Text style={styles.qtyBtnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity onPress={onEdit}>
+              <View style={{ opacity: 0.6 }}>
+                <EditIcon color={theme.text} size={18} />
+              </View>
+            </TouchableOpacity>
+            {canDelete && (
+              <TouchableOpacity onPress={onRemove}>
+                <TrashIcon color={theme.contrast} size={20} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <TouchableOpacity onPress={onEdit}>
-            <View style={{ opacity: 0.6 }}>
-              <EditIcon color={theme.text} size={18} />
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onRemove}>
-            <TrashIcon color={theme.contrast} size={20} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      )}
     </View>
   );
 });
@@ -158,6 +163,17 @@ export default observer(function EstoqueScreen() {
   const gridColumns = getGridColumns(width);
   const styles = makeStyles(theme, isWeb, gridColumns);
   const router = useRouter();
+
+  // Redirect if user doesn't have stock:view permission
+  useEffect(() => {
+    if (!permissionStore.can('stock:view')) {
+      router.replace('/(auth)');
+    }
+  }, []);
+
+  const canEditStock = permissionStore.can('stock:edit');
+  const canCreateStock = permissionStore.can('stock:create');
+  const canDeleteStock = permissionStore.can('stock:delete');
 
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
@@ -254,13 +270,15 @@ export default observer(function EstoqueScreen() {
             <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.plusBtn}
-            activeOpacity={0.8}
-            onPress={() => router.push('estoque/addItem')}
-          >
-            <Text style={styles.plusBtnText}>+</Text>
-          </TouchableOpacity>
+          {canCreateStock && (
+            <TouchableOpacity
+              style={styles.plusBtn}
+              activeOpacity={0.8}
+              onPress={() => router.push('estoque/addItem')}
+            >
+              <Text style={styles.plusBtnText}>+</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -286,6 +304,8 @@ export default observer(function EstoqueScreen() {
                   onPress={() => router.push(`estoque/${item.id}` as any)}
                   theme={theme}
                   styles={styles}
+                  canEdit={canEditStock}
+                  canDelete={canDeleteStock}
                 />
               </View>
             ))

@@ -6,6 +6,7 @@ import { observer } from 'mobx-react-lite';
 import { OrderCard } from '../../../components/orders/OrderCard';
 import { UserHeader } from '../../../components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
+import { authStore } from '@/stores/AuthStore';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
 
 const ITEMS_PER_PAGE = 6;
@@ -31,6 +32,14 @@ export default observer(function HistoricoScreen() {
   const [sortMode, setSortMode] = useState<SortMode>('newest');
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Redirect if role can't see history
+  useEffect(() => {
+    const role = authStore.activeRole;
+    if (role !== 'GERENTE' && role !== 'CAIXA' && role !== 'ENTREGADOR') {
+      router.replace('/(auth)/pedidos');
+    }
+  }, []);
+
   // Reset page when search/sort changes
   useEffect(() => {
     setCurrentPage(1);
@@ -38,11 +47,17 @@ export default observer(function HistoricoScreen() {
   }, [searchTerm, sortMode]);
 
   const allOrders = dataStore.orders || [];
+  const role = authStore.activeRole;
   
   // Filter for CONCLUIDO and CANCELADO status
-  const historyOrders = allOrders.filter(
+  let historyOrders = allOrders.filter(
     order => order.status === 'CONCLUIDO' || order.status === 'CANCELADO'
   );
+
+  // ENTREGADOR só vê pedidos com endereço de entrega no histórico
+  if (role === 'ENTREGADOR') {
+    historyOrders = historyOrders.filter(order => !!order.address);
+  }
 
   // Filter based on search keyword
   const filtered = historyOrders.filter(order =>
@@ -97,36 +112,38 @@ export default observer(function HistoricoScreen() {
         </View>
       </View>
 
-      {/* Metrics Row */}
-      <View style={styles.metricsContainer}>
-        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
-          <Text style={[styles.metricLabel, { color: theme.text }]}>Faturamento</Text>
-          <Text style={[styles.metricValue, { color: theme.contrast }]}>
-            R$ {faturamentoTotal.toFixed(2).replace('.', ',')}
-          </Text>
-        </View>
+      {/* Metrics Row — só para gerência */}
+      {role !== 'ENTREGADOR' && (
+        <View style={styles.metricsContainer}>
+          <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+            <Text style={[styles.metricLabel, { color: theme.text }]}>Faturamento</Text>
+            <Text style={[styles.metricValue, { color: theme.contrast }]}>
+              R$ {faturamentoTotal.toFixed(2).replace('.', ',')}
+            </Text>
+          </View>
 
-        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
-          <Text style={[styles.metricLabel, { color: theme.text }]}>Ticket Médio</Text>
-          <Text style={[styles.metricValue, { color: theme.text }]}>
-            R$ {ticketMedio.toFixed(2).replace('.', ',')}
-          </Text>
-        </View>
+          <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+            <Text style={[styles.metricLabel, { color: theme.text }]}>Ticket Médio</Text>
+            <Text style={[styles.metricValue, { color: theme.text }]}>
+              R$ {ticketMedio.toFixed(2).replace('.', ',')}
+            </Text>
+          </View>
 
-        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
-          <Text style={[styles.metricLabel, { color: theme.text }]}>Concluídos</Text>
-          <Text style={[styles.metricValue, { color: theme.text }]}>
-            {completedOrders.length}
-          </Text>
-        </View>
+          <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+            <Text style={[styles.metricLabel, { color: theme.text }]}>Concluídos</Text>
+            <Text style={[styles.metricValue, { color: theme.text }]}>
+              {completedOrders.length}
+            </Text>
+          </View>
 
-        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
-          <Text style={[styles.metricLabel, { color: theme.text }]}>Cancelamentos</Text>
-          <Text style={[styles.metricValue, { color: '#EF4444' }]}>
-            {taxaCancelamento.toFixed(1)}%
-          </Text>
+          <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+            <Text style={[styles.metricLabel, { color: theme.text }]}>Cancelamentos</Text>
+            <Text style={[styles.metricValue, { color: '#EF4444' }]}>
+              {taxaCancelamento.toFixed(1)}%
+            </Text>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Top Bar / Search Row */}
       <View style={styles.topBar}>

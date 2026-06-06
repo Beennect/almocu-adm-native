@@ -46,6 +46,7 @@ export interface OrderInput {
   observations?: string;
   deliveryAddress?: DeliveryAddressInput;
   totalValue?: number;
+  deliveryUserId?: string;
 }
 
 export const apiOrderService = {
