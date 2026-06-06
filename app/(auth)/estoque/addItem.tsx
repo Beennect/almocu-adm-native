@@ -4,6 +4,7 @@ import {
   TruckIcon
 } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import { dataStore } from '@/stores/DataStore';
 import { useAppTheme } from '@/themes/colors';
 import { withLoading } from '@/utils/toast';
@@ -115,11 +116,12 @@ export default observer(function AddStockItemScreen() {
     : null;
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.container}>
+    <ProtectedRoute abilities={['stock:create', 'stock:edit']} requireAll={false} redirect>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.backBtn, { backgroundColor: theme.foreground }]}
@@ -270,7 +272,8 @@ export default observer(function AddStockItemScreen() {
           title="Selecione o Fornecedor"
         />
       </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </ProtectedRoute>
   );
 });
 

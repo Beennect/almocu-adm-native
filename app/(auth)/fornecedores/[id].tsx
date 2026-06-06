@@ -11,6 +11,7 @@ import { observer } from 'mobx-react-lite';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import {
   BuildingIcon,
   ChevronLeftIcon,
@@ -103,12 +104,13 @@ export default observer(function FornecedorDetailScreen() {
   const statusLabel = item.isActive ? 'Ativo' : 'Inativo';
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.scrollContent,
-        { backgroundColor: theme.background },
-        isWeb && { maxWidth: 720, alignSelf: 'center', width: '100%' },
+    <ProtectedRoute abilities="suppliers:view" redirect>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { backgroundColor: theme.background },
+          isWeb && { maxWidth: 720, alignSelf: 'center', width: '100%' },
       ]}
     >
       <View style={styles.header}>
@@ -458,6 +460,7 @@ export default observer(function FornecedorDetailScreen() {
         </>
       ) : null}
     </ScrollView>
+    </ProtectedRoute>
   );
 });
 

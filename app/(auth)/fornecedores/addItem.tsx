@@ -8,6 +8,7 @@ import {
 } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import { dataStore, SupplierAddress } from '@/stores/DataStore';
 import { useAppTheme } from '@/themes/colors';
 import { withLoading } from '@/utils/toast';
@@ -416,12 +417,13 @@ export default observer(function FornecedorFormScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.container}>
-        {!isWeb && <UserHeader />}
+    <ProtectedRoute abilities="suppliers:manage" redirect>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.container}>
+          {!isWeb && <UserHeader />}
 
         {/* Top Bar */}
         <View style={styles.header}>
@@ -758,8 +760,9 @@ export default observer(function FornecedorFormScreen() {
           options={UF_OPTIONS}
           title="Selecione a UF"
         />
-      </View>
-    </KeyboardAvoidingView>
+        </View>
+      </KeyboardAvoidingView>
+    </ProtectedRoute>
   );
 });
 

@@ -11,7 +11,7 @@ import {
 import { observer } from 'mobx-react-lite';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
-import { authStore } from '@/stores/AuthStore';
+import { authStore, FrontRole } from '@/stores/AuthStore';
 import { permissionStore } from '@/stores/PermissionStore';
 import { dataStore, StaffMember } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
@@ -36,8 +36,7 @@ export default observer(function FuncionariosScreen() {
     COZINHA: 'Cozinha',
     CAIXA: 'Caixa',
     ENTREGADOR: 'Entregador',
-    COMUM: 'Sem Cargo',
-    INDEFINIDO: 'Indefinido',
+    COMUM: 'Comum',
   };
 
   const assignableRoles: Array<'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'GERENTE'> = [
@@ -106,7 +105,7 @@ export default observer(function FuncionariosScreen() {
     }
   };
 
-  const handleRoleChange = (email: string, role: 'GARCOM' | 'COZINHA' | 'CAIXA' | 'GERENTE') => {
+  const handleRoleChange = (email: string, role: FrontRole) => {
     try {
       dataStore.assignStaffRole(email, role);
       Toast.show({ type: 'success', text1: `Cargo alterado para ${roleLabels[role]}` });

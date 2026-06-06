@@ -452,12 +452,14 @@ Todos os endpoints exigem role `OWNER` ou `MANAGER`.
 ### 🛍️ Módulo de Pedidos (`/api/order` ➡️ `/orders`)
 | Método | Rota | Roles permitidos | Descrição |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/order` | WAITER, KITCHEN, OWNER, MANAGER | Cria pedido (e abate insumos do estoque). Body: `{ items: [{ productId, quantity }], deliveryAddress?, origin?, observations? }`. |
+| `POST` | `/api/order` | WAITER, OWNER, MANAGER | Cria pedido (e abate insumos do estoque). Body: `{ items: [{ productId, quantity }], deliveryAddress?, origin?, observations? }`. |
 | `GET`  | `/api/order` | KITCHEN, DELIVERY, OWNER, MANAGER | Lista pedidos do restaurante (paginado). |
 | `GET`  | `/api/order/user` | WAITER, KITCHEN, DELIVERY, OWNER, MANAGER | Lista pedidos do usuário autenticado (paginado). |
 | `GET`  | `/api/order/:id` | WAITER, KITCHEN, DELIVERY, OWNER, MANAGER | Detalha um pedido. |
 | `PATCH`| `/api/order/:id/status` | KITCHEN, DELIVERY, OWNER, MANAGER | Atualiza status (respeita máquina de estados por role). Body: `{ status }`. |
 | `DELETE`| `/api/order/:id` | OWNER, MANAGER | Deleta um pedido. |
+
+> ⚠️ **KITCHEN não pode criar pedido** — apenas visualizar e atualizar status. Regra de negócio D1 (ver `DECISIONS.md` DEC-001).
 
 ### 💳 Módulo de Pagamentos (`/api/order/stripe` ➡️ `/stripe`)
 Endpoints autenticados via JWT (sem restrição por role explícita; controle via fluxo da aplicação).

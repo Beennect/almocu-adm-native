@@ -5,8 +5,10 @@ import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDim
 import { MenuCard } from '../../../components/menu/MenuCard';
 import { UserHeader } from '../../../components/shared/UserHeader';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import { observer } from 'mobx-react-lite';
 import { dataStore } from '@/stores/DataStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import Toast from 'react-native-toast-message';
 import { withLoading } from '@/utils/toast';
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from '@/components/shared/Icons';
@@ -167,84 +169,102 @@ export default observer(function CardapioScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {!isWeb && <UserHeader />}
+    <ProtectedRoute abilities="menu:view">
+      <View style={styles.container}>
+        {!isWeb && <UserHeader />}
 
-      <View style={styles.topBar}>
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar..."
-            placeholderTextColor={theme.text + '80'}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-        <View style={styles.actionsRight}>
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => setFilterModalVisible(true)}
-          >
-            <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
-          </TouchableOpacity>
-
-          {isWeb ? (
+        <View style={styles.topBar}>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar..."
+              placeholderTextColor={theme.text + '80'}
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+            />
+          </View>
+          <View style={styles.actionsRight}>
             <TouchableOpacity
-              style={styles.createBtn}
-              activeOpacity={0.8}
-              onPress={() => router.push('cardapio/addItem' as any)}
+              style={styles.filterBtn}
+              onPress={() => setFilterModalVisible(true)}
             >
-              <Text style={styles.createBtnText}>Novo Item</Text>
+              <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.plusBtn}
-              activeOpacity={0.8}
-              onPress={() => router.push('cardapio/addItem' as any)}
-            >
-              <Text style={styles.plusBtnText}>+</Text>
-            </TouchableOpacity>
-          )}
+
+            {permissionStore.can('menu:create') && (
+              isWeb ? (
+                <TouchableOpacity
+                  style={styles.createBtn}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('cardapio/addItem' as any)}
+                >
+                  <Text style={styles.createBtnText}>Novo Item</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.plusBtn}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('cardapio/addItem' as any)}
+                >
+                  <Text style={styles.plusBtnText}>+</Text>
+                </TouchableOpacity>
+              )
+            )}
+          </View>
         </View>
-      </View>
 
-      <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
-        <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
-          {paginatedData.length > 0 ? (
-            paginatedData.map((section, index) => (
-              <View key={`${section.category}-${index}`} style={styles.categorySection}>
-                <View style={styles.sectionDivider}>
-                  <Text style={styles.sectionText}>{section.category}</Text>
-                  <View style={styles.dividerLine} />
-                </View>
+        <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
+          <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
+            {paginatedData.length > 0 ? (
+              paginatedData.map((section, index) => (
+                <View key={`${section.category}-${index}`} style={styles.categorySection}>
+                  <View style={styles.sectionDivider}>
+                    <Text style={styles.sectionText}>{section.category}</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
 
-                <View style={styles.grid}>
-                  {section.items.map((item) => (
-                    <View key={item.id} style={styles.gridItem}>
-                      <MenuCard
-                        {...item}
-                        image={item.image ?? undefined}
-                        onPress={() => router.push(`cardapio/${item.id}` as any)}
-                        onEdit={() => handleEdit(item.id)}
-                        onDelete={() => handleDelete(item.id)}
-                      />
-                    </View>
-                  ))}
+                  <View style={styles.grid}>
+                    {section.items.map((item) => (
+                      <View key={item.id} style={styles.gridItem}>
+                        <MenuCard
+                          {...item}
+                          image={item.image ?? undefined}
+                          onPress={() => router.push(`cardapio/${item.id}` as any)}
+                          onEdit={permissionStore.can('menu:edit') ? () => handleEdit(item.id) : undefined}
+                          onDelete={permissionStore.can('menu:delete') ? () => handleDelete(item.id) : undefined}
+                        />
+                      </View>
+                    ))}
+                  </View>
                 </View>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {searchTerm || filterMode !== 'todos' ? 'Nenhum item encontrado.' : 'Nenhum item no cardápio.'}
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  {searchTerm || filterMode !== 'todos' ? 'Tente ajustar os filtros ou a busca.' : 'Toque em "Novo Item" para adicionar seu primeiro produto!'}
+                </Text>
               </View>
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {searchTerm || filterMode !== 'todos' ? 'Nenhum item encontrado.' : 'Nenhum item no cardápio.'}
-              </Text>
-              <Text style={styles.emptySubtext}>
-                {searchTerm || filterMode !== 'todos' ? 'Tente ajustar os filtros ou a busca.' : 'Toque em "Novo Item" para adicionar seu primeiro produto!'}
-              </Text>
-            </View>
-          )}
+            )}
 
-          {!isWeb && totalPages > 1 && (
+            {!isWeb && totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPrev={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onNext={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                theme={theme}
+                styles={styles}
+              />
+            )}
+          </ScrollView>
+        </View>
+
+        {/* Fixed Pagination for Web */}
+        {isWeb && totalPages > 1 && (
+          <View style={styles.fixedPagination}>
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -253,45 +273,31 @@ export default observer(function CardapioScreen() {
               theme={theme}
               styles={styles}
             />
-          )}
-        </ScrollView>
+          </View>
+        )}
+
+        <SelectModal
+          visible={filterModalVisible}
+          onClose={() => setFilterModalVisible(false)}
+          onSelect={(val: any) => {
+            const key = (Object.keys(FILTER_LABELS) as FilterMode[]).find(k => FILTER_LABELS[k] === val);
+            if (key) setFilterMode(key);
+            setFilterModalVisible(false);
+          }}
+          options={Object.values(FILTER_LABELS)}
+          title="Filtrar Por"
+        />
+
+        <ConfirmModal
+          visible={!!confirmDeleteId}
+          onClose={() => setConfirmDeleteId(null)}
+          onConfirm={confirmDelete}
+          title="Excluir Item"
+          message="Tem certeza que deseja excluir este item do cardápio?"
+          confirmText="Excluir"
+        />
       </View>
-
-      {/* Fixed Pagination for Web */}
-      {isWeb && totalPages > 1 && (
-        <View style={styles.fixedPagination}>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPrev={() => setCurrentPage(p => Math.max(1, p - 1))}
-            onNext={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            theme={theme}
-            styles={styles}
-          />
-        </View>
-      )}
-
-      <SelectModal
-        visible={filterModalVisible}
-        onClose={() => setFilterModalVisible(false)}
-        onSelect={(val: any) => {
-          const key = (Object.keys(FILTER_LABELS) as FilterMode[]).find(k => FILTER_LABELS[k] === val);
-          if (key) setFilterMode(key);
-          setFilterModalVisible(false);
-        }}
-        options={Object.values(FILTER_LABELS)}
-        title="Filtrar Por"
-      />
-
-      <ConfirmModal
-        visible={!!confirmDeleteId}
-        onClose={() => setConfirmDeleteId(null)}
-        onConfirm={confirmDelete}
-        title="Excluir Item"
-        message="Tem certeza que deseja excluir este item do cardápio?"
-        confirmText="Excluir"
-      />
-    </View>
+    </ProtectedRoute>
   );
 });
 

@@ -29,6 +29,7 @@ import Toast from 'react-native-toast-message';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { observer } from 'mobx-react-lite';
 import { useMemo } from 'react';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 
 interface CartItem {
   id: string;
@@ -229,241 +230,243 @@ export default observer(function AddPedidoScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <ProtectedRoute abilities={['orders:create', 'orders:edit-items']} requireAll={false} redirect>
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Header with Back Arrow */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backBtn} 
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <ChevronLeftIcon color={theme.text} size={24} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{editOrderId ? 'Editar Pedido' : 'Sobre o pedido'}</Text>
-          <View style={styles.headerLine} />
-        </View>
-
-        {/* Cliente + Mesa */}
-        <View style={styles.row}>
-          <View style={styles.inputWrapper}>
-            <TextInput
-              style={styles.input}
-              placeholder="Nome do cliente"
-              placeholderTextColor={theme.text + '80'}
-              value={cliente}
-              onChangeText={setCliente}
-              onSubmitEditing={handleFinalize}
-            />
-          </View>
-          {!addressVisible && (
+          {/* Header with Back Arrow */}
+          <View style={styles.header}>
             <TouchableOpacity
-              style={styles.pickerContainer}
+              style={styles.backBtn}
+              onPress={() => router.back()}
               activeOpacity={0.7}
-              onPress={() => setMesaModalVisible(true)}
             >
-              <Text style={styles.pickerText}>{mesa || 'Mesa'}</Text>
-              <ChevronDownIcon color={theme.text} size={20} />
+              <ChevronLeftIcon color={theme.text} size={24} />
             </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Cart Items */}
-        {cart.length > 0 && (
-          <View style={styles.cartSection}>
-            <Text style={styles.cartSectionTitle}>Itens do pedido</Text>
-            {cart.map((item, index) => (
-              <View key={item.id} style={[styles.cartItem, index === cart.length - 1 && { borderBottomWidth: 0 }]}>
-                <View style={styles.cartItemInfo}>
-                  <Text style={styles.cartItemName}>{item.name}</Text>
-                  <Text style={styles.cartItemPrice}>
-                    R$ {( (parseFloat(String(item.price)) || 0) * (parseInt(String(item.quantity), 10) || 0) ).toFixed(2).replace('.', ',')}
-                  </Text>
-                </View>
-                <View style={styles.cartItemControls}>
-                  <TouchableOpacity style={styles.qtyBtn} onPress={() => handleQtyChange(item.id, -1)}>
-                    {item.quantity === 1 ? (
-                      <TrashIcon color={theme.contrast} size={14} />
-                    ) : (
-                      <MinusIcon color={theme.text} size={14} />
-                    )}
-                  </TouchableOpacity>
-                  <Text style={styles.qtyText}>{item.quantity.toString().padStart(2, '0')}</Text>
-                  <TouchableOpacity style={styles.qtyBtn} onPress={() => handleQtyChange(item.id, 1)}>
-                    <PlusIcon color={theme.text} size={14} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-
-            {/* Total */}
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>R$ {total.toFixed(2).replace('.', ',')}</Text>
-            </View>
+            <Text style={styles.headerTitle}>{editOrderId ? 'Editar Pedido' : 'Sobre o pedido'}</Text>
+            <View style={styles.headerLine} />
           </View>
-        )}
 
-        {/* Add Item Button */}
-        <TouchableOpacity
-          style={styles.addMoreContainer}
-          activeOpacity={0.7}
-          onPress={() => setItemModalVisible(true)}
-        >
-          <Text style={styles.addMoreText}>
-            {cart.length === 0 ? 'Selecione um item do cardápio' : '+ Adicionar outro item'}
-          </Text>
-          <ChevronDownIcon color={theme.text} opacity={0.5} size={20} />
-        </TouchableOpacity>
-
-        {/* Address Section */}
-        {addressVisible && (
-          <View style={styles.addressSection}>
-            <Text style={styles.sectionTitle}>Endereço de Entrega (Delivery)</Text>
-
-            <View style={styles.cepRow}>
+          {/* Cliente + Mesa */}
+          <View style={styles.row}>
+            <View style={styles.inputWrapper}>
               <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="CEP (opcional)"
+                style={styles.input}
+                placeholder="Nome do cliente"
                 placeholderTextColor={theme.text + '80'}
-                value={address.cep}
-                onChangeText={(v) => setAddress(a => ({ ...a, cep: v }))}
-                keyboardType="numeric"
-                maxLength={9}
-              />
-              {cepLoading && <ActivityIndicator color={theme.contrast} style={{ marginLeft: 8 }} />}
-            </View>
-            {cepError ? <Text style={styles.errorText}>{cepError}</Text> : null}
-
-            <TextInput
-              style={[styles.input, { marginBottom: 10 }]}
-              placeholder="Rua / Logradouro *"
-              placeholderTextColor={theme.text + '80'}
-              value={address.rua}
-              onChangeText={(v) => setAddress((a) => ({ ...a, rua: v }))}
-            />
-            <View style={styles.row}>
-              <TextInput
-                style={[styles.input, { flex: 1, opacity: address.semNumero ? 0.4 : 1 }]}
-                placeholder="Número *"
-                placeholderTextColor={theme.text + '80'}
-                value={address.numero}
-                onChangeText={(v) => setAddress((a) => ({ ...a, numero: v }))}
-                keyboardType="numeric"
-                editable={!address.semNumero}
-              />
-              <TouchableOpacity 
-                style={styles.checkboxRow} 
-                onPress={() => setAddress(a => ({ ...a, semNumero: !a.semNumero, numero: !a.semNumero ? '' : a.numero }))}
-              >
-                <View style={[styles.checkbox, address.semNumero && styles.checkboxChecked]}>
-                  {address.semNumero && <CheckIcon color="#FFF" size={14} />}
-                </View>
-                <Text style={styles.checkboxLabel}>Sem Nº</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <TextInput
-              style={[styles.input, { marginBottom: 10 }]}
-              placeholder="Complemento"
-              placeholderTextColor={theme.text + '80'}
-              value={address.complemento}
-              onChangeText={(v) => setAddress((a) => ({ ...a, complemento: v }))}
-            />
-
-            <TextInput
-              style={[styles.input, { marginBottom: 10 }]}
-              placeholder="Bairro *"
-              placeholderTextColor={theme.text + '80'}
-              value={address.bairro}
-              onChangeText={(v) => setAddress((a) => ({ ...a, bairro: v }))}
-            />
-            <View style={styles.row}>
-              <TextInput
-                style={[styles.input, { flex: 2 }]}
-                placeholder="Cidade *"
-                placeholderTextColor={theme.text + '80'}
-                value={address.cidade}
-                onChangeText={(v) => setAddress((a) => ({ ...a, cidade: v }))}
-              />
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="UF *"
-                placeholderTextColor={theme.text + '80'}
-                value={address.estado}
-                onChangeText={(v) => setAddress((a) => ({ ...a, estado: v }))}
-                maxLength={2}
-                autoCapitalize="characters"
+                value={cliente}
+                onChangeText={setCliente}
                 onSubmitEditing={handleFinalize}
               />
             </View>
+            {!addressVisible && (
+              <TouchableOpacity
+                style={styles.pickerContainer}
+                activeOpacity={0.7}
+                onPress={() => setMesaModalVisible(true)}
+              >
+                <Text style={styles.pickerText}>{mesa || 'Mesa'}</Text>
+                <ChevronDownIcon color={theme.text} size={20} />
+              </TouchableOpacity>
+            )}
           </View>
-        )}
 
-        {/* Info Adicionais Section */}
-        {infoVisible && (
-          <View style={styles.addressSection}>
-            <Text style={styles.sectionTitle}>Informações Adicionais</Text>
-            <TextInput
-              style={[styles.input, { height: 100, textAlignVertical: 'top', paddingTop: 12 }]}
-              placeholder="Observações, preferências, alergias..."
-              placeholderTextColor={theme.text + '80'}
-              value={infoText}
-              onChangeText={setInfoText}
-              multiline
-              numberOfLines={4}
-            />
+          {/* Cart Items */}
+          {cart.length > 0 && (
+            <View style={styles.cartSection}>
+              <Text style={styles.cartSectionTitle}>Itens do pedido</Text>
+              {cart.map((item, index) => (
+                <View key={item.id} style={[styles.cartItem, index === cart.length - 1 && { borderBottomWidth: 0 }]}>
+                  <View style={styles.cartItemInfo}>
+                    <Text style={styles.cartItemName}>{item.name}</Text>
+                    <Text style={styles.cartItemPrice}>
+                      R$ {( (parseFloat(String(item.price)) || 0) * (parseInt(String(item.quantity), 10) || 0) ).toFixed(2).replace('.', ',')}
+                    </Text>
+                  </View>
+                  <View style={styles.cartItemControls}>
+                    <TouchableOpacity style={styles.qtyBtn} onPress={() => handleQtyChange(item.id, -1)}>
+                      {item.quantity === 1 ? (
+                        <TrashIcon color={theme.contrast} size={14} />
+                      ) : (
+                        <MinusIcon color={theme.text} size={14} />
+                      )}
+                    </TouchableOpacity>
+                    <Text style={styles.qtyText}>{item.quantity.toString().padStart(2, '0')}</Text>
+                    <TouchableOpacity style={styles.qtyBtn} onPress={() => handleQtyChange(item.id, 1)}>
+                      <PlusIcon color={theme.text} size={14} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+
+              {/* Total */}
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Total</Text>
+                <Text style={styles.totalValue}>R$ {total.toFixed(2).replace('.', ',')}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Add Item Button */}
+          <TouchableOpacity
+            style={styles.addMoreContainer}
+            activeOpacity={0.7}
+            onPress={() => setItemModalVisible(true)}
+          >
+            <Text style={styles.addMoreText}>
+              {cart.length === 0 ? 'Selecione um item do cardápio' : '+ Adicionar outro item'}
+            </Text>
+            <ChevronDownIcon color={theme.text} opacity={0.5} size={20} />
+          </TouchableOpacity>
+
+          {/* Address Section */}
+          {addressVisible && (
+            <View style={styles.addressSection}>
+              <Text style={styles.sectionTitle}>Endereço de Entrega (Delivery)</Text>
+
+              <View style={styles.cepRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="CEP (opcional)"
+                  placeholderTextColor={theme.text + '80'}
+                  value={address.cep}
+                  onChangeText={(v) => setAddress(a => ({ ...a, cep: v }))}
+                  keyboardType="numeric"
+                  maxLength={9}
+                />
+                {cepLoading && <ActivityIndicator color={theme.contrast} style={{ marginLeft: 8 }} />}
+              </View>
+              {cepError ? <Text style={styles.errorText}>{cepError}</Text> : null}
+
+              <TextInput
+                style={[styles.input, { marginBottom: 10 }]}
+                placeholder="Rua / Logradouro *"
+                placeholderTextColor={theme.text + '80'}
+                value={address.rua}
+                onChangeText={(v) => setAddress((a) => ({ ...a, rua: v }))}
+              />
+              <View style={styles.row}>
+                <TextInput
+                  style={[styles.input, { flex: 1, opacity: address.semNumero ? 0.4 : 1 }]}
+                  placeholder="Número *"
+                  placeholderTextColor={theme.text + '80'}
+                  value={address.numero}
+                  onChangeText={(v) => setAddress((a) => ({ ...a, numero: v }))}
+                  keyboardType="numeric"
+                  editable={!address.semNumero}
+                />
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setAddress(a => ({ ...a, semNumero: !a.semNumero, numero: !a.semNumero ? '' : a.numero }))}
+                >
+                  <View style={[styles.checkbox, address.semNumero && styles.checkboxChecked]}>
+                    {address.semNumero && <CheckIcon color="#FFF" size={14} />}
+                  </View>
+                  <Text style={styles.checkboxLabel}>Sem Nº</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                style={[styles.input, { marginBottom: 10 }]}
+                placeholder="Complemento"
+                placeholderTextColor={theme.text + '80'}
+                value={address.complemento}
+                onChangeText={(v) => setAddress((a) => ({ ...a, complemento: v }))}
+              />
+
+              <TextInput
+                style={[styles.input, { marginBottom: 10 }]}
+                placeholder="Bairro *"
+                placeholderTextColor={theme.text + '80'}
+                value={address.bairro}
+                onChangeText={(v) => setAddress((a) => ({ ...a, bairro: v }))}
+              />
+              <View style={styles.row}>
+                <TextInput
+                  style={[styles.input, { flex: 2 }]}
+                  placeholder="Cidade *"
+                  placeholderTextColor={theme.text + '80'}
+                  value={address.cidade}
+                  onChangeText={(v) => setAddress((a) => ({ ...a, cidade: v }))}
+                />
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="UF *"
+                  placeholderTextColor={theme.text + '80'}
+                  value={address.estado}
+                  onChangeText={(v) => setAddress((a) => ({ ...a, estado: v }))}
+                  maxLength={2}
+                  autoCapitalize="characters"
+                  onSubmitEditing={handleFinalize}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Info Adicionais Section */}
+          {infoVisible && (
+            <View style={styles.addressSection}>
+              <Text style={styles.sectionTitle}>Informações Adicionais</Text>
+              <TextInput
+                style={[styles.input, { height: 100, textAlignVertical: 'top', paddingTop: 12 }]}
+                placeholder="Observações, preferências, alergias..."
+                placeholderTextColor={theme.text + '80'}
+                value={infoText}
+                onChangeText={setInfoText}
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          )}
+
+          <View style={styles.footerLine} />
+
+          {/* Action Buttons */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.button, addressVisible && styles.buttonActive]}
+              onPress={() => setAddressVisible((v) => !v)}
+            >
+              <AddEnderecoIcon color={addressVisible ? theme.contrast : theme.text} size={16} />
+              <Text style={[styles.buttonText, addressVisible && { color: theme.contrast }]}>
+                {addressVisible ? 'Remover Endereço' : 'Adicionar Endereço'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, infoVisible && styles.buttonActive]}
+              onPress={() => setInfoVisible((v) => !v)}
+            >
+              <InfoAdicionaisIcon color={infoVisible ? theme.contrast : theme.text} size={16} />
+              <Text style={[styles.buttonText, infoVisible && { color: theme.contrast }]}>
+                {infoVisible ? 'Remover Info' : 'Informações Adicionais'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleFinalize}>
+              <FinalizarPedidoIcon color={theme.text} size={16} />
+              <Text style={styles.buttonText}>{editOrderId ? 'Salvar Alterações' : 'Finalizar Pedido'}</Text>
+            </TouchableOpacity>
           </View>
-        )}
+        </ScrollView>
 
-        <View style={styles.footerLine} />
+        <SelectModal
+          visible={mesaModalVisible}
+          onClose={() => setMesaModalVisible(false)}
+          onSelect={setMesa}
+          options={mesaOptions}
+          title="Selecione a Mesa"
+        />
 
-        {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.button, addressVisible && styles.buttonActive]}
-            onPress={() => setAddressVisible((v) => !v)}
-          >
-            <AddEnderecoIcon color={addressVisible ? theme.contrast : theme.text} size={16} />
-            <Text style={[styles.buttonText, addressVisible && { color: theme.contrast }]}>
-              {addressVisible ? 'Remover Endereço' : 'Adicionar Endereço'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, infoVisible && styles.buttonActive]}
-            onPress={() => setInfoVisible((v) => !v)}
-          >
-            <InfoAdicionaisIcon color={infoVisible ? theme.contrast : theme.text} size={16} />
-            <Text style={[styles.buttonText, infoVisible && { color: theme.contrast }]}>
-              {infoVisible ? 'Remover Info' : 'Informações Adicionais'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleFinalize}>
-            <FinalizarPedidoIcon color={theme.text} size={16} />
-            <Text style={styles.buttonText}>{editOrderId ? 'Salvar Alterações' : 'Finalizar Pedido'}</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      <SelectModal
-        visible={mesaModalVisible}
-        onClose={() => setMesaModalVisible(false)}
-        onSelect={setMesa}
-        options={mesaOptions}
-        title="Selecione a Mesa"
-      />
-
-      <SelectModal
-        visible={itemModalVisible}
-        onClose={() => setItemModalVisible(false)}
-        onSelect={handleSelectItem}
-        options={itemOptions}
-        title="Adicionar Item"
-      />
-    </View>
+        <SelectModal
+          visible={itemModalVisible}
+          onClose={() => setItemModalVisible(false)}
+          onSelect={handleSelectItem}
+          options={itemOptions}
+          title="Adicionar Item"
+        />
+      </View>
+    </ProtectedRoute>
   );
 });
 

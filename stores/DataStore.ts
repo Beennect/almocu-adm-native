@@ -6,7 +6,7 @@ import api, { API_URL } from "../services/api-service";
 import { apiStaffService, mapRoleToFrontend } from "../services/api-staff-service";
 import { apiStockService } from "../services/api-stock-service";
 import { apiSupplierService, SupplierInput } from "../services/api-supplier-service";
-import { authStore } from "./AuthStore";
+import { authStore, FrontRole } from "./AuthStore";
 
 const resolveImageUrl = (imageUrl?: string | null): string | null => {
   if (!imageUrl) return null;
@@ -128,7 +128,7 @@ export interface StaffMember {
   userId: string;
   name: string;
   email: string;
-  role: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM' | 'INDEFINIDO';
+  role: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM';
   customDescription?: string;
   performanceStats?: {
     tablesServed?: number;
@@ -695,7 +695,7 @@ class DataStore {
     await this.refreshStaff();
   }
 
-  async assignStaffRole(email: string, role: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM') {
+  async assignStaffRole(email: string, role: FrontRole) {
     if (!this.restaurantDetails) return;
     const member = this.staff.find(s => s.email.toLowerCase() === email.toLowerCase());
     if (member) {

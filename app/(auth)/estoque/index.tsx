@@ -2,7 +2,9 @@ import { ConfirmModal } from '@/components/shared/ConfirmModal';
 import { ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import { dataStore } from '@/stores/DataStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import { useAppTheme } from '@/themes/colors';
 import { computeStockDelta, parseAmountInput, sanitizeAmountInput } from '@/utils/stock-helpers';
 import { withLoading } from '@/utils/toast';
@@ -93,6 +95,7 @@ const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, style
       </TouchableOpacity>
 
       <View style={styles.cardActions}>
+        {permissionStore.can('stock:edit') && (
         <View style={styles.qtyControls}>
           <TouchableOpacity
             style={[styles.qtyBtn, !canDecrease && styles.qtyBtnDisabled]}
@@ -117,15 +120,20 @@ const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, style
             <Text style={styles.qtyBtnText}>+</Text>
           </TouchableOpacity>
         </View>
+        )}
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <TouchableOpacity onPress={onEdit}>
-            <View style={{ opacity: 0.6 }}>
-              <EditIcon color={theme.text} size={18} />
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onRemove}>
-            <TrashIcon color={theme.contrast} size={20} />
-          </TouchableOpacity>
+          {permissionStore.can('stock:edit') && onEdit && (
+            <TouchableOpacity onPress={onEdit}>
+              <View style={{ opacity: 0.6 }}>
+                <EditIcon color={theme.text} size={18} />
+              </View>
+            </TouchableOpacity>
+          )}
+          {permissionStore.can('stock:delete') && onRemove && (
+            <TouchableOpacity onPress={onRemove}>
+              <TrashIcon color={theme.contrast} size={20} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>
@@ -233,123 +241,127 @@ export default observer(function EstoqueScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {!isWeb && <UserHeader />}
+    <ProtectedRoute abilities="stock:view" redirect>
+      <View style={styles.container}>
+        {!isWeb && <UserHeader />}
 
-      <View style={styles.topBar}>
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar..."
-            placeholderTextColor={theme.text + '80'}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-        <View style={styles.topBarActions}>
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => setFilterModalVisible(true)}
-          >
-            <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
-          </TouchableOpacity>
+        <View style={styles.topBar}>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar..."
+              placeholderTextColor={theme.text + '80'}
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+            />
+          </View>
+          <View style={styles.topBarActions}>
+            <TouchableOpacity
+              style={styles.filterBtn}
+              onPress={() => setFilterModalVisible(true)}
+            >
+              <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.plusBtn}
-            activeOpacity={0.8}
-            onPress={() => router.push('estoque/addItem')}
-          >
-            <Text style={styles.plusBtnText}>+</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        style={{ flex: 1 }}
-      >
-        <View style={styles.sectionDivider}>
-          <Text style={styles.sectionText}>Estoque Atual</Text>
-          <View style={styles.dividerLine} />
-          <Text style={styles.sectionCount}>{processedIngredients.length} item{processedIngredients.length !== 1 ? 's' : ''}</Text>
+            {permissionStore.can('stock:create') && (
+              <TouchableOpacity
+                style={styles.plusBtn}
+                activeOpacity={0.8}
+                onPress={() => router.push('estoque/addItem')}
+              >
+                <Text style={styles.plusBtnText}>+</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        <View style={styles.grid}>
-          {paginatedIngredients.length > 0 ? (
-            paginatedIngredients.map((item) => (
-              <View key={item.id} style={styles.gridItem}>
-                <IngredientCard
-                  item={item}
-                  onRemove={() => removeIngredient(item.id)}
-                  onEdit={() => router.push({ pathname: 'estoque/addItem', params: { id: item.id } })}
-                  onPress={() => router.push(`estoque/${item.id}` as any)}
-                  theme={theme}
-                  styles={styles}
-                />
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.sectionDivider}>
+            <Text style={styles.sectionText}>Estoque Atual</Text>
+            <View style={styles.dividerLine} />
+            <Text style={styles.sectionCount}>{processedIngredients.length} item{processedIngredients.length !== 1 ? 's' : ''}</Text>
+          </View>
+
+          <View style={styles.grid}>
+            {paginatedIngredients.length > 0 ? (
+              paginatedIngredients.map((item) => (
+                <View key={item.id} style={styles.gridItem}>
+                  <IngredientCard
+                    item={item}
+                    onRemove={() => removeIngredient(item.id)}
+                    onEdit={() => router.push({ pathname: 'estoque/addItem', params: { id: item.id } })}
+                    onPress={() => router.push(`estoque/${item.id}` as any)}
+                    theme={theme}
+                    styles={styles}
+                  />
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {searchTerm || filterMode !== 'todos' ? 'Nenhum ingrediente encontrado.' : 'Estoque vazio.'}
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  {searchTerm || filterMode !== 'todos' ? 'Tente ajustar os filtros ou a busca.' : 'Adicione ingredientes para começar!'}
+                </Text>
               </View>
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {searchTerm || filterMode !== 'todos' ? 'Nenhum ingrediente encontrado.' : 'Estoque vazio.'}
-              </Text>
-              <Text style={styles.emptySubtext}>
-                {searchTerm || filterMode !== 'todos' ? 'Tente ajustar os filtros ou a busca.' : 'Adicione ingredientes para começar!'}
-              </Text>
-            </View>
+            )}
+          </View>
+
+          {/* Pagination inside Scroll for Mobile */}
+          {!isWeb && totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPrev={() => setCurrentPage(p => Math.max(1, p - 1))}
+              onNext={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              theme={theme}
+              styles={styles}
+            />
           )}
-        </View>
+        </ScrollView>
 
-        {/* Pagination inside Scroll for Mobile */}
-        {!isWeb && totalPages > 1 && (
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPrev={() => setCurrentPage(p => Math.max(1, p - 1))}
-            onNext={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            theme={theme}
-            styles={styles}
-          />
+        {/* Fixed Pagination for Web */}
+        {isWeb && totalPages > 1 && (
+          <View style={styles.fixedPagination}>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPrev={() => setCurrentPage(p => Math.max(1, p - 1))}
+              onNext={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              theme={theme}
+              styles={styles}
+            />
+          </View>
         )}
-      </ScrollView>
 
-      {/* Fixed Pagination for Web */}
-      {isWeb && totalPages > 1 && (
-        <View style={styles.fixedPagination}>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPrev={() => setCurrentPage(p => Math.max(1, p - 1))}
-            onNext={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            theme={theme}
-            styles={styles}
-          />
-        </View>
-      )}
+        <SelectModal
+          visible={filterModalVisible}
+          onClose={() => setFilterModalVisible(false)}
+          onSelect={(val: any) => {
+            // find key from label
+            const key = (Object.keys(FILTER_LABELS) as FilterMode[]).find(k => FILTER_LABELS[k] === val);
+            if (key) setFilterMode(key);
+            setFilterModalVisible(false);
+          }}
+          options={Object.values(FILTER_LABELS)}
+          title="Filtrar Por"
+        />
 
-      <SelectModal
-        visible={filterModalVisible}
-        onClose={() => setFilterModalVisible(false)}
-        onSelect={(val: any) => {
-          // find key from label
-          const key = (Object.keys(FILTER_LABELS) as FilterMode[]).find(k => FILTER_LABELS[k] === val);
-          if (key) setFilterMode(key);
-          setFilterModalVisible(false);
-        }}
-        options={Object.values(FILTER_LABELS)}
-        title="Filtrar Por"
-      />
-
-      <ConfirmModal
-        visible={!!confirmDeleteId}
-        onClose={() => setConfirmDeleteId(null)}
-        onConfirm={confirmDelete}
-        title="Excluir Ingrediente"
-        message="Tem certeza que deseja excluir este ingrediente do estoque?"
-        confirmText="Excluir"
-      />
-    </View>
+        <ConfirmModal
+          visible={!!confirmDeleteId}
+          onClose={() => setConfirmDeleteId(null)}
+          onConfirm={confirmDelete}
+          title="Excluir Ingrediente"
+          message="Tem certeza que deseja excluir este ingrediente do estoque?"
+          confirmText="Excluir"
+        />
+      </View>
+    </ProtectedRoute>
   );
 });
 

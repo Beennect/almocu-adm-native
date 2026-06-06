@@ -44,6 +44,7 @@ import Toast from 'react-native-toast-message';
 import { withLoading } from '@/utils/toast';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { observer } from 'mobx-react-lite';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import { compressImageForUpload, readFileAsBase64, formatBytes, IMAGE_UPLOAD_MAX_BYTES } from '@/utils/image-compression';
 
 export default observer(function AddItemScreen() {
@@ -257,13 +258,14 @@ export default observer(function AddItemScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
+    <ProtectedRoute abilities={['menu:create', 'menu:edit']} requireAll={false} redirect>
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backBtn} 
             onPress={() => router.back()}
@@ -457,7 +459,7 @@ export default observer(function AddItemScreen() {
         initialSelectedIds={ingredients.map(i => i.id)}
       />
 
-      <ConfirmModal 
+      <ConfirmModal
         visible={!!confirmDeleteId}
         onClose={() => setConfirmDeleteId(null)}
         onConfirm={confirmDelete}
@@ -465,7 +467,8 @@ export default observer(function AddItemScreen() {
         message="Tem certeza que deseja remover este ingrediente da receita?"
         confirmText="Remover"
       />
-    </View>
+      </View>
+    </ProtectedRoute>
   );
 });
 

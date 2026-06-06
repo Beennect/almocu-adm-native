@@ -7,6 +7,8 @@ import { OrderCard } from '../../../components/orders/OrderCard';
 import { UserHeader } from '../../../components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
 import { authStore } from '@/stores/AuthStore';
+import { permissionStore } from '@/stores/PermissionStore';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import Toast from 'react-native-toast-message';
 import { AlertIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
 
@@ -81,157 +83,161 @@ export default observer(function PedidosScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {!isWeb && <UserHeader />}
+    <ProtectedRoute abilities="orders:view">
+      <View style={styles.container}>
+        {!isWeb && <UserHeader />}
 
-      {/* Header and Switch tab */}
-      <View style={styles.headerTabRow}>
-        <View style={styles.tabButtons}>
-          <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
-            <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(auth)/pedidos/historico' as any)}>
-            <Text style={styles.tabBtnText}>Histórico</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Emergency Panel for Kitchen */}
-      {activeRole === 'COZINHA' && (
-        <View style={[styles.emergencyContainer, { backgroundColor: theme.foreground }]}>
-          <View style={styles.emergencyTitleRow}>
-            <AlertIcon color="#EF4444" size={18} />
-            <Text style={styles.emergencyTitle}> Painel de Emergência KDS</Text>
+        {/* Header and Switch tab */}
+        <View style={styles.headerTabRow}>
+          <View style={styles.tabButtons}>
+            <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
+              <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(auth)/pedidos/historico' as any)}>
+              <Text style={styles.tabBtnText}>Histórico</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.emergencySub}>Toque em um prato para alternar a disponibilidade e evitar novos pedidos.</Text>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emergencyScroll}>
-            {dataStore.menuItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.emergencyItemCard,
-                  { backgroundColor: theme.background },
-                  !item.available && { borderColor: '#EF4444', borderWidth: 1 }
-                ]}
-                onPress={() => {
-                  dataStore.toggleMenuItemAvailability(item.id);
-                  Toast.show({ type: 'info', text1: `${item.name} marcado como ${item.available ? 'Disponível' : 'ESGOTADO'}!` });
-                }}
-              >
-                <Text style={styles.emergencyItemName}>{item.name}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: item.available ? '#10B981' : '#EF4444' }} />
-                  <Text style={[styles.emergencyItemStatus, { color: item.available ? '#10B981' : '#EF4444' }]}>
-                    {item.available ? 'Disponível' : 'ESGOTADO'}
-                  </Text>
+        </View>
+
+        {/* Emergency Panel for Kitchen */}
+        {activeRole === 'COZINHA' && (
+          <View style={[styles.emergencyContainer, { backgroundColor: theme.foreground }]}>
+            <View style={styles.emergencyTitleRow}>
+              <AlertIcon color="#EF4444" size={18} />
+              <Text style={styles.emergencyTitle}> Painel de Emergência KDS</Text>
+            </View>
+            <Text style={styles.emergencySub}>Toque em um prato para alternar a disponibilidade e evitar novos pedidos.</Text>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emergencyScroll}>
+              {dataStore.menuItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.emergencyItemCard,
+                    { backgroundColor: theme.background },
+                    !item.available && { borderColor: '#EF4444', borderWidth: 1 }
+                  ]}
+                  onPress={() => {
+                    dataStore.toggleMenuItemAvailability(item.id);
+                    Toast.show({ type: 'info', text1: `${item.name} marcado como ${item.available ? 'Disponível' : 'ESGOTADO'}!` });
+                  }}
+                >
+                  <Text style={styles.emergencyItemName}>{item.name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: item.available ? '#10B981' : '#EF4444' }} />
+                    <Text style={[styles.emergencyItemStatus, { color: item.available ? '#10B981' : '#EF4444' }]}>
+                      {item.available ? 'Disponível' : 'ESGOTADO'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Top Bar / Search Row */}
+        <View style={styles.topBar}>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar..."
+              placeholderTextColor={theme.text + '80'}
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+            />
+          </View>
+          <View style={styles.actionsRight}>
+            <TouchableOpacity style={styles.orderBtn} activeOpacity={0.7} onPress={cycleSortMode}>
+              <Text style={styles.orderBtnText}>{SORT_LABELS[sortMode]}</Text>
+            </TouchableOpacity>
+
+            {permissionStore.can('orders:create') && (
+              isWeb ? (
+                <TouchableOpacity style={styles.createBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
+                  <Text style={styles.createBtnText}>Criar Pedido</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
+                  <Text style={styles.plusBtnText}>+</Text>
+                </TouchableOpacity>
+              )
+            )}
+          </View>
+        </View>
+
+        <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
+          <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
+            {paginated.length > 0 ? (
+              <>
+                {/* Date Divider */}
+                <View style={styles.dateDivider}>
+                  <Text style={styles.dateText}>{new Date().toLocaleDateString('pt-BR')}</Text>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dateCount}>{sorted.length} pedido{sorted.length !== 1 ? 's' : ''}</Text>
                 </View>
-              </TouchableOpacity>
-            ))}
+
+                {/* Grid of Cards */}
+                <View style={styles.grid}>
+                  {paginated.map((order) => (
+                    <View key={order.id} style={styles.gridItem}>
+                      <OrderCard
+                        id={order.id}
+                        orderNumber={order.id.slice(-4).toUpperCase()}
+                        customerName={order.clientName}
+                        status={order.status}
+                        total={order.total}
+                        elapsedTime={order.time}
+                        items={order.items}
+                        createdAt={order.createdAt}
+                        updatedAt={order.updatedAt}
+                        table={order.table}
+                        address={order.address}
+                        statusHistory={order.statusHistory || []}
+                        additionalInfo={order.additionalInfo}
+                      />
+                    </View>
+                  ))}
+                </View>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <View style={styles.paginationContainer}>
+                    <TouchableOpacity
+                      style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
+                      onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeftIcon color={theme.text} size={20} />
+                    </TouchableOpacity>
+
+                    <View style={styles.pageIndicator}>
+                      <Text style={styles.pageIndicatorText}>{currentPage} / {totalPages}</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
+                      onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRightIcon color={theme.text} size={20} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {searchTerm ? 'Nenhum pedido encontrado.' : 'Nenhum pedido hoje.'}
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  {searchTerm ? 'Tente buscar por outro nome ou código.' : 'Crie um novo pedido para começar!'}
+                </Text>
+              </View>
+            )}
           </ScrollView>
         </View>
-      )}
-
-      {/* Top Bar / Search Row */}
-      <View style={styles.topBar}>
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar..."
-            placeholderTextColor={theme.text + '80'}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-        <View style={styles.actionsRight}>
-          <TouchableOpacity style={styles.orderBtn} activeOpacity={0.7} onPress={cycleSortMode}>
-            <Text style={styles.orderBtnText}>{SORT_LABELS[sortMode]}</Text>
-          </TouchableOpacity>
-
-          {isWeb ? (
-            <TouchableOpacity style={styles.createBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
-              <Text style={styles.createBtnText}>Criar Pedido</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
-              <Text style={styles.plusBtnText}>+</Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
-
-      <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
-        <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
-          {paginated.length > 0 ? (
-            <>
-              {/* Date Divider */}
-              <View style={styles.dateDivider}>
-                <Text style={styles.dateText}>{new Date().toLocaleDateString('pt-BR')}</Text>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dateCount}>{sorted.length} pedido{sorted.length !== 1 ? 's' : ''}</Text>
-              </View>
-
-              {/* Grid of Cards */}
-              <View style={styles.grid}>
-                {paginated.map((order) => (
-                  <View key={order.id} style={styles.gridItem}>
-                    <OrderCard
-                      id={order.id}
-                      orderNumber={order.id.slice(-4).toUpperCase()}
-                      customerName={order.clientName}
-                      status={order.status}
-                      total={order.total}
-                      elapsedTime={order.time}
-                      items={order.items}
-                      createdAt={order.createdAt}
-                      updatedAt={order.updatedAt}
-                      table={order.table}
-                      address={order.address}
-                      statusHistory={order.statusHistory || []}
-                      additionalInfo={order.additionalInfo}
-                    />
-                  </View>
-                ))}
-              </View>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <View style={styles.paginationContainer}>
-                  <TouchableOpacity
-                    style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
-                    onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeftIcon color={theme.text} size={20} />
-                  </TouchableOpacity>
-
-                  <View style={styles.pageIndicator}>
-                    <Text style={styles.pageIndicatorText}>{currentPage} / {totalPages}</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
-                    onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRightIcon color={theme.text} size={20} />
-                  </TouchableOpacity>
-                </View>
-              )}
-            </>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {searchTerm ? 'Nenhum pedido encontrado.' : 'Nenhum pedido hoje.'}
-              </Text>
-              <Text style={styles.emptySubtext}>
-                {searchTerm ? 'Tente buscar por outro nome ou código.' : 'Crie um novo pedido para começar!'}
-              </Text>
-            </View>
-          )}
-        </ScrollView>
-      </View>
-    </View>
+    </ProtectedRoute>
   );
 });
 

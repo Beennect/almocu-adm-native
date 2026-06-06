@@ -4,7 +4,7 @@ import { Platform } from "react-native";
 import api from "../services/api-service";
 import { dataStore } from "./DataStore";
 
-export type FrontRole = 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'COMUM' | 'INDEFINIDO';
+export type FrontRole = 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'COMUM';
 
 function mapBackendRoleToFrontend(role: string): FrontRole {
   switch (role) {
@@ -22,7 +22,7 @@ function mapBackendRoleToFrontend(role: string): FrontRole {
     case 'COMMON':
       return 'COMUM';
     default:
-      return 'INDEFINIDO';
+      return 'COMUM';
   }
 }
 
@@ -67,8 +67,8 @@ class AuthStore {
   }
 
   get activeRole(): FrontRole {
-    if (!this.user || !this.user.restaurantId) return 'INDEFINIDO';
-    return this.user.restaurantRoles?.[this.user.restaurantId] || 'INDEFINIDO';
+    if (!this.user || !this.user.restaurantId) return 'COMUM';
+    return this.user.restaurantRoles?.[this.user.restaurantId] || 'COMUM';
   }
 
   /**

@@ -18,6 +18,9 @@ export type Ability =
   | 'orders:create'
   | 'orders:update-status'
   | 'orders:delete'
+  | 'orders:cancel'
+  | 'orders:close-bill'
+  | 'orders:edit-items'
   | 'staff:view'
   | 'staff:manage-role'
   | 'staff:remove'
@@ -39,6 +42,7 @@ export type Ability =
  * Mapa de abilities por role frontend.
  * A role 'GERENTE' cobre tanto OWNER quanto MANAGER.
  * Abilities exclusivas de OWNER são separadas em 'owner-only'.
+ * Obs: 'COMUM' substitui o antigo 'INDEFINIDO' (cargo de baixa confiança).
  */
 const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
   GERENTE: [
@@ -54,6 +58,9 @@ const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
     'orders:create',
     'orders:update-status',
     'orders:delete',
+    'orders:cancel',
+    'orders:close-bill',
+    'orders:edit-items',
     'staff:view',
     'staff:manage-role',
     'staff:remove',
@@ -75,6 +82,9 @@ const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
     'menu:view',
     'orders:view',
     'orders:create',
+    'orders:cancel',
+    'orders:close-bill',
+    'orders:edit-items',
     'dashboard:view',
     'config:view',
   ],
@@ -88,6 +98,7 @@ const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
   CAIXA: [
     'menu:view',
     'orders:view',
+    'orders:close-bill',
     'dashboard:view',
     'config:view',
   ],
@@ -100,9 +111,6 @@ const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
   ],
   COMUM: [
     'menu:view',
-    'config:view',
-  ],
-  INDEFINIDO: [
     'config:view',
   ],
 };

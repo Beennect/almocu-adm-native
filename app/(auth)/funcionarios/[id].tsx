@@ -11,6 +11,8 @@ import { observer } from 'mobx-react-lite';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
+import { FrontRole } from '@/stores/AuthStore';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import {
   AlertIcon,
   ChevronLeftIcon,
@@ -53,14 +55,15 @@ export default observer(function FuncionarioPerformanceScreen() {
     );
   }
 
-  const role = employee.role;
+  const role = (employee.role || 'COMUM') as FrontRole;
   const stats = employee.performanceStats || {};
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { backgroundColor: theme.background }]}>
-      
-      {/* Back Arrow & Header */}
-      <View style={styles.header}>
+    <ProtectedRoute abilities="staff:view" redirect>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { backgroundColor: theme.background }]}>
+
+        {/* Back Arrow & Header */}
+        <View style={styles.header}>
         <TouchableOpacity 
           style={[styles.backArrowBtn, { backgroundColor: theme.foreground }]} 
           onPress={() => router.back()}
@@ -74,7 +77,7 @@ export default observer(function FuncionarioPerformanceScreen() {
         </View>
         <View style={[styles.roleBadge, { backgroundColor: theme.contrast + '22' }]}>
           <Text style={[styles.roleBadgeText, { color: theme.contrast }]}>
-            {role === 'GERENTE' ? 'Gerente' : role === 'GARCOM' ? 'Garçom' : role === 'COZINHA' ? 'Cozinha' : 'Indefinido'}
+            {role === 'GERENTE' ? 'Gerente' : role === 'GARCOM' ? 'Garçom' : role === 'COZINHA' ? 'Cozinha' : role === 'CAIXA' ? 'Caixa' : role === 'ENTREGADOR' ? 'Entregador' : role === 'COMUM' ? 'Sem Cargo' : 'Sem Cargo'}
           </Text>
         </View>
       </View>
@@ -250,6 +253,7 @@ export default observer(function FuncionarioPerformanceScreen() {
       </View>
 
     </ScrollView>
+    </ProtectedRoute>
   );
 });
 

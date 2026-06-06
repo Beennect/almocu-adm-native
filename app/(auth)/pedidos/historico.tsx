@@ -6,6 +6,7 @@ import { observer } from 'mobx-react-lite';
 import { OrderCard } from '../../../components/orders/OrderCard';
 import { UserHeader } from '../../../components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
 
 const ITEMS_PER_PAGE = 6;
@@ -82,135 +83,137 @@ export default observer(function HistoricoScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {!isWeb && <UserHeader />}
+    <ProtectedRoute abilities="orders:view">
+      <View style={styles.container}>
+        {!isWeb && <UserHeader />}
 
-      {/* Header and Switch tab */}
-      <View style={styles.headerTabRow}>
-        <View style={styles.tabButtons}>
-          <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(auth)/pedidos')}>
-            <Text style={styles.tabBtnText}>Ativos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
-            <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Histórico</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Metrics Row */}
-      <View style={styles.metricsContainer}>
-        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
-          <Text style={[styles.metricLabel, { color: theme.text }]}>Faturamento</Text>
-          <Text style={[styles.metricValue, { color: theme.contrast }]}>
-            R$ {faturamentoTotal.toFixed(2).replace('.', ',')}
-          </Text>
+        {/* Header and Switch tab */}
+        <View style={styles.headerTabRow}>
+          <View style={styles.tabButtons}>
+            <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(auth)/pedidos')}>
+              <Text style={styles.tabBtnText}>Ativos</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
+              <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Histórico</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
-          <Text style={[styles.metricLabel, { color: theme.text }]}>Ticket Médio</Text>
-          <Text style={[styles.metricValue, { color: theme.text }]}>
-            R$ {ticketMedio.toFixed(2).replace('.', ',')}
-          </Text>
+        {/* Metrics Row */}
+        <View style={styles.metricsContainer}>
+          <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+            <Text style={[styles.metricLabel, { color: theme.text }]}>Faturamento</Text>
+            <Text style={[styles.metricValue, { color: theme.contrast }]}>
+              R$ {faturamentoTotal.toFixed(2).replace('.', ',')}
+            </Text>
+          </View>
+
+          <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+            <Text style={[styles.metricLabel, { color: theme.text }]}>Ticket Médio</Text>
+            <Text style={[styles.metricValue, { color: theme.text }]}>
+              R$ {ticketMedio.toFixed(2).replace('.', ',')}
+            </Text>
+          </View>
+
+          <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+            <Text style={[styles.metricLabel, { color: theme.text }]}>Concluídos</Text>
+            <Text style={[styles.metricValue, { color: theme.text }]}>
+              {completedOrders.length}
+            </Text>
+          </View>
+
+          <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
+            <Text style={[styles.metricLabel, { color: theme.text }]}>Cancelamentos</Text>
+            <Text style={[styles.metricValue, { color: '#EF4444' }]}>
+              {taxaCancelamento.toFixed(1)}%
+            </Text>
+          </View>
         </View>
 
-        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
-          <Text style={[styles.metricLabel, { color: theme.text }]}>Concluídos</Text>
-          <Text style={[styles.metricValue, { color: theme.text }]}>
-            {completedOrders.length}
-          </Text>
+        {/* Top Bar / Search Row */}
+        <View style={styles.topBar}>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar..."
+              placeholderTextColor={theme.text + '80'}
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+            />
+          </View>
+          <View style={styles.actionsRight}>
+            <TouchableOpacity style={styles.orderBtn} activeOpacity={0.7} onPress={cycleSortMode}>
+              <Text style={styles.orderBtnText}>{SORT_LABELS[sortMode]}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={[styles.metricCard, { backgroundColor: theme.foreground }]}>
-          <Text style={[styles.metricLabel, { color: theme.text }]}>Cancelamentos</Text>
-          <Text style={[styles.metricValue, { color: '#EF4444' }]}>
-            {taxaCancelamento.toFixed(1)}%
-          </Text>
-        </View>
-      </View>
-
-      {/* Top Bar / Search Row */}
-      <View style={styles.topBar}>
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar..."
-            placeholderTextColor={theme.text + '80'}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-        <View style={styles.actionsRight}>
-          <TouchableOpacity style={styles.orderBtn} activeOpacity={0.7} onPress={cycleSortMode}>
-            <Text style={styles.orderBtnText}>{SORT_LABELS[sortMode]}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
-        <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
-          {paginated.length > 0 ? (
-            <>
-              {/* Grid of Cards */}
-              <View style={styles.grid}>
-                {paginated.map((order) => (
-                  <View key={order.id} style={styles.gridItem}>
-                    <OrderCard
-                      id={order.id}
-                      orderNumber={order.id.slice(-4).toUpperCase()}
-                      customerName={order.clientName}
-                      status={order.status}
-                      total={order.total}
-                      elapsedTime={order.time}
-                      items={order.items}
-                      createdAt={order.createdAt}
-                      updatedAt={order.updatedAt}
-                      table={order.table}
-                      address={order.address}
-                      statusHistory={order.statusHistory || []}
-                      additionalInfo={order.additionalInfo}
-                    />
-                  </View>
-                ))}
-              </View>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <View style={styles.paginationContainer}>
-                  <TouchableOpacity
-                    style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
-                    onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeftIcon color={theme.text} size={20} />
-                  </TouchableOpacity>
-
-                  <View style={styles.pageIndicator}>
-                    <Text style={styles.pageIndicatorText}>{currentPage} / {totalPages}</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
-                    onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRightIcon color={theme.text} size={20} />
-                  </TouchableOpacity>
+        <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
+          <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
+            {paginated.length > 0 ? (
+              <>
+                {/* Grid of Cards */}
+                <View style={styles.grid}>
+                  {paginated.map((order) => (
+                    <View key={order.id} style={styles.gridItem}>
+                      <OrderCard
+                        id={order.id}
+                        orderNumber={order.id.slice(-4).toUpperCase()}
+                        customerName={order.clientName}
+                        status={order.status}
+                        total={order.total}
+                        elapsedTime={order.time}
+                        items={order.items}
+                        createdAt={order.createdAt}
+                        updatedAt={order.updatedAt}
+                        table={order.table}
+                        address={order.address}
+                        statusHistory={order.statusHistory || []}
+                        additionalInfo={order.additionalInfo}
+                      />
+                    </View>
+                  ))}
                 </View>
-              )}
-            </>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {searchTerm ? 'Nenhum pedido histórico encontrado.' : 'Nenhum pedido finalizado.'}
-              </Text>
-              <Text style={styles.emptySubtext}>
-                {searchTerm ? 'Tente refinar sua busca por outro termo.' : 'Pedidos concluídos ou cancelados aparecerão aqui.'}
-              </Text>
-            </View>
-          )}
-        </ScrollView>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <View style={styles.paginationContainer}>
+                    <TouchableOpacity
+                      style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
+                      onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeftIcon color={theme.text} size={20} />
+                    </TouchableOpacity>
+
+                    <View style={styles.pageIndicator}>
+                      <Text style={styles.pageIndicatorText}>{currentPage} / {totalPages}</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
+                      onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRightIcon color={theme.text} size={20} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {searchTerm ? 'Nenhum pedido histórico encontrado.' : 'Nenhum pedido finalizado.'}
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  {searchTerm ? 'Tente refinar sua busca por outro termo.' : 'Pedidos concluídos ou cancelados aparecerão aqui.'}
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </View>
       </View>
-    </View>
+    </ProtectedRoute>
   );
 });
 

@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { themeStore } from '@/stores/ThemeStore';
 import { authStore } from '@/stores/AuthStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import { dataStore } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
@@ -362,7 +363,7 @@ export default observer(function ConfigScreen() {
           </View>
           <View style={[styles.planBadge, { backgroundColor: theme.contrast + '22' }]}>
             <Text style={[styles.planText, { color: theme.contrast }]}>
-              {activeRole === 'GERENTE' ? 'Gerente' : activeRole === 'GARCOM' ? 'Garçom' : activeRole === 'COZINHA' ? 'Cozinha' : activeRole === 'CAIXA' ? 'Caixa' : activeRole === 'COMUM' ? 'Sem Cargo' : 'Indefinido'}
+              {activeRole === 'GERENTE' ? 'Gerente' : activeRole === 'GARCOM' ? 'Garçom' : activeRole === 'COZINHA' ? 'Cozinha' : activeRole === 'CAIXA' ? 'Caixa' : 'Sem Cargo'}
             </Text>
           </View>
         </View>
@@ -386,7 +387,7 @@ export default observer(function ConfigScreen() {
                 </Text>
                 <Text style={{ fontFamily: 'Jost_400Regular', fontSize: 12, color: theme.text, opacity: 0.6 }} numberOfLines={1}>
                   {dataStore.restaurantDetails?.name
-                    ? `${dataStore.restaurantDetails.plan ? `Plano ${dataStore.restaurantDetails.plan} • ` : ''}Cargo: ${activeRole === 'GERENTE' ? 'Gerente' : activeRole === 'GARCOM' ? 'Garçom' : activeRole === 'COZINHA' ? 'Cozinha' : activeRole === 'CAIXA' ? 'Caixa' : activeRole === 'COMUM' ? 'Sem Cargo' : activeRole}`
+                    ? `${dataStore.restaurantDetails.plan ? `Plano ${dataStore.restaurantDetails.plan} • ` : ''}Cargo: ${activeRole === 'GERENTE' ? 'Gerente' : activeRole === 'GARCOM' ? 'Garçom' : activeRole === 'COZINHA' ? 'Cozinha' : activeRole === 'CAIXA' ? 'Caixa' : 'Sem Cargo'}`
                     : 'Nenhum restaurante ativo'}
                 </Text>
               </View>
@@ -403,7 +404,7 @@ export default observer(function ConfigScreen() {
             </View>
           )}
 
-          {hasRestaurant && activeRole === 'INDEFINIDO' && (
+          {hasRestaurant && activeRole === 'COMUM' && (
             <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: '#EF444415', borderWidth: 1, borderColor: '#EF444430' }}>
               <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
                 <BellIcon color="#EF4444" size={14} />
@@ -412,7 +413,7 @@ export default observer(function ConfigScreen() {
                 </Text>
               </View>
               <Text style={{ fontFamily: 'Jost_400Regular', fontSize: 11, color: theme.text, opacity: 0.7, textAlign: 'center', marginTop: 4 }}>
-                Peça ao Gerente do restaurante "{dataStore.restaurantDetails?.name}" para ativar seu cargo.
+                Peça ao Gerente do restaurante &quot;{dataStore.restaurantDetails?.name}&quot; para ativar seu cargo.
               </Text>
               <TouchableOpacity
                 style={{ alignSelf: 'center', marginTop: 8 }}
@@ -424,8 +425,8 @@ export default observer(function ConfigScreen() {
           )}
         </View>
 
-        {/* STANDARD CONFIGURATION OPTIONS - ONLY ACCESSIBLE IF USER HAS ROLE !== INDEFINIDO */}
-        {hasRestaurant && activeRole !== 'INDEFINIDO' && (
+        {/* STANDARD CONFIGURATION OPTIONS - ONLY ACCESSIBLE IF USER HAS ROLE !== COMUM */}
+        {hasRestaurant && activeRole !== 'COMUM' && (
           <>
             {/* Empresa & Perfil */}
             <SectionLabel label="Empresa & Perfil" theme={theme} />
@@ -438,7 +439,7 @@ export default observer(function ConfigScreen() {
                 sublabel="Informações pessoais e plano de assinatura"
                 onPress={() => router.push('/(auth)/config/perfil' as any)}
               />
-              {activeRole === 'GERENTE' && (
+              {permissionStore.can('restaurant:manage') && (
                 <>
                   <SettingRow
                     theme={theme}
@@ -516,7 +517,7 @@ export default observer(function ConfigScreen() {
             </View>
 
             {/* Gerenciamento */}
-            {activeRole === 'GERENTE' && (
+            {permissionStore.can('orders:delete') && (
               <>
                 <SectionLabel label="Gerenciamento" theme={theme} />
                 <View style={{ borderRadius: 20, overflow: 'hidden' }}>

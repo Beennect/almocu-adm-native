@@ -66,7 +66,7 @@ export default observer(function PerfilScreen() {
           </View>
           <View style={[styles.badge, { backgroundColor: theme.contrast + '20' }]}>
             <Text style={[styles.badgeText, { color: theme.contrast }]}>
-              {authStore.activeRole === 'GERENTE' ? 'Gerente' : authStore.activeRole === 'GARCOM' ? 'Garçom' : authStore.activeRole === 'COZINHA' ? 'Cozinha' : authStore.activeRole === 'CAIXA' ? 'Caixa' : authStore.activeRole === 'COMUM' ? 'Sem Cargo' : 'Indefinido'}
+              {authStore.activeRole === 'GERENTE' ? 'Gerente' : authStore.activeRole === 'GARCOM' ? 'Garçom' : authStore.activeRole === 'COZINHA' ? 'Cozinha' : authStore.activeRole === 'CAIXA' ? 'Caixa' : 'Sem Cargo'}
             </Text>
           </View>
         </View>
@@ -138,7 +138,7 @@ export default observer(function PerfilScreen() {
           <View style={styles.logItem}>
             <Text style={[styles.logDot, { backgroundColor: '#3B82F6' }]} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.logText, { color: theme.text }]}>Módulo "Ingredientes" ativado via Painel ADM</Text>
+              <Text style={[styles.logText, { color: theme.text }]}>Módulo &quot;Ingredientes&quot; ativado via Painel ADM</Text>
               <Text style={[styles.logTime, { color: theme.text }]}>Há 3 dias às 09:12 • Almocu Web</Text>
             </View>
           </View>

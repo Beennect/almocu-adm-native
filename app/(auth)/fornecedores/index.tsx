@@ -10,8 +10,8 @@ import {
 } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
-import { authStore } from '@/stores/AuthStore';
 import { dataStore, SupplierItem } from '@/stores/DataStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import { useAppTheme } from '@/themes/colors';
 import { withLoading } from '@/utils/toast';
 import { useRouter } from 'expo-router';
@@ -122,14 +122,13 @@ export default observer(function FornecedoresScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [searchTerm, filterMode]);
 
-  const activeRole = authStore.activeRole;
-  if (activeRole !== 'GERENTE') {
+  if (!permissionStore.can('suppliers:view')) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
         <TruckIcon color={theme.contrast} size={44} />
         <Text style={{ fontFamily: 'Jost_700Bold', fontSize: 18, color: theme.text, marginTop: 12 }}>Acesso Negado</Text>
         <Text style={{ fontFamily: 'Jost_400Regular', fontSize: 14, color: theme.text, opacity: 0.6, marginTop: 6, textAlign: 'center' }}>
-          Esta página é restrita apenas para Gerentes do restaurante.
+          Você não tem permissão para visualizar fornecedores.
         </Text>
       </View>
     );

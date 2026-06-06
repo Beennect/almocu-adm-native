@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore, OrderStatus, StatusHistoryEntry } from '@/stores/DataStore';
-import { authStore } from '@/stores/AuthStore';
+import { permissionStore } from '@/stores/PermissionStore';
+import { observer } from 'mobx-react-lite';
 import Toast from 'react-native-toast-message';
 import { useRouter } from 'expo-router';
 import { InlineAlert } from '@/components/shared/InlineAlert';
@@ -118,11 +119,10 @@ function useStageTimer(
   return elapsed;
 }
 
-export function OrderCard({ id, orderNumber, customerName, status, total, items, createdAt, updatedAt, table, address, statusHistory, additionalInfo }: OrderCardProps) {
+export const OrderCard = observer(function OrderCard({ id, orderNumber, customerName, status, total, items, createdAt, updatedAt, table, address, statusHistory, additionalInfo }: OrderCardProps) {
   const theme = useAppTheme();
   const styles = makeStyles(theme, status);
   const router = useRouter();
-  const activeRole = authStore.activeRole;
 
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [checkoutVisible, setCheckoutVisible] = useState(false);
@@ -238,14 +238,16 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
           <TouchableOpacity style={styles.detailsBtn} activeOpacity={0.7} onPress={() => setDetailsVisible(true)}>
             <Text style={styles.detailsBtnText}>Detalhes</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.statusBtn, isFinal && styles.statusBtnDisabled]} 
-            activeOpacity={0.7} 
-            onPress={handleAdvanceStatus}
-            disabled={isFinal}
-          >
-            <Text style={styles.statusBtnText}>{getNextLabel()}</Text>
-          </TouchableOpacity>
+          {permissionStore.can('orders:update-status') && (
+            <TouchableOpacity
+              style={[styles.statusBtn, isFinal && styles.statusBtnDisabled]}
+              activeOpacity={0.7}
+              onPress={handleAdvanceStatus}
+              disabled={isFinal}
+            >
+              <Text style={styles.statusBtnText}>{getNextLabel()}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -459,28 +461,32 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
               </View>
 
               <View style={styles.modalActions}>
-                {!isFinal && (activeRole === 'GARCOM' || activeRole === 'GERENTE') && (
+                {!isFinal && (permissionStore.can('orders:edit-items') || permissionStore.can('orders:close-bill')) && (
                   <View style={{ gap: 10, marginBottom: 12 }}>
-                    <TouchableOpacity 
-                      style={[styles.modalCloseBtn, { backgroundColor: theme.contrast }]} 
-                      onPress={() => {
-                        setDetailsVisible(false);
-                        router.push(`/(auth)/pedidos/addPedido?editOrderId=${id}` as any);
-                      }}
-                    >
-                      <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Retirar Itens</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      style={[styles.modalCloseBtn, { backgroundColor: '#10B981' }]} 
-                      onPress={() => setCheckoutVisible(true)}
-                    >
-                      <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Fechar Conta (Nota)</Text>
-                    </TouchableOpacity>
+                    {permissionStore.can('orders:edit-items') && (
+                      <TouchableOpacity
+                        style={[styles.modalCloseBtn, { backgroundColor: theme.contrast }]}
+                        onPress={() => {
+                          setDetailsVisible(false);
+                          router.push(`/(auth)/pedidos/addPedido?editOrderId=${id}` as any);
+                        }}
+                      >
+                        <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Retirar Itens</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {permissionStore.can('orders:close-bill') && (
+                      <TouchableOpacity
+                        style={[styles.modalCloseBtn, { backgroundColor: '#10B981' }]}
+                        onPress={() => setCheckoutVisible(true)}
+                      >
+                        <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Fechar Conta (Nota)</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
 
-                {!isFinal && (
+                {!isFinal && permissionStore.can('orders:cancel') && (
                   <TouchableOpacity
                     style={[styles.modalCancelBtn, { backgroundColor: '#EF4444' + '22', borderColor: '#EF4444' + '44', opacity: cancelling ? 0.6 : 1 }]}
                     onPress={handleCancel}
@@ -604,11 +610,11 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
               </View>
             </ScrollView>
           </View>
-        </View>
-      </Modal>
-    </>
-  );
-}
+         </View>
+       </Modal>
+     </>
+   );
+ });
 
 function makeStyles(theme: any, status: string) {
   const statusColor = STATUS_COLORS[status] ?? '#3B82F6';
