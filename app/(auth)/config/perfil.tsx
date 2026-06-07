@@ -15,7 +15,6 @@ export default observer(function PerfilScreen() {
   const theme = useAppTheme();
   const router = useRouter();
 
-  const userName = authStore.user?.name || 'Administrador';
   const userEmail = authStore.user?.email || 'admin@almocu.com.br';
 
   // Refresh user profile/role from backend on mount
@@ -58,10 +57,10 @@ export default observer(function PerfilScreen() {
         {/* Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: theme.foreground }]}>
           <View style={[styles.avatar, { backgroundColor: theme.contrast }]}>
-            <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+            <Text style={styles.avatarText}>{authStore.firstName.charAt(0).toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.profileName, { color: theme.text }]}>{userName}</Text>
+            <Text style={[styles.profileName, { color: theme.text }]}>{authStore.firstName}</Text>
             <Text style={[styles.profileEmail, { color: theme.text }]}>{userEmail}</Text>
           </View>
           <View style={[styles.badge, { backgroundColor: theme.contrast + '20' }]}>

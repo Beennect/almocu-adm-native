@@ -185,6 +185,7 @@ export default observer(function HistoricoScreen() {
                       address={order.address}
                       statusHistory={order.statusHistory || []}
                       additionalInfo={order.additionalInfo}
+                      deliveryUserId={order.deliveryUserId}
                     />
                   </View>
                 ))}

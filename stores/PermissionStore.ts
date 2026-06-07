@@ -76,6 +76,7 @@ const ROLE_ABILITIES: Record<FrontRole, Ability[]> = {
     'menu:view',
     'orders:view',
     'orders:create',
+    'orders:update-status',
     'config:view',
   ],
   COZINHA: [

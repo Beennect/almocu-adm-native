@@ -8,14 +8,9 @@ import { authStore } from '@/stores/AuthStore';
 export const UserHeader = observer(() => {
   const theme = useAppTheme();
   
-  let userName = 'Visitante';
-  if (authStore.user && authStore.user.name) {
-    userName = authStore.user.name;
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: theme.foreground }]}>
-      <Text style={[styles.userName, { color: theme.text }]}>Olá {userName.toUpperCase()}</Text>
+      <Text style={[styles.userName, { color: theme.text }]}>Olá {authStore.firstName.toUpperCase()}</Text>
       <TouchableOpacity style={styles.menuBtn} activeOpacity={0.7}>
         <MenuIcon color={theme.text} size={36} opacity={0.8} />
       </TouchableOpacity>

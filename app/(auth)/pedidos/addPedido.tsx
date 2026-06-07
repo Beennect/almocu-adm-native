@@ -79,6 +79,10 @@ export default observer(function AddPedidoScreen() {
   const [cepLoading, setCepLoading] = useState(false);
   const [cepError, setCepError] = useState('');
 
+  // Delivery person
+  const [deliveryPersonId, setDeliveryPersonId] = useState<string | null>(null);
+  const [deliveryPersonModalVisible, setDeliveryPersonModalVisible] = useState(false);
+
   // Info Adicionais
   const [infoVisible, setInfoVisible] = useState(false);
   const [infoText, setInfoText] = useState('');
@@ -97,6 +101,41 @@ export default observer(function AddPedidoScreen() {
     }, 0);
   }, [cart]);
 
+  // Available delivery persons (ENTREGADOR staff not currently on delivery route)
+  const availableDeliveryPersons = useMemo(() => {
+    return dataStore.getAvailableDeliveryPersons();
+  }, [dataStore.staff, dataStore.orders]);
+
+  // Map display name → userId for the SelectModal
+  const deliveryPersonNameToId = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of availableDeliveryPersons) {
+      map[p.name] = p.userId;
+    }
+    // Also include selected person if they became busy
+    if (deliveryPersonId) {
+      const selected = dataStore.staff.find((s) => s.userId === deliveryPersonId);
+      if (selected && !map[selected.name]) {
+        map[`${selected.name} (ocupado)`] = selected.userId;
+      }
+    }
+    return map;
+  }, [availableDeliveryPersons, deliveryPersonId, dataStore.staff]);
+
+  const deliveryPersonOptions = useMemo(
+    () => Object.keys(deliveryPersonNameToId),
+    [deliveryPersonNameToId],
+  );
+
+  const selectedDeliveryPersonName = useMemo(() => {
+    if (!deliveryPersonId) return null;
+    const found = availableDeliveryPersons.find((p) => p.userId === deliveryPersonId)
+      || dataStore.staff.find((s) => s.userId === deliveryPersonId);
+    if (!found) return 'Entregador';
+    const isBusy = !availableDeliveryPersons.find((p) => p.userId === deliveryPersonId);
+    return isBusy ? `${found.name} (ocupado)` : found.name;
+  }, [deliveryPersonId, availableDeliveryPersons, dataStore.staff]);
+
   // Preload order if in editing mode
   useEffect(() => {
     if (editOrderId) {
@@ -108,6 +147,9 @@ export default observer(function AddPedidoScreen() {
         if (order.address) {
           setAddressVisible(true);
           setAddress(order.address);
+        }
+        if (order.deliveryUserId) {
+          setDeliveryPersonId(order.deliveryUserId);
         }
         if (order.additionalInfo) {
           setInfoVisible(true);
@@ -149,6 +191,14 @@ export default observer(function AddPedidoScreen() {
     } finally {
       setCepLoading(false);
     }
+  };
+
+  const handleSelectDeliveryPerson = (name: string) => {
+    const id = deliveryPersonNameToId[name];
+    if (id) {
+      setDeliveryPersonId(id);
+    }
+    setDeliveryPersonModalVisible(false);
   };
 
   const handleSelectItem = (itemName: string) => {
@@ -215,6 +265,7 @@ export default observer(function AddPedidoScreen() {
           items: cart.map((c) => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity })),
           address: addressVisible ? address : undefined,
           additionalInfo: infoText || undefined,
+          deliveryUserId: deliveryPersonId || undefined,
         } as any);
         Toast.show({ type: 'success', text1: 'Pedido criado com sucesso!' });
       }
@@ -318,6 +369,34 @@ export default observer(function AddPedidoScreen() {
           </Text>
           <ChevronDownIcon color={theme.text} opacity={0.5} size={20} />
         </TouchableOpacity>
+
+        {/* Delivery Person Selector */}
+        {addressVisible && (
+          <>
+            {deliveryPersonOptions.length > 0 ? (
+              <TouchableOpacity
+                style={styles.pickerRow}
+                activeOpacity={0.7}
+                onPress={() => setDeliveryPersonModalVisible(true)}
+              >
+                <Text style={styles.pickerLabel}>Entregador</Text>
+                <Text style={[styles.pickerValue, !deliveryPersonId && { opacity: 0.4 }]}>
+                  {selectedDeliveryPersonName || 'Selecionar entregador'}
+                </Text>
+                <ChevronDownIcon color={theme.text} size={20} />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.pickerRow}>
+                <Text style={styles.pickerLabel}>Entregador</Text>
+                <Text style={[styles.pickerValue, { opacity: 0.4 }]}>
+                  {dataStore.staff.filter((s) => s.role === 'ENTREGADOR').length === 0
+                    ? 'Não há entregadores cadastrados'
+                    : 'Nenhum entregador disponível'}
+                </Text>
+              </View>
+            )}
+          </>
+        )}
 
         {/* Address Section */}
         {addressVisible && (
@@ -425,7 +504,11 @@ export default observer(function AddPedidoScreen() {
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, addressVisible && styles.buttonActive]}
-            onPress={() => setAddressVisible((v) => !v)}
+            onPress={() => {
+              const willRemove = addressVisible;
+              setAddressVisible((v) => !v);
+              if (willRemove) setDeliveryPersonId(null);
+            }}
           >
             <AddEnderecoIcon color={addressVisible ? theme.contrast : theme.text} size={16} />
             <Text style={[styles.buttonText, addressVisible && { color: theme.contrast }]}>
@@ -456,6 +539,14 @@ export default observer(function AddPedidoScreen() {
         onSelect={setMesa}
         options={mesaOptions}
         title="Selecione a Mesa"
+      />
+
+      <SelectModal
+        visible={deliveryPersonModalVisible}
+        onClose={() => setDeliveryPersonModalVisible(false)}
+        onSelect={handleSelectDeliveryPerson}
+        options={deliveryPersonOptions}
+        title="Selecionar Entregador"
       />
 
       <SelectModal
@@ -540,6 +631,30 @@ function makeStyles(theme: any, isWeb: boolean) {
       gap: 8,
       borderWidth: 1,
       borderColor: 'rgba(255, 255, 255, 0.12)',
+    },
+    pickerRow: {
+      backgroundColor: theme.foreground,
+      borderRadius: 20,
+      padding: 16,
+      marginBottom: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    pickerLabel: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 14,
+      color: theme.text,
+      opacity: 0.5,
+      marginRight: 8,
+    },
+    pickerValue: {
+      flex: 1,
+      fontFamily: 'Jost_400Regular',
+      fontSize: 14,
+      color: theme.text,
     },
     pickerText: {
       color: theme.text,

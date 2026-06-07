@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
+  Alert,
   useWindowDimensions,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
@@ -105,9 +106,9 @@ export default observer(function FuncionariosScreen() {
     }
   };
 
-  const handleRoleChange = (email: string, role: 'GARCOM' | 'COZINHA' | 'ENTREGADOR' | 'GERENTE') => {
+  const handleRoleChange = async (email: string, role: 'GARCOM' | 'COZINHA' | 'ENTREGADOR' | 'GERENTE') => {
     try {
-      dataStore.assignStaffRole(email, role);
+      await dataStore.assignStaffRole(email, role);
       Toast.show({ type: 'success', text1: `Cargo alterado para ${roleLabels[role]}` });
       setRoleModalMessage(null);
       setRoleModalMember(null);
@@ -119,10 +120,33 @@ export default observer(function FuncionariosScreen() {
     }
   };
 
-  const handleRemoveMember = (email: string) => {
-    dataStore.removeStaffMember(email);
-    Toast.show({ type: 'success', text1: 'Colaborador removido da equipe.' });
-  };
+  const handleRemoveMember = useCallback((targetMember: StaffMember) => {
+    // setTimeout sai do ciclo de evento do React Native para garantir
+    // que o Alert apareça mesmo com re-renders frequentes (ex: timer do inviteCode)
+    setTimeout(() => {
+      Alert.alert(
+        'Remover Funcionário',
+        `Tem certeza que deseja remover "${targetMember.name}" da equipe? Ele perderá acesso ao restaurante.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Remover',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await dataStore.removeStaffMember(targetMember.email);
+                Toast.show({ type: 'success', text1: `${targetMember.name} removido da equipe.` });
+              } catch (err: any) {
+                const message = err?.response?.data?.message || err?.message || 'Erro ao remover funcionário.';
+                console.error('removeStaffMember error:', message, err);
+                Toast.show({ type: 'error', text1: message });
+              }
+            },
+          },
+        ],
+      );
+    }, 0);
+  }, []);
 
   const staffFiltered = dataStore.staff.filter(s => s.role === activeTab);
 
@@ -246,29 +270,31 @@ export default observer(function FuncionariosScreen() {
           </View>
         ) : (
           staffFiltered.map((member) => (
-            <TouchableOpacity
+            <View
               key={member.userId}
               style={[styles.memberCard, { backgroundColor: theme.foreground }]}
-              activeOpacity={0.7}
-              onPress={() => router.push(`/(auth)/funcionarios/${member.userId}` as any)}
             >
               <View style={styles.memberInfo}>
-                <View style={[styles.avatar, { backgroundColor: theme.contrast + '22' }]}>
-                  <Text style={[styles.avatarText, { color: theme.contrast }]}>{member.name.charAt(0).toUpperCase()}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.memberName, { color: theme.text }]}>{member.name}</Text>
-                  <Text style={[styles.memberEmail, { color: theme.text, opacity: 0.5 }]}>{member.email}</Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.memberInfoLeft}
+                  activeOpacity={0.7}
+                  onPress={() => router.push(`/(auth)/funcionarios/${member.userId}` as any)}
+                >
+                  <View style={[styles.avatar, { backgroundColor: theme.contrast + '22' }]}>
+                    <Text style={[styles.avatarText, { color: theme.contrast }]}>{member.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.memberName, { color: theme.text }]}>{member.name}</Text>
+                    <Text style={[styles.memberEmail, { color: theme.text, opacity: 0.5 }]}>{member.email}</Text>
+                  </View>
+                </TouchableOpacity>
 
-                {member.email !== authStore.user?.email && (
+                {/* OWNER pode remover qualquer um; MANAGER não pode remover outro MANAGER */}
+                {member.email !== authStore.user?.email && permissionStore.can('staff:remove') && (authStore.isOwner || member.role !== 'GERENTE') && (
                   <TouchableOpacity
                     style={styles.trashBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    onPress={(e) => {
-                      e.stopPropagation?.();
-                      handleRemoveMember(member.email);
-                    }}
+                    onPress={() => handleRemoveMember(member)}
                   >
                     <TrashIcon color="#EF4444" size={16} />
                   </TouchableOpacity>
@@ -278,11 +304,11 @@ export default observer(function FuncionariosScreen() {
               {/* Role selector badge */}
               <View style={styles.roleRow}>
                 <Text style={[styles.roleLabel, { color: theme.text, opacity: 0.5 }]}>Cargo:</Text>
-                {member.email !== authStore.user?.email ? (
+                {/* MANAGER não pode alterar cargo de outro MANAGER (só OWNER pode) */}
+                {member.email !== authStore.user?.email && (authStore.isOwner || member.role !== 'GERENTE') ? (
                   <TouchableOpacity
                     style={[styles.roleBadge, { backgroundColor: theme.contrast + '18' }]}
-                    onPress={(e) => {
-                      e.stopPropagation?.();
+                    onPress={() => {
                       setRoleModalMessage(null);
                       setRoleModalMember(member);
                     }}
@@ -300,7 +326,7 @@ export default observer(function FuncionariosScreen() {
                   </View>
                 )}
               </View>
-            </TouchableOpacity>
+            </View>
           ))
         )}
       </View>
@@ -486,6 +512,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   memberInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  memberInfoLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,

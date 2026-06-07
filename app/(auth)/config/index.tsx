@@ -18,6 +18,7 @@ import { useAppTheme } from '@/themes/colors';
 import { themeStore } from '@/stores/ThemeStore';
 import { authStore } from '@/stores/AuthStore';
 import { dataStore } from '@/stores/DataStore';
+import { permissionStore } from '@/stores/PermissionStore';
 import Toast from 'react-native-toast-message';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
 import { SelectModal } from '@/components/shared/SelectModal';
@@ -194,6 +195,7 @@ export default observer(function ConfigScreen() {
   const [confirmRemoveWorkspace, setConfirmRemoveWorkspace] = useState(false);
   const [removingRestId, setRemovingRestId] = useState('');
   const [removingRestName, setRemovingRestName] = useState('');
+  const [removingIsOwner, setRemovingIsOwner] = useState(false);
 
   // Inline messages for modals (Toast fica atrás do modal no react-native-web)
   const [workspaceModalError, setWorkspaceModalError] = useState('');
@@ -235,10 +237,10 @@ export default observer(function ConfigScreen() {
     { key: 'PREMIUM', label: 'PREMIUM', limit: 'Ilimitado', description: 'Para grandes operações' },
   ];
 
-  const userName = authStore.user?.name || 'Usuário';
   const userEmail = authStore.user?.email || '';
   const activeRole = authStore.activeRole;
   const hasRestaurant = !!authStore.user?.restaurantId;
+  const isCurrentRestaurantSuspended = dataStore.restaurantDetails?.status === 'suspended';
 
   const restaurantIds = Object.keys(authStore.user?.restaurantRoles || {});
   const userWorkspaces = restaurantIds.map(id => {
@@ -332,15 +334,26 @@ export default observer(function ConfigScreen() {
     if (!removingRestId) return;
     setLoading(true);
     try {
-      try {
+      if (removingIsOwner) {
+        // OWNER → suspende o restaurante
+        await authStore.suspendRestaurantWorkspace(removingRestId);
+        setConfirmRemoveWorkspace(false);
+        setRemovingRestId('');
+        setRemovingRestName('');
+        setRemovingIsOwner(false);
+        Toast.show({ type: 'success', text1: `Restaurante "${removingRestName}" suspenso com sucesso!` });
+      } else {
+        // MANAGER → apenas remove o vínculo
         await authStore.removeRestaurantWorkspace(removingRestId);
         setConfirmRemoveWorkspace(false);
         setRemovingRestId('');
         setRemovingRestName('');
-        Toast.show({ type: 'success', text1: `Restaurante "${removingRestName}" removido dos seus restaurantes!` });
-      } catch (err: any) {
-        Toast.show({ type: 'error', text1: err?.response?.data?.message || err?.message || 'Erro ao remover restaurante.' });
+        setRemovingIsOwner(false);
+        Toast.show({ type: 'success', text1: `Você saiu do restaurante "${removingRestName}".` });
       }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Erro ao processar.';
+      Toast.show({ type: 'error', text1: msg });
     } finally {
       setLoading(false);
     }
@@ -359,11 +372,11 @@ export default observer(function ConfigScreen() {
         <View style={[styles.profileCard, { backgroundColor: theme.foreground }]}>
           <View style={[styles.avatar, { backgroundColor: theme.contrast }]}>
             <Text style={styles.avatarText}>
-              {userName.charAt(0).toUpperCase()}
+              {authStore.firstName.charAt(0).toUpperCase()}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.profileName, { color: theme.text }]}>{userName}</Text>
+            <Text style={[styles.profileName, { color: theme.text }]}>{authStore.firstName}</Text>
             <Text style={[styles.profileEmail, { color: theme.text }]}>{userEmail}</Text>
           </View>
           <View style={[styles.planBadge, { backgroundColor: theme.contrast + '22' }]}>
@@ -547,6 +560,53 @@ export default observer(function ConfigScreen() {
                     onPress={() => setConfirmClearAll(true)}
                   />
                 </View>
+
+                {permissionStore.can('restaurant:suspend') && !isCurrentRestaurantSuspended && (
+                  <View style={{ marginTop: 12, borderRadius: 20, overflow: 'hidden' }}>
+                    <SettingRow
+                      isFirst
+                      isLast
+                      theme={theme}
+                      danger
+                      icon={<TrashIcon color="#EF4444" size={18} />}
+                      label="Suspender Restaurante"
+                      sublabel="Desativa o restaurante e todos os vínculos. Pode ser reativado depois."
+                      onPress={() => {
+                        const restId = authStore.user?.restaurantId;
+                        const rest = dataStore.restaurants.find(r => r.id === restId);
+                        if (restId && rest) {
+                          setRemovingRestId(restId);
+                          setRemovingRestName(rest.name);
+                          setRemovingIsOwner(true);
+                          setConfirmRemoveWorkspace(true);
+                        }
+                      }}
+                    />
+                  </View>
+                )}
+                {permissionStore.can('restaurant:suspend') && isCurrentRestaurantSuspended && (
+                  <View style={{ marginTop: 12, borderRadius: 20, overflow: 'hidden' }}>
+                    <SettingRow
+                      isFirst
+                      isLast
+                      theme={theme}
+                      icon={<CheckIcon color="#10B981" size={22} />}
+                      label="Reativar Restaurante"
+                      sublabel="Reativa o restaurante e todos os vínculos de usuários."
+                      onPress={async () => {
+                        const restId = authStore.user?.restaurantId;
+                        if (restId) {
+                          try {
+                            await authStore.reactivateRestaurantWorkspace(restId);
+                            Toast.show({ type: 'success', text1: 'Restaurante reativado com sucesso!' });
+                          } catch (err: any) {
+                            Toast.show({ type: 'error', text1: err?.response?.data?.message || err?.message || 'Erro ao reativar restaurante.' });
+                          }
+                        }
+                      }}
+                    />
+                  </View>
+                )}
               </>
             )}
           </>
@@ -604,11 +664,16 @@ export default observer(function ConfigScreen() {
           setConfirmRemoveWorkspace(false);
           setRemovingRestId('');
           setRemovingRestName('');
+          setRemovingIsOwner(false);
         }}
         onConfirm={handleRemoveWorkspace}
-        title="Remover Restaurante"
-        message={`Tem certeza que deseja remover o restaurante "${removingRestName}" da sua lista de workspaces?`}
-        confirmText="Remover"
+        title={removingIsOwner ? 'Suspender Restaurante' : 'Sair do Restaurante'}
+        message={
+          removingIsOwner
+            ? `Tem certeza que deseja suspender o restaurante "${removingRestName}"? O restaurante e todos os vínculos serão desativados. Você poderá reativá-lo depois.`
+            : `Tem certeza que deseja sair do restaurante "${removingRestName}"? Seu vínculo com este restaurante será removido.`
+        }
+        confirmText={removingIsOwner ? 'Suspender' : 'Sair'}
       />
       {/* MODAL: ALTERNAR WORKSPACE (ESTILO SELECT DROP-DOWN COERENTE) */}
       <Modal
@@ -630,19 +695,22 @@ export default observer(function ConfigScreen() {
                     userWorkspaces.map((item, index) => {
                       const isActive = authStore.user?.restaurantId === item.id;
                       const isOwner = authStore.user?.restaurantBackendRoles?.[item.id] === 'OWNER';
+                      const isSuspended = item.status === 'suspended' || (isActive && dataStore.restaurantDetails?.status === 'suspended');
                       return (
                         <View 
                           key={`my-${item.id}-${index}`}
                           style={[
                             styles.workspaceItem, 
                             { borderColor: theme.text + '15', backgroundColor: theme.background + '40', flexDirection: 'row', alignItems: 'center', padding: 0 },
-                            isActive && { borderColor: theme.contrast, backgroundColor: theme.contrast + '08' }
+                            isActive && !isSuspended && { borderColor: theme.contrast, backgroundColor: theme.contrast + '08' },
+                            isSuspended && { opacity: 0.7 }
                           ]}
                         >
                           <TouchableOpacity
                             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}
                             activeOpacity={0.7}
                             onPress={async () => {
+                              if (isSuspended) return; // não pode alternar para suspenso
                               setWorkspaceModalError('');
                               try {
                                 await authStore.selectRestaurantWorkspace(item.id);
@@ -653,20 +721,44 @@ export default observer(function ConfigScreen() {
                               }
                             }}
                           >
-                            <FoodStoreIcon color={theme.text} size={20} />
+                            <FoodStoreIcon color={isSuspended ? theme.text + '60' : theme.text} size={20} />
                             <View style={{ flex: 1 }}>
-                              <Text style={[styles.workspaceItemText, { color: theme.text }, isActive && { fontWeight: '700', color: theme.contrast }]} numberOfLines={1}>
-                                {item.name}
-                              </Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Text style={[styles.workspaceItemText, { color: theme.text }, isActive && !isSuspended && { fontWeight: '700', color: theme.contrast }]} numberOfLines={1}>
+                                  {item.name}
+                                </Text>
+                                {isSuspended && (
+                                  <View style={{ backgroundColor: '#EF4444' + '25', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 100 }}>
+                                    <Text style={{ fontFamily: 'Jost_600SemiBold', fontSize: 10, color: '#EF4444' }}>Suspenso</Text>
+                                  </View>
+                                )}
+                              </View>
                               <Text style={{ fontSize: 11, color: theme.text, opacity: 0.5 }} numberOfLines={1}>
                                 CNPJ: {(item as any).cnpj ? maskCnpj((item as any).cnpj) : '—'}
                               </Text>
                             </View>
-                            {isActive && <CheckIcon color={theme.contrast} size={16} style={{ marginRight: 4 }} />}
+                            {isActive && !isSuspended && <CheckIcon color={theme.contrast} size={16} style={{ marginRight: 4 }} />}
                           </TouchableOpacity>
                           
-                          {/* Remove button — apenas OWNER do restaurante */}
-                          {isOwner && (
+                          {/* Ações do lado direito */}
+                          {isOwner && isSuspended && (
+                            <TouchableOpacity
+                              style={{ paddingHorizontal: 16, paddingVertical: 14, borderLeftWidth: 1, borderLeftColor: theme.text + '08' }}
+                              activeOpacity={0.7}
+                              onPress={async () => {
+                                setWorkspaceModalError('');
+                                try {
+                                  await authStore.reactivateRestaurantWorkspace(item.id);
+                                  Toast.show({ type: 'success', text1: `Restaurante "${item.name}" reativado!` });
+                                } catch (err: any) {
+                                  setWorkspaceModalError(err?.response?.data?.message || err?.message || 'Erro ao reativar restaurante.');
+                                }
+                              }}
+                            >
+                              <Text style={{ fontFamily: 'Jost_600SemiBold', fontSize: 13, color: '#10B981' }}>Reativar</Text>
+                            </TouchableOpacity>
+                          )}
+                          {isOwner && !isSuspended && (
                             <TouchableOpacity
                               style={{ paddingHorizontal: 16, paddingVertical: 14, borderLeftWidth: 1, borderLeftColor: theme.text + '08' }}
                               activeOpacity={0.7}
@@ -674,6 +766,7 @@ export default observer(function ConfigScreen() {
                                 setShowWorkspaceModal(false);
                                 setRemovingRestId(item.id);
                                 setRemovingRestName(item.name);
+                                setRemovingIsOwner(true);
                                 setTimeout(() => setConfirmRemoveWorkspace(true), 300);
                               }}
                             >

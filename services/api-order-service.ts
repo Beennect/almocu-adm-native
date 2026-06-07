@@ -71,13 +71,20 @@ export const apiOrderService = {
     if (data.totalValue !== undefined) {
       payload.totalValue = data.totalValue;
     }
+    if (data.deliveryUserId) {
+      payload.deliveryUserId = data.deliveryUserId;
+    }
     const response = await api.post('/api/order', payload);
     return response.data;
   },
 
-  async updateOrderStatus(id: string, status: OrderStatus) {
+  async updateOrderStatus(id: string, status: OrderStatus, deliveryUserId?: string) {
     const backendStatus = mapStatusToBackend(status);
-    const response = await api.patch(`/api/order/${id}/status`, { status: backendStatus });
+    const payload: any = { status: backendStatus };
+    if (deliveryUserId) {
+      payload.deliveryUserId = deliveryUserId;
+    }
+    const response = await api.patch(`/api/order/${id}/status`, payload);
     return response.data;
   },
 

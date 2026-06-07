@@ -45,6 +45,12 @@ const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: 
   </View>
 );
 
+const isUnitInteger = (unit?: string) => !unit || unit === 'Unidades';
+const formatQty = (qty: number, unit?: string) => {
+  if (isUnitInteger(unit)) return Math.round(qty).toString();
+  return (Math.round(qty * 100) / 100).toString().replace('.', ',');
+};
+
 const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, styles, canEdit, canDelete }: any) => {
   const [amount, setAmount] = useState('1');
   const parsedAmount = parseAmountInput(amount);
@@ -77,7 +83,7 @@ const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, style
         disabled={!onPress}
       >
         <Text style={styles.cardTitle}>{item.name}</Text>
-        <Text style={styles.cardSubtitle}>{item.stock} {item.unit}</Text>
+        <Text style={styles.cardSubtitle}>{formatQty(item.stock, item.unit)} {item.unit}</Text>
         {item.supplierName ? (
           <View style={styles.supplierRow}>
             <TruckIcon color={theme.text} opacity={0.4} size={11} />

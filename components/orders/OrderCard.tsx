@@ -29,6 +29,7 @@ interface OrderCardProps {
   address?: any;
   statusHistory: StatusHistoryEntry[];
   additionalInfo?: string;
+  deliveryUserId?: string;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -42,7 +43,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   PENDENTE: '#F59E0B',
-  PREPARANDO: '#3B82F6',
+  PREPARANDO: '#F97316',
   PRONTO: '#10B981',
   SAIU_PARA_ENTREGA: '#8B5CF6',
   CONCLUIDO: '#10B981',
@@ -119,7 +120,7 @@ function useStageTimer(
   return elapsed;
 }
 
-export function OrderCard({ id, orderNumber, customerName, status, total, items, createdAt, updatedAt, table, address, statusHistory, additionalInfo }: OrderCardProps) {
+export function OrderCard({ id, orderNumber, customerName, status, total, items, createdAt, updatedAt, table, address, statusHistory, additionalInfo, deliveryUserId }: OrderCardProps) {
   const theme = useAppTheme();
   const styles = makeStyles(theme, status);
   const router = useRouter();
@@ -136,8 +137,13 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
   const [closing, setClosing] = useState(false);
 
   const isFinal = status === 'CONCLUIDO' || status === 'CANCELADO';
-  // COZINHA não pode avançar de PRONTO (backend rejeita KITCHEN para 'entregue')
-  const canAdvance = !isFinal && !(activeRole === 'COZINHA' && status === 'PRONTO');
+  const isDelivery = !!address;
+  // COZINHA não pode avançar de PRONTO; GARCOM só pode avançar de PRONTO em pedidos de balcão
+  const canAdvance = !isFinal && !(activeRole === 'COZINHA' && status === 'PRONTO') && !(activeRole === 'GARCOM' && (status !== 'PRONTO' || isDelivery));
+  // GARCOM só pode avançar pedido de balcão de PRONTO → CONCLUIDO
+  const canAdvanceGarcom = activeRole === 'GARCOM' && status === 'PRONTO' && !isDelivery;
+  // ENTREGADOR só pode avançar de PRONTO (→ SAIU_PARA_ENTREGA) ou SAIU_PARA_ENTREGA (→ CONCLUIDO)
+  const canAdvanceEntregador = activeRole === 'ENTREGADOR' && (status === 'PRONTO' || status === 'SAIU_PARA_ENTREGA');
   const displayTimer = useStageTimer(statusHistory, isFinal, createdAt, updatedAt);
 
   const handleAdvanceStatus = async () => {
@@ -185,6 +191,7 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
   // Status transitions for labels
   const getNextLabel = () => {
     if (status === 'PREPARANDO' && address) return 'Pronto →';
+    if (status === 'PREPARANDO' && !address) return 'Pronto →';
     if (status === 'PRONTO' && !address) return 'Concluir →';
     if (status === 'PRONTO') return 'Saiu para Entrega →';
     return NEXT_STATUS_LABELS[status] ?? 'Status';
@@ -192,15 +199,20 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
 
   return (
     <>
-      <View style={styles.card}>
+      <View style={[styles.card, isDelivery && styles.cardDelivery]}>
         {/* Header Row */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerInfo}>
             <Text style={styles.orderNumber}>#{orderNumber}</Text>
             <Text style={styles.customerName}>{customerName}</Text>
           </View>
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>{STATUS_LABELS[status] ?? status}</Text>
+          <View style={styles.headerBadges}>
+            <Text style={[styles.originText, isDelivery && styles.originDelivery]}>
+              {isDelivery ? 'Delivery' : 'Balcão'}
+            </Text>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusText}>{STATUS_LABELS[status] ?? status}</Text>
+            </View>
           </View>
         </View>
 
@@ -219,6 +231,17 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
             )}
           </View>
         )}
+
+        {/* Delivery Person (if set) */}
+        {deliveryUserId && (() => {
+          const deliveryPerson = dataStore.staff.find((s) => s.userId === deliveryUserId);
+          return deliveryPerson ? (
+            <View style={styles.deliveryRow}>
+              <Text style={styles.deliveryLabel}>Entregador</Text>
+              <Text style={styles.deliveryName}>{deliveryPerson.name}</Text>
+            </View>
+          ) : null;
+        })()}
 
         <View style={styles.divider} />
 
@@ -241,7 +264,7 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
           <TouchableOpacity style={styles.detailsBtn} activeOpacity={0.7} onPress={() => setDetailsVisible(true)}>
             <Text style={styles.detailsBtnText}>Detalhes</Text>
           </TouchableOpacity>
-        {permissionStore.can('orders:update-status') && canAdvance && (
+        {(permissionStore.can('orders:update-status') || canAdvanceGarcom || canAdvanceEntregador) && canAdvance && (
           <TouchableOpacity 
             style={styles.statusBtn} 
             activeOpacity={0.7} 
@@ -618,11 +641,34 @@ function makeStyles(theme: any, status: string) {
       minHeight: 340,
       justifyContent: 'space-between',
     },
+    cardDelivery: {
+      borderLeftWidth: 4,
+      borderLeftColor: 'rgba(255, 95, 47, 0.25)',
+      borderTopLeftRadius: 20,
+      borderBottomLeftRadius: 20,
+    },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
       marginBottom: 12,
+    },
+    headerInfo: {
+      flex: 1,
+      marginRight: 12,
+    },
+    headerBadges: {
+      alignItems: 'flex-end',
+      gap: 6,
+    },
+    originText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 12,
+      color: '#6B7280',
+      marginBottom: 4,
+    },
+    originDelivery: {
+      color: '#F97316',
     },
     orderNumber: {
       fontFamily: 'Jost_700Bold',
@@ -680,6 +726,24 @@ function makeStyles(theme: any, status: string) {
       color: theme.text,
       opacity: 0.5,
       marginTop: 2,
+    },
+    deliveryRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+      paddingHorizontal: 4,
+    },
+    deliveryLabel: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 13,
+      color: theme.text,
+      opacity: 0.5,
+    },
+    deliveryName: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 13,
+      color: theme.contrast,
     },
     divider: {
       height: 1,

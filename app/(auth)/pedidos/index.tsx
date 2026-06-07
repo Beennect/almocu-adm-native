@@ -58,9 +58,16 @@ export default observer(function PedidosScreen() {
       return order.status === 'PENDENTE' || order.status === 'PREPARANDO';
     }
 
-    // ENTREGADOR só vê pedidos com endereço de entrega e status acionável por ele
+    // ENTREGADOR: PRONTO → todos os delivery disponíveis; SAIU_PARA_ENTREGA → só os seus
     if (activeRole === 'ENTREGADOR') {
-      return !!order.address && (order.status === 'PRONTO' || order.status === 'SAIU_PARA_ENTREGA');
+      if (order.status === 'PRONTO') return !!order.address;
+      if (order.status === 'SAIU_PARA_ENTREGA') return !!order.address && order.deliveryUserId === authStore.user?.id;
+      return false;
+    }
+
+    // GARCOM não vê pedidos delivery em rota (SAIU_PARA_ENTREGA)
+    if (activeRole === 'GARCOM' && order.status === 'SAIU_PARA_ENTREGA' && !!order.address) {
+      return false;
     }
     
     return true;
@@ -204,6 +211,7 @@ export default observer(function PedidosScreen() {
                       address={order.address}
                       statusHistory={order.statusHistory || []}
                       additionalInfo={order.additionalInfo}
+                      deliveryUserId={order.deliveryUserId}
                     />
                   </View>
                 ))}

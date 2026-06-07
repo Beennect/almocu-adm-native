@@ -3,6 +3,7 @@ import { makeAutoObservable } from "mobx";
 import { Platform } from "react-native";
 import api from "../services/api-service";
 import { dataStore } from "./DataStore";
+import { socketManager } from '../services/realtime/socket-manager';
 
 export type FrontRole = 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'ENTREGADOR' | 'COMUM' | 'INDEFINIDO';
 
@@ -62,6 +63,11 @@ class AuthStore {
       this.isInitialized = true;
       if (this.isAuthenticated) {
         dataStore.init();
+        // Conecta WebSocket se já tinha sessão (app reaberto)
+        const storedToken = await AsyncStorage.getItem('auth_token');
+        if (storedToken) {
+          socketManager.connect(storedToken);
+        }
       }
     }
   }
@@ -77,6 +83,29 @@ class AuthStore {
    */
   get canManageStaff(): boolean {
     return this.activeRole === 'GERENTE';
+  }
+
+  /**
+   * Retorna apenas o primeiro nome do usuário.
+   * - Se o nome for um email (contém @), extrai a parte antes do @.
+   * - Se for um nome completo, retorna a primeira palavra.
+   * - Se não houver nome, usa a parte do email antes do @.
+   * - Fallback: 'Usuário'.
+   */
+  get firstName(): string {
+    if (!this.user) return 'Usuário';
+    const rawName = (this.user.name || '').trim();
+    if (rawName) {
+      // Se o "nome" é na verdade um email (ex: cadastro sem nome), extrai antes do @
+      if (rawName.includes('@')) return rawName.split('@')[0];
+      // Nome real — retorna a primeira palavra
+      return rawName.split(' ')[0];
+    }
+    // Fallback para o email do usuário
+    if (this.user.email) {
+      return this.user.email.split('@')[0];
+    }
+    return 'Usuário';
   }
 
   /**
@@ -215,6 +244,9 @@ class AuthStore {
     }
 
     await dataStore.init();
+
+    // Conecta ao WebSocket para atualizações em tempo real
+    socketManager.connect(accessToken);
   }
 
   async logout() {
@@ -226,6 +258,9 @@ class AuthStore {
 
     this.isAuthenticated = false;
     this.user = null;
+
+    // Desconecta do WebSocket
+    socketManager.disconnect();
 
     // Limpar o AsyncStorage completamente
     await AsyncStorage.removeItem('auth_token');
@@ -304,6 +339,8 @@ class AuthStore {
     await AsyncStorage.setItem('selected_restaurant_id', targetRestId);
 
     await dataStore.init();
+    // Reconecta WebSocket para o novo restaurante
+    socketManager.connect(await AsyncStorage.getItem('auth_token') || '');
   }
 
   async selectRestaurantWorkspace(restaurantId: string) {
@@ -316,6 +353,8 @@ class AuthStore {
     // init() é fino e paralelo agora; é a forma mais segura de trocar contexto
     // e cada tela dispara seu próprio refresh* granular ao montar
     await dataStore.init();
+    // Reconecta WebSocket para o novo restaurante
+    socketManager.connect(await AsyncStorage.getItem('auth_token') || '');
   }
 
   async removeRestaurantWorkspace(restaurantId: string) {
@@ -348,6 +387,51 @@ class AuthStore {
 
     // Apenas rebusca a lista de workspaces (o que importa para o seletor);
     // as telas de domínio já disparam seus próprios refresh* no mount.
+    await dataStore.refreshWorkspaces();
+  }
+
+  /**
+   * Suspende (soft delete) um restaurante. Apenas OWNER.
+   * O restaurante e seus vínculos são desativados.
+   */
+  async suspendRestaurantWorkspace(restaurantId: string) {
+    if (!this.user) return;
+    await api.delete(`/restaurants/${restaurantId}`).catch((e) => {
+      console.warn("Failed to suspend restaurant", e);
+      throw e;
+    });
+    // Atualiza status LOCALMENTE de forma otimista para que a UI
+    // reaja imediatamente (botão "Reativar" aparece), independentemente
+    // de como o backend serializa os dados do populate.
+    if (dataStore.restaurantDetails?.id === restaurantId) {
+      dataStore.restaurantDetails.status = 'suspended';
+    }
+    const foundRest = dataStore.restaurants.find(r => r.id === restaurantId);
+    if (foundRest) {
+      foundRest.status = 'suspended';
+    }
+    await dataStore.refreshWorkspaces();
+  }
+
+  /**
+   * Reativa um restaurante suspenso. Apenas OWNER.
+   * Regenera TOTP e reativa vínculos dos usuários.
+   */
+  async reactivateRestaurantWorkspace(restaurantId: string) {
+    if (!this.user) return;
+    await api.patch(`/restaurants/${restaurantId}/reactivate`).catch((e) => {
+      console.warn("Failed to reactivate restaurant", e);
+      throw e;
+    });
+    // Atualiza status LOCALMENTE de forma otimista para que a UI
+    // reaja imediatamente (botão "Suspender" reaparece).
+    if (dataStore.restaurantDetails?.id === restaurantId) {
+      dataStore.restaurantDetails.status = 'active';
+    }
+    const foundRest = dataStore.restaurants.find(r => r.id === restaurantId);
+    if (foundRest) {
+      foundRest.status = 'active';
+    }
     await dataStore.refreshWorkspaces();
   }
 

@@ -277,6 +277,7 @@ class DataStore {
           id: r.restaurantId._id,
           name: r.restaurantId.name,
           cnpj: r.restaurantId.cnpj,
+          status: r.restaurantId.status || r.status || 'active',
         }));
 
       if (restId) {
@@ -464,8 +465,8 @@ class DataStore {
     if (!authStore.user?.restaurantId) return;
     this.isRefreshingOrders = true;
     try {
-      // Garçom, caixa e comum usam /orders/user (não podem ver pedidos de todos)
-      const isLimitedRole = authStore.activeRole === 'GARCOM' || authStore.activeRole === 'CAIXA' || authStore.activeRole === 'COMUM';
+      // Garçom, caixa, entregador e comum usam /orders/user (não podem ver pedidos de todos)
+      const isLimitedRole = authStore.activeRole === 'GARCOM' || authStore.activeRole === 'CAIXA' || authStore.activeRole === 'ENTREGADOR' || authStore.activeRole === 'COMUM';
       const ordersData = isLimitedRole
         ? await apiOrderService.getUserOrders()
         : await apiOrderService.getOrders();
@@ -709,21 +710,27 @@ class DataStore {
   }
 
   async assignStaffRole(email: string, role: 'GERENTE' | 'GARCOM' | 'COZINHA' | 'CAIXA' | 'COMUM') {
-    if (!this.restaurantDetails) return;
-    const member = this.staff.find(s => s.email.toLowerCase() === email.toLowerCase());
-    if (member) {
-      await apiStaffService.updateStaffRole(this.restaurantDetails.id, member.userId, role);
-      await this.refreshStaff();
+    if (!this.restaurantDetails) {
+      throw new Error('Restaurante não carregado. Tente novamente.');
     }
+    const member = this.staff.find(s => s.email.toLowerCase() === email.toLowerCase());
+    if (!member) {
+      throw new Error('Funcionário não encontrado na lista.');
+    }
+    await apiStaffService.updateStaffRole(this.restaurantDetails.id, member.userId, role);
+    await this.refreshStaff();
   }
 
   async removeStaffMember(email: string) {
-    if (!this.restaurantDetails) return;
-    const member = this.staff.find(s => s.email.toLowerCase() === email.toLowerCase());
-    if (member) {
-      await apiStaffService.removeStaff(this.restaurantDetails.id, member.userId);
-      await this.refreshStaff();
+    if (!this.restaurantDetails) {
+      throw new Error('Restaurante não carregado. Tente novamente.');
     }
+    const member = this.staff.find(s => s.email.toLowerCase() === email.toLowerCase());
+    if (!member) {
+      throw new Error('Funcionário não encontrado na lista.');
+    }
+    await apiStaffService.removeStaff(this.restaurantDetails.id, member.userId);
+    await this.refreshStaff();
   }
 
   toggleMenuItemActive(itemId: string) {
@@ -885,7 +892,7 @@ class DataStore {
     }
   }
 
-  async updateOrderStatus(id: string) {
+  async updateOrderStatus(id: string, deliveryUserId?: string) {
     const orderIndex = this.orders.findIndex(o => o.id === id);
     if (orderIndex === -1) return null;
 
@@ -896,13 +903,8 @@ class DataStore {
     if (currentOrder.status === 'PENDENTE') {
       nextStatus = 'PREPARANDO';
     } else if (currentOrder.status === 'PREPARANDO') {
-      // COZINHA só pode ir até PRONTO (backend restringe KITCHEN a 'em_preparo'/'pronto')
-      // Demais roles: delivery vai pra PRONTO, balcão vai direto pra CONCLUIDO
-      if (authStore.activeRole === 'COZINHA') {
-        nextStatus = 'PRONTO';
-      } else {
-        nextStatus = isDelivery ? 'PRONTO' : 'CONCLUIDO';
-      }
+      // Todos os papéis vão para PRONTO (WAITER/GARCOM pode avançar de PRONTO para CONCLUIDO)
+      nextStatus = 'PRONTO';
     } else if (currentOrder.status === 'PRONTO') {
       // COZINHA não pode avançar de PRONTO (backend rejeita)
       if (authStore.activeRole === 'COZINHA') {
@@ -931,8 +933,8 @@ class DataStore {
         ],
       };
 
-      // Chama API
-      await apiOrderService.updateOrderStatus(id, nextStatus);
+      // Chama API (passa deliveryUserId se for auto-assign de ENTREGADOR)
+      await apiOrderService.updateOrderStatus(id, nextStatus, deliveryUserId);
 
       // Reconcilia somente os pedidos com o servidor
       await this.refreshOrders();
