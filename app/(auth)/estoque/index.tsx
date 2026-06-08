@@ -1,16 +1,19 @@
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
-import { ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon } from '@/components/shared/Icons';
+import { ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon, FileTextIcon, CheckIcon, AlertIcon } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
 import { permissionStore } from '@/stores/PermissionStore';
+import { authStore } from '@/stores/AuthStore';
 import { useAppTheme } from '@/themes/colors';
 import { computeStockDelta, parseAmountInput, sanitizeAmountInput } from '@/utils/stock-helpers';
 import { withLoading } from '@/utils/toast';
+import { apiNfeService } from '@/services/api-nfe-service';
 import { useRouter } from 'expo-router';
 import { observer } from 'mobx-react-lite';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +23,7 @@ import {
   View
 } from 'react-native';
 import Toast from 'react-native-toast-message';
+import * as DocumentPicker from 'expo-document-picker';
 
 const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: any) => (
   <View style={styles.paginationContainer}>
@@ -180,8 +184,13 @@ export default observer(function EstoqueScreen() {
   const canEditStock = permissionStore.can('stock:edit');
   const canCreateStock = permissionStore.can('stock:create');
   const canDeleteStock = permissionStore.can('stock:delete');
+  const isGerente = authStore.activeRole === 'GERENTE';
 
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [nfeModalVisible, setNfeModalVisible] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<{ name: string; uri: string; size: number } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [nfeResult, setNfeResult] = useState<{ created: number; updated: number; errors: string[]; supplierName?: string } | null>(null);
 
   useEffect(() => {
     dataStore.refreshSuppliers();
@@ -275,6 +284,16 @@ export default observer(function EstoqueScreen() {
           >
             <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
           </TouchableOpacity>
+
+          {isGerente && (
+            <TouchableOpacity
+              style={styles.importXmlBtn}
+              activeOpacity={0.8}
+              onPress={() => { setNfeModalVisible(true); setSelectedFile(null); setNfeResult(null); }}
+            >
+              <FileTextIcon color={theme.contrast} size={22} />
+            </TouchableOpacity>
+          )}
 
           {canCreateStock && (
             <TouchableOpacity
@@ -375,6 +394,136 @@ export default observer(function EstoqueScreen() {
         message="Tem certeza que deseja excluir este ingrediente do estoque?"
         confirmText="Excluir"
       />
+
+      {/* Modal de Importação XML NF-e */}
+      <Modal
+        visible={nfeModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setNfeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Importar XML</Text>
+              <TouchableOpacity onPress={() => setNfeModalVisible(false)}>
+                <Text style={[styles.modalClose, { color: theme.text, opacity: 0.5 }]}>Fechar</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: theme.text, opacity: 0.5 }]}>
+              Selecione o XML de uma Nota Fiscal Eletrônica para atualizar o estoque automaticamente.
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.dropZone, { borderColor: theme.contrast + '40', backgroundColor: theme.foreground }]}
+              onPress={async () => {
+                try {
+                  const docResult = await DocumentPicker.getDocumentAsync({
+                    type: 'text/xml',
+                    copyToCacheDirectory: true,
+                  });
+                  if (docResult.canceled) return;
+                  const file = docResult.assets?.[0];
+                  if (!file) return;
+                  if (!file.name.toLowerCase().endsWith('.xml')) {
+                    Toast.show({ type: 'error', text1: 'Selecione um arquivo XML.' });
+                    return;
+                  }
+                  if (file.size && file.size > 10 * 1024 * 1024) {
+                    Toast.show({ type: 'error', text1: 'O arquivo excede o limite de 10 MB.' });
+                    return;
+                  }
+                  setSelectedFile({ name: file.name, uri: file.uri, size: file.size || 0 });
+                  setNfeResult(null);
+                } catch {
+                  Toast.show({ type: 'error', text1: 'Erro ao selecionar arquivo.' });
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <FileTextIcon color={theme.contrast} size={32} />
+              <Text style={[styles.dropZoneText, { color: theme.text }]}>
+                {selectedFile ? selectedFile.name : 'Toque para selecionar o XML'}
+              </Text>
+              {selectedFile && (
+                <Text style={[styles.dropZoneSize, { color: theme.text, opacity: 0.4 }]}>
+                  {(selectedFile.size / 1024).toFixed(1)} KB
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.uploadBtn,
+                {
+                  backgroundColor: selectedFile && !uploading ? theme.contrast : theme.foreground,
+                  opacity: selectedFile && !uploading ? 1 : 0.5,
+                },
+              ]}
+              onPress={async () => {
+                if (!selectedFile) return;
+                setUploading(true);
+                setNfeResult(null);
+                try {
+                  const result = await apiNfeService.uploadXmlFile(
+                    selectedFile.uri,
+                    selectedFile.name,
+                  );
+                  setNfeResult({
+                    created: result.summary.created,
+                    updated: result.summary.updated,
+                    errors: result.summary.errors,
+                    supplierName: result.supplier?.name,
+                  });
+                  await dataStore.refreshStock();
+                  Toast.show({ type: 'success', text1: 'Estoque atualizado com sucesso!' });
+                } catch (err: any) {
+                  const msg = err?.message || 'Erro ao importar NF-e.';
+                  Toast.show({ type: 'error', text1: msg });
+                } finally {
+                  setUploading(false);
+                }
+              }}
+              disabled={!selectedFile || uploading}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.uploadBtnText, { color: selectedFile && !uploading ? '#FFFFFF' : theme.text }]}>
+                {uploading ? 'Importando...' : 'Importar Nota Fiscal'}
+              </Text>
+            </TouchableOpacity>
+
+            {nfeResult && (
+              <View style={[styles.resultCard, { backgroundColor: theme.foreground }]}>
+                <View style={styles.resultHeader}>
+                  <CheckIcon color="#4CAF50" size={18} />
+                  <Text style={[styles.resultTitle, { color: theme.text }]}>Importado com sucesso</Text>
+                </View>
+                {nfeResult.supplierName && (
+                  <View style={styles.resultRow}>
+                    <TruckIcon color={theme.text} size={14} opacity={0.5} />
+                    <Text style={[styles.resultText, { color: theme.text }]}>Fornecedor: {nfeResult.supplierName}</Text>
+                  </View>
+                )}
+                <Text style={[styles.resultSummary, { color: theme.text, opacity: 0.6 }]}>
+                  {nfeResult.created} item(ns) criado(s), {nfeResult.updated} atualizado(s)
+                </Text>
+                {nfeResult.errors.length > 0 && (
+                  <View style={styles.errorsSection}>
+                    <Text style={[styles.errorsTitle, { color: '#FF5252' }]}>{nfeResult.errors.length} erro(s):</Text>
+                    {nfeResult.errors.map((err, idx) => (
+                      <View key={idx} style={styles.errorRow}>
+                        <AlertIcon color="#FF5252" size={12} />
+                        <Text style={[styles.errorText, { color: '#FF5252' }]}>{err}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 });
@@ -641,6 +790,128 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       fontFamily: 'Jost_700Bold',
       fontSize: 14,
       color: theme.text,
+    },
+    importXmlBtn: {
+      backgroundColor: theme.foreground,
+      borderRadius: 20,
+      width: 56,
+      height: 56,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.contrast + '30',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: 24,
+      maxHeight: '90%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    modalTitle: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 20,
+    },
+    modalClose: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 15,
+    },
+    modalSubtitle: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 14,
+      lineHeight: 20,
+      marginBottom: 20,
+    },
+    dropZone: {
+      borderWidth: 2,
+      borderStyle: 'dashed',
+      borderRadius: 16,
+      padding: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+    },
+    dropZoneText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 14,
+      marginTop: 10,
+      textAlign: 'center',
+    },
+    dropZoneSize: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 12,
+      marginTop: 4,
+    },
+    uploadBtn: {
+      borderRadius: 14,
+      height: 50,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+    },
+    uploadBtnText: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 15,
+    },
+    resultCard: {
+      borderRadius: 16,
+      padding: 16,
+    },
+    resultHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 12,
+    },
+    resultTitle: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 15,
+    },
+    resultRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 6,
+    },
+    resultText: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 13,
+    },
+    resultSummary: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 13,
+    },
+    errorsSection: {
+      marginTop: 10,
+      padding: 10,
+      backgroundColor: 'rgba(255,82,82,0.08)',
+      borderRadius: 10,
+    },
+    errorsTitle: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 12,
+      marginBottom: 6,
+    },
+    errorRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 5,
+      marginBottom: 3,
+    },
+    errorText: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 12,
+      flex: 1,
     },
   });
 }
