@@ -66,7 +66,7 @@ class AuthStore {
         // Conecta WebSocket se já tinha sessão (app reaberto)
         const storedToken = await AsyncStorage.getItem('auth_token');
         if (storedToken) {
-          socketManager.connect(storedToken);
+          socketManager.connect(storedToken, this.user?.restaurantId);
         }
       }
     }
@@ -246,7 +246,7 @@ class AuthStore {
     await dataStore.init();
 
     // Conecta ao WebSocket para atualizações em tempo real
-    socketManager.connect(accessToken);
+    socketManager.connect(accessToken, this.user?.restaurantId);
   }
 
   async logout() {
@@ -340,7 +340,7 @@ class AuthStore {
 
     await dataStore.init();
     // Reconecta WebSocket para o novo restaurante
-    socketManager.connect(await AsyncStorage.getItem('auth_token') || '');
+    socketManager.connect(await AsyncStorage.getItem('auth_token') || '', this.user?.restaurantId);
   }
 
   async selectRestaurantWorkspace(restaurantId: string) {
@@ -354,7 +354,7 @@ class AuthStore {
     // e cada tela dispara seu próprio refresh* granular ao montar
     await dataStore.init();
     // Reconecta WebSocket para o novo restaurante
-    socketManager.connect(await AsyncStorage.getItem('auth_token') || '');
+    socketManager.connect(await AsyncStorage.getItem('auth_token') || '', this.user?.restaurantId);
   }
 
   async removeRestaurantWorkspace(restaurantId: string) {

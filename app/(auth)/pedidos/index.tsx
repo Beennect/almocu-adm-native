@@ -10,6 +10,7 @@ import { authStore } from '@/stores/AuthStore';
 import { permissionStore } from '@/stores/PermissionStore';
 import Toast from 'react-native-toast-message';
 import { AlertIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
+import { useRealtimeChannel } from '@/hooks/useRealtimeChannel';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -36,6 +37,14 @@ export default observer(function PedidosScreen() {
       router.replace('/(auth)');
     }
   }, []);
+
+  useRealtimeChannel('order:created', () => {
+    Toast.show({ type: 'success', text1: 'Novo pedido recebido!' });
+  });
+
+  useRealtimeChannel('order:statusChanged', (order: any) => {
+    Toast.show({ type: 'info', text1: `Pedido #${order.id?.slice(-4)}: ${order.status}` });
+  });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('newest');

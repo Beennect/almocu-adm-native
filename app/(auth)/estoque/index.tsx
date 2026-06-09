@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as DocumentPicker from 'expo-document-picker';
+import { useRealtimeChannel } from '@/hooks/useRealtimeChannel';
 
 const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: any) => (
   <View style={styles.paginationContainer}>
@@ -173,6 +174,10 @@ export default observer(function EstoqueScreen() {
   const gridColumns = getGridColumns(width);
   const styles = makeStyles(theme, isWeb, gridColumns);
   const router = useRouter();
+
+  useRealtimeChannel('stock:changed', () => {
+    Toast.show({ type: 'info', text1: 'Estoque atualizado em tempo real' });
+  });
 
   // Redirect if user doesn't have stock:view permission
   useEffect(() => {

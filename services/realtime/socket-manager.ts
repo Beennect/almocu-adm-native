@@ -64,17 +64,19 @@ function normalizeOrder(ord: any): any {
 class SocketManager {
   private socket: Socket | null = null;
   private token: string | null = null;
+  private currentRestaurantId: string | null = null;
 
-  /** Conecta ao WebSocket com o token JWT */
-  connect(token: string) {
-    // Se já conectado com o mesmo token, não reconecta
-    if (this.socket?.connected && this.token === token) return;
+  /** Conecta ao WebSocket com o token JWT e restaurantId */
+  connect(token: string, restaurantId?: string | null) {
+    // Se já conectado com o mesmo token e mesmo restaurante, não reconecta
+    if (this.socket?.connected && this.token === token && this.currentRestaurantId === restaurantId) return;
 
     this.disconnect();
     this.token = token;
+    this.currentRestaurantId = restaurantId || null;
 
     this.socket = io(`${API_URL}/ws`, {
-      auth: { token },
+      auth: { token, restaurantId: restaurantId || undefined },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,
@@ -159,11 +161,28 @@ class SocketManager {
       this.socket = null;
     }
     this.token = null;
+    this.currentRestaurantId = null;
   }
 
   /** Retorna se está conectado */
   get connected(): boolean {
     return this.socket?.connected ?? false;
+  }
+
+  /** Registra callback para mudanças de conexão */
+  onConnectionChange(callback: (connected: boolean) => void): () => void {
+    if (!this.socket) {
+      callback(false);
+      return () => {};
+    }
+    const onConnect = () => callback(true);
+    const onDisconnect = () => callback(false);
+    this.socket.on('connect', onConnect);
+    this.socket.on('disconnect', onDisconnect);
+    return () => {
+      this.socket?.off('connect', onConnect);
+      this.socket?.off('disconnect', onDisconnect);
+    };
   }
 }
 

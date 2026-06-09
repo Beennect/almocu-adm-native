@@ -12,6 +12,7 @@ import Toast from 'react-native-toast-message';
 import { withLoading } from '@/utils/toast';
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
+import { useRealtimeChannel } from '@/hooks/useRealtimeChannel';
 
 const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: any) => (
   <View style={styles.paginationContainer}>
@@ -61,6 +62,10 @@ export default observer(function CardapioScreen() {
   const router = useRouter();
   const gridColumns = getGridColumns(width);
   const styles = makeStyles(theme, isWeb, gridColumns);
+
+  useRealtimeChannel('menu:changed', () => {
+    Toast.show({ type: 'info', text1: 'Cardápio atualizado em tempo real' });
+  });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('todos');
