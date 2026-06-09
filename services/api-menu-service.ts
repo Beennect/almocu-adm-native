@@ -76,4 +76,19 @@ export const apiMenuService = {
     const response = await api.delete(`/api/menu/${id}`);
     return response.data;
   },
+
+  async reactivateProduct(id: string) {
+    const response = await api.patch(`/api/menu/${id}/reactivate`);
+    return response.data;
+  },
+
+  async getInactiveMenu(page = 1, limit = 100) {
+    const response = await api.get(`/api/menu?active=false&page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  async getProductsByIngredient(stockProductId: string) {
+    const response = await api.get(`/api/menu/by-ingredient/${stockProductId}`);
+    return response.data;
+  },
 };

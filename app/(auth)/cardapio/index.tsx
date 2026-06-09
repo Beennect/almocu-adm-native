@@ -197,6 +197,16 @@ export default observer(function CardapioScreen() {
             <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
           </TouchableOpacity>
 
+          {canDelete && (
+            <TouchableOpacity
+              style={styles.inactiveBtn}
+              activeOpacity={0.7}
+              onPress={() => router.push('cardapio/inativos' as any)}
+            >
+              <Text style={styles.inactiveBtnText}>Inativos</Text>
+            </TouchableOpacity>
+          )}
+
           {permissionStore.can('menu:create') && (isWeb ? (
             <TouchableOpacity
               style={styles.createBtn}
@@ -296,9 +306,9 @@ export default observer(function CardapioScreen() {
         visible={!!confirmDeleteId}
         onClose={() => setConfirmDeleteId(null)}
         onConfirm={confirmDelete}
-        title="Excluir Item"
-        message="Tem certeza que deseja excluir este item do cardápio?"
-        confirmText="Excluir"
+        title="Desativar Item"
+        message="Tem certeza que deseja desativar este item do cardápio? Ele não aparecerá mais para novos pedidos, mas continuará visível no histórico de pedidos. Você pode reativá-lo depois."
+        confirmText="Desativar"
       />
     </View>
   );
@@ -353,6 +363,22 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       fontFamily: 'Jost_600SemiBold',
       fontSize: 14,
       color: theme.text,
+    },
+    inactiveBtn: {
+      backgroundColor: theme.foreground,
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      height: 56,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.text + '20',
+    },
+    inactiveBtnText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 13,
+      color: theme.text,
+      opacity: 0.7,
     },
     createBtn: {
       backgroundColor: theme.contrast,

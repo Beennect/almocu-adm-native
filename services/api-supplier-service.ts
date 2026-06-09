@@ -82,6 +82,16 @@ export const apiSupplierService = {
     return response.data;
   },
 
+  async reactivateSupplier(id: string) {
+    const response = await api.patch(`/api/stock/suppliers/${id}/reactivate`);
+    return response.data;
+  },
+
+  async getInactiveSuppliers(page = 1, limit = 100) {
+    const response = await api.get(`/api/stock/suppliers?active=false&page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
   async lookupCnpj(cnpj: string): Promise<CnpjLookupResult | null> {
     const cleanCnpj = cnpj.replace(/\D/g, '');
     if (cleanCnpj.length !== 14) return null;

@@ -1,4 +1,5 @@
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
+import { StockDeactivateModal } from '@/components/shared/StockDeactivateModal';
 import { ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon, FileTextIcon, CheckIcon, AlertIcon } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
@@ -250,22 +251,85 @@ export default observer(function EstoqueScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [searchTerm, filterMode]);
 
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deactivatingStockId, setDeactivatingStockId] = useState<string | null>(null);
+  const [deactivatingStockName, setDeactivatingStockName] = useState('');
+  const [affectedProducts, setAffectedProducts] = useState<any[]>([]);
+  const [showAffectedModal, setShowAffectedModal] = useState(false);
 
-  const removeIngredient = (id: string) => {
-    setConfirmDeleteId(id);
+  const removeIngredient = async (id: string) => {
+    setDeactivatingStockId(id);
+    const item = dataStore.ingredients.find(i => i.id === id);
+    setDeactivatingStockName(item?.name || '');
+
+    let products: any[] = [];
+
+    // 1. Tenta buscar via API os produtos que usam este ingrediente
+    try {
+      const apiProducts = await dataStore.fetchAffectedProducts(id);
+      if (Array.isArray(apiProducts) && apiProducts.length > 0) {
+        products = apiProducts;
+      }
+    } catch (e) {
+      console.error('fetchAffectedProducts via API falhou:', e);
+    }
+
+    // 2. Fallback: busca local nos menuItems se a API não retornou nada
+    if (products.length === 0) {
+      products = dataStore.menuItems
+        .filter(m => {
+          if (!Array.isArray(m.ingredients)) return false;
+          return m.ingredients.some(ing => {
+            const ingId = (ing as any).stockProductId || (ing as any).id;
+            return ingId === id;
+          });
+        })
+        .map(m => ({
+          _id: m.id,
+          name: m.name,
+          category: (m as any).category,
+          ingredients: Array.isArray(m.ingredients)
+            ? m.ingredients.map(ing => ({
+                stockProductId: (ing as any).stockProductId || (ing as any).id || '',
+                quantity: parseFloat((ing as any).quantity) || 1,
+              }))
+            : [],
+        }));
+    }
+
+    setAffectedProducts(products);
+    setShowAffectedModal(true);
   };
 
-  const confirmDelete = async () => {
-    if (confirmDeleteId) {
-      await withLoading(
-        async () => {
-          await dataStore.removeIngredient(confirmDeleteId);
-          setConfirmDeleteId(null);
-        },
-        { loading: 'Removendo ingrediente...', success: 'Ingrediente removido', error: 'Erro ao remover ingrediente' }
-      );
-    }
+  const handleDeactivateConfirm = async (
+    deactivateProductIds: string[],
+    unlinkOnlyProductIds: string[],
+  ) => {
+    setShowAffectedModal(false);
+
+    await withLoading(
+      async () => {
+        // Desativa o item de estoque primeiro
+        if (deactivatingStockId) {
+          await dataStore.deactivateIngredient(deactivatingStockId);
+        }
+
+        // Desativa os produtos selecionados
+        for (const productId of deactivateProductIds) {
+          await dataStore.removeItem(productId);
+        }
+
+        // Remove o ingrediente dos produtos selecionados (unlink)
+        for (const productId of unlinkOnlyProductIds) {
+          if (deactivatingStockId) {
+            await dataStore.removeIngredientFromProduct(productId, deactivatingStockId);
+          }
+        }
+      },
+      { loading: 'Aplicando alterações...', success: 'Alterações aplicadas', error: 'Erro ao aplicar alterações' },
+    );
+
+    setDeactivatingStockId(null);
+    setAffectedProducts([]);
   };
 
   return (
@@ -289,6 +353,16 @@ export default observer(function EstoqueScreen() {
           >
             <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
           </TouchableOpacity>
+
+          {canDeleteStock && (
+            <TouchableOpacity
+              style={styles.inactiveBtn}
+              activeOpacity={0.7}
+              onPress={() => router.push('estoque/inativos' as any)}
+            >
+              <Text style={styles.inactiveBtnText}>Inativos</Text>
+            </TouchableOpacity>
+          )}
 
           {isGerente && (
             <TouchableOpacity
@@ -391,13 +465,16 @@ export default observer(function EstoqueScreen() {
         title="Filtrar Por"
       />
 
-      <ConfirmModal
-        visible={!!confirmDeleteId}
-        onClose={() => setConfirmDeleteId(null)}
-        onConfirm={confirmDelete}
-        title="Excluir Ingrediente"
-        message="Tem certeza que deseja excluir este ingrediente do estoque?"
-        confirmText="Excluir"
+      <StockDeactivateModal
+        visible={showAffectedModal}
+        stockItemName={deactivatingStockName}
+        affectedProducts={affectedProducts}
+        onClose={() => {
+          setShowAffectedModal(false);
+          setDeactivatingStockId(null);
+          setAffectedProducts([]);
+        }}
+        onConfirm={handleDeactivateConfirm}
       />
 
       {/* Modal de Importação XML NF-e */}
@@ -795,6 +872,22 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       fontFamily: 'Jost_700Bold',
       fontSize: 14,
       color: theme.text,
+    },
+    inactiveBtn: {
+      backgroundColor: theme.foreground,
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      height: 56,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.text + '20',
+    },
+    inactiveBtnText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 13,
+      color: theme.text,
+      opacity: 0.7,
     },
     importXmlBtn: {
       backgroundColor: theme.foreground,

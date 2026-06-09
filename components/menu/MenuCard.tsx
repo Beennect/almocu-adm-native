@@ -15,6 +15,7 @@ export interface MenuItem {
   onPress?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  hasInactiveIngredient?: boolean;
 }
 
 function formatIngredient(ing: any): string {
@@ -26,7 +27,7 @@ function formatIngredient(ing: any): string {
   return `${qty} ${unit.toLowerCase()} de ${name}`;
 }
 
-export function MenuCard({ name, description, price, image, ingredients, available = true, onPress, onEdit, onDelete }: MenuItem) {
+export function MenuCard({ name, description, price, image, ingredients, available = true, onPress, onEdit, onDelete, hasInactiveIngredient }: MenuItem) {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
   const isOutOfStock = available === false;

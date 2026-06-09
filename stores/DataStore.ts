@@ -26,6 +26,7 @@ export interface MenuItem {
   isActive?: boolean;
   stockProductId?: string;
   available?: boolean;
+  hasInactiveIngredient?: boolean;
 }
 
 export type OrderStatus = 'PENDENTE' | 'PREPARANDO' | 'PRONTO' | 'SAIU_PARA_ENTREGA' | 'CONCLUIDO' | 'CANCELADO';
@@ -192,6 +193,7 @@ class DataStore {
   isRefreshingWorkspaces: boolean = false;
   isRefreshingMenu: boolean = false;
   isRefreshingStock: boolean = false;
+  inactiveStockItemIds: string[] = [];
   isRefreshingSuppliers: boolean = false;
   isRefreshingStaff: boolean = false;
   isRefreshingOrders: boolean = false;
@@ -350,47 +352,68 @@ class DataStore {
     try {
       const menuData = await apiMenuService.getMenu(1, 100);
       const menuItemsFromApi = menuData.items || [];
-      this.menuItems = menuItemsFromApi.map((item: any) => ({
-        id: item._id,
-        name: item.name,
-        description: item.description || '',
-        price: item.price,
-        category: item.category || 'Geral',
-        isActive: item.isActive !== false,
-        available: item.isActive !== false,
-        ingredients: (() => {
-            if (item.ingredients && Array.isArray(item.ingredients) && item.ingredients.length > 0) {
-              return item.ingredients.map((ing: any) => {
-                const ingId = ing.stockProductId || ing.id || (typeof ing === 'string' ? ing : 'unknown');
-                const matchedStock = this.ingredients.find(i => i.id === ingId);
-                if (matchedStock) {
-                  return { id: matchedStock.id, name: matchedStock.name, quantity: ing.quantity?.toString() || '1', unit: matchedStock.unit, info: ing.info || '' };
-                }
-                return { id: ingId, name: ing.name || 'Ingrediente Base', quantity: ing.quantity?.toString() || '1', unit: ing.unit || 'un', info: ing.info || '' };
-              });
+      const inactiveIds = this.inactiveStockItemIds;
+      this.menuItems = menuItemsFromApi.map((item: any) => {
+        const ingredientIds = (() => {
+          if (item.ingredients && Array.isArray(item.ingredients)) {
+            return item.ingredients.map((ing: any) => ing.stockProductId || ing.id || '');
+          }
+          if (typeof item.stockProductId === 'string') {
+            if (item.stockProductId.startsWith('[')) {
+              try {
+                const embedded = JSON.parse(item.stockProductId);
+                if (Array.isArray(embedded)) return embedded.map((ing: any) => ing.stockProductId || ing.id || '');
+              } catch {}
             }
-            if (item.stockProductId && typeof item.stockProductId === 'string' && !item.stockProductId.startsWith('[')) {
-              const matchedIng = this.ingredients.find(i => i.id === item.stockProductId);
-              if (matchedIng) {
-                return [{ id: matchedIng.id, name: matchedIng.name, quantity: '1', unit: matchedIng.unit, info: '' }];
-              }
-            }
-            if (item.stockProductId && typeof item.stockProductId === 'string' && item.stockProductId.startsWith('[')) {
-               try {
-                  const embedded = JSON.parse(item.stockProductId);
-                  if (Array.isArray(embedded) && embedded.length > 0) {
-                    return embedded.map((ing: any) => {
-                      const ingId = ing.stockProductId || ing.id || (typeof ing === 'string' ? ing : 'unknown');
-                      const matchedStock = this.ingredients.find(i => i.id === ingId);
-                      return { id: matchedStock ? matchedStock.id : ingId, name: matchedStock ? matchedStock.name : (ing.name || 'Ingrediente'), quantity: ing.quantity?.toString() || '1', unit: matchedStock ? matchedStock.unit : (ing.unit || 'un'), info: ing.info || '' };
-                    });
+            return [item.stockProductId];
+          }
+          return [];
+        })();
+        const hasInactiveIngredient = ingredientIds.some((id: string) => id && inactiveIds.includes(id));
+
+        return {
+          id: item._id,
+          name: item.name,
+          description: item.description || '',
+          price: item.price,
+          category: item.category || 'Geral',
+          isActive: item.isActive !== false,
+          available: item.isActive !== false,
+          hasInactiveIngredient,
+          ingredients: (() => {
+              if (item.ingredients && Array.isArray(item.ingredients) && item.ingredients.length > 0) {
+                return item.ingredients.map((ing: any) => {
+                  const ingId = ing.stockProductId || ing.id || (typeof ing === 'string' ? ing : 'unknown');
+                  const matchedStock = this.ingredients.find(i => i.id === ingId);
+                  if (matchedStock) {
+                    return { id: matchedStock.id, name: matchedStock.name, quantity: ing.quantity?.toString() || '1', unit: matchedStock.unit, info: ing.info || '' };
                   }
-               } catch(e) {}
-            }
-            return [];
-        })(),
-        image: resolveImageUrl(item.imageUrl),
-      }));
+                  return { id: ingId, name: ing.name || 'Ingrediente Base', quantity: ing.quantity?.toString() || '1', unit: ing.unit || 'un', info: ing.info || '' };
+                });
+              }
+              if (item.stockProductId && typeof item.stockProductId === 'string' && !item.stockProductId.startsWith('[')) {
+                const matchedIng = this.ingredients.find(i => i.id === item.stockProductId);
+                if (matchedIng) {
+                  return [{ id: matchedIng.id, name: matchedIng.name, quantity: '1', unit: matchedIng.unit, info: '' }];
+                }
+              }
+              if (item.stockProductId && typeof item.stockProductId === 'string' && item.stockProductId.startsWith('[')) {
+                 try {
+                    const embedded = JSON.parse(item.stockProductId);
+                    if (Array.isArray(embedded) && embedded.length > 0) {
+                      return embedded.map((ing: any) => {
+                        const ingId = ing.stockProductId || ing.id || (typeof ing === 'string' ? ing : 'unknown');
+                        const matchedStock = this.ingredients.find(i => i.id === ingId);
+                        return { id: matchedStock ? matchedStock.id : ingId, name: matchedStock ? matchedStock.name : (ing.name || 'Ingrediente'), quantity: ing.quantity?.toString() || '1', unit: matchedStock ? matchedStock.unit : (ing.unit || 'un'), info: ing.info || '' };
+                      });
+                    }
+                 } catch(e) {}
+              }
+              return [];
+          })(),
+          image: resolveImageUrl(item.imageUrl),
+        };
+      });
       // Salvar em cache local
       const userKey = authStore.user!.email;
       const restId = authStore.user!.restaurantId;
@@ -419,6 +442,15 @@ class DataStore {
         supplierId: ing.supplierId || undefined,
       }));
       this.enrichIngredientsWithSupplierNames();
+
+      // Fetch inactive stock IDs for the badge check
+      try {
+        const inactiveData = await apiStockService.getInactiveStock(1, 200);
+        const inactiveItems = inactiveData.items || [];
+        this.inactiveStockItemIds = inactiveItems.map((i: any) => i._id);
+      } catch {
+        this.inactiveStockItemIds = [];
+      }
     } catch (e) {
       console.warn('refreshStock() falhou:', e);
     } finally {
@@ -792,7 +824,7 @@ class DataStore {
   async removeItem(id: string) {
     const previousItems = [...this.menuItems];
 
-    // 🚀 Optimistic update
+    // 🚀 Optimistic update — remove da lista ativa
     this.menuItems = this.menuItems.filter(i => i.id !== id);
 
     try {
@@ -801,9 +833,33 @@ class DataStore {
     } catch (error) {
       // 🔙 Reverte
       this.menuItems = previousItems;
-      console.error("Failed to remove menu item:", error);
+      console.error("Failed to deactivate menu item:", error);
       throw error;
     }
+  }
+
+  async reactivateItem(id: string) {
+    await apiMenuService.reactivateProduct(id);
+    await this.refreshMenu();
+  }
+
+  async fetchAffectedProducts(stockProductId: string) {
+    return apiMenuService.getProductsByIngredient(stockProductId);
+  }
+
+  async removeIngredientFromProduct(productId: string, stockProductId: string) {
+    const product = this.menuItems.find(i => i.id === productId);
+    if (!product) {
+      const fetched = await apiMenuService.getMenu(1, 1).then(r => r.items?.find((i: any) => i._id === productId));
+      if (!fetched) throw new Error('Produto não encontrado');
+    }
+
+    const ingredients = (product?.ingredients || []).filter(
+      (ing: any) => (ing.stockProductId || ing.id) !== stockProductId,
+    );
+
+    await apiMenuService.updateProduct(productId, { ingredients } as any);
+    await this.refreshMenu();
   }
 
   /**
@@ -1029,21 +1085,24 @@ class DataStore {
     return created;
   }
 
-  async removeIngredient(id: string) {
+  async deactivateIngredient(id: string) {
     const previousIngredients = [...this.ingredients];
 
-    // 🚀 Optimistic update
-    this.ingredients = this.ingredients.filter(i => i.id !== id);
-
     try {
-      await apiStockService.deleteStock(id);
+      const result = await apiStockService.deleteStock(id);
       await this.refreshStock();
+      return result;
     } catch (error) {
       // 🔙 Reverte
       this.ingredients = previousIngredients;
-      console.error("Failed to remove ingredient:", error);
+      console.error("Failed to deactivate ingredient:", error);
       throw error;
     }
+  }
+
+  async reactivateIngredient(id: string) {
+    await apiStockService.reactivateStock(id);
+    await this.refreshStock();
   }
 
   async updateIngredient(id: string, updates: Partial<IngredientItem>) {
@@ -1109,15 +1168,22 @@ class DataStore {
     this.suppliers = this.suppliers.filter(s => s.id !== id);
 
     try {
-      await apiSupplierService.deleteSupplier(id);
+      const result = await apiSupplierService.deleteSupplier(id);
       await this.refreshSuppliers();
       this.enrichIngredientsWithSupplierNames();
+      return result;
     } catch (error) {
       // 🔙 Reverte
       this.suppliers = previousSuppliers;
-      console.error('Failed to remove supplier:', error);
+      console.error('Failed to deactivate supplier:', error);
       throw error;
     }
+  }
+
+  async reactivateSupplier(id: string) {
+    await apiSupplierService.reactivateSupplier(id);
+    await this.refreshSuppliers();
+    this.enrichIngredientsWithSupplierNames();
   }
 
   async updateIngredientStock(id: string, delta: number) {

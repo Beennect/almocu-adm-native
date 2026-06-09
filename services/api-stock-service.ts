@@ -35,4 +35,14 @@ export const apiStockService = {
     const response = await api.delete(`/api/stock/${id}`);
     return response.data;
   },
+
+  async reactivateStock(id: string) {
+    const response = await api.patch(`/api/stock/${id}/reactivate`);
+    return response.data;
+  },
+
+  async getInactiveStock(page = 1, limit = 100) {
+    const response = await api.get(`/api/stock?active=false&page=${page}&limit=${limit}`);
+    return response.data;
+  },
 };

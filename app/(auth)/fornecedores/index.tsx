@@ -1,4 +1,4 @@
-import { ConfirmModal } from '@/components/shared/ConfirmModal';
+import { SupplierDeactivateModal } from '@/components/shared/SupplierDeactivateModal';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -110,6 +110,9 @@ export default observer(function FornecedoresScreen() {
   const [currentPage, setCurrentPage] = useState(1);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showAffectedModal, setShowAffectedModal] = useState(false);
+  const [linkedStockItems, setLinkedStockItems] = useState<any[]>([]);
+  const [deactivatingSupplierName, setDeactivatingSupplierName] = useState('');
   const scrollRef = useRef<ScrollView>(null);
   const itemsPerPage = isWeb ? 12 : 6;
 
@@ -199,24 +202,37 @@ export default observer(function FornecedoresScreen() {
   const totalPages = Math.max(1, Math.ceil(processed.length / itemsPerPage));
   const paginated = processed.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const handleDelete = async () => {
+  const handleDeactivateConfirm = async (
+    deactivateStockIds: string[],
+    unlinkOnlyStockIds: string[],
+  ) => {
     if (!confirmDeleteId) return;
-    const supplierName = dataStore.suppliers.find((s) => s.id === confirmDeleteId)?.name;
-    try {
-      await withLoading(
-        async () => {
-          await dataStore.removeSupplier(confirmDeleteId);
-          setConfirmDeleteId(null);
-        },
-        {
-          loading: 'Removendo fornecedor...',
-          success: `Fornecedor "${supplierName || ''}" removido`,
-          error: 'Erro ao remover fornecedor',
-        },
-      );
-    } catch {
-      // Erro já exibido via toast pelo withLoading — não propaga para error boundary
-    }
+    setShowAffectedModal(false);
+
+    await withLoading(
+      async () => {
+        // Desativa o fornecedor
+        await dataStore.removeSupplier(confirmDeleteId);
+
+        // Desativa itens de estoque selecionados
+        for (const stockId of deactivateStockIds) {
+          await dataStore.deactivateIngredient(stockId);
+        }
+
+        // Remove o vínculo dos itens selecionados
+        for (const stockId of unlinkOnlyStockIds) {
+          await dataStore.updateIngredient(stockId, { supplierId: null as any });
+        }
+      },
+      {
+        loading: 'Aplicando alterações...',
+        success: 'Alterações aplicadas',
+        error: 'Erro ao aplicar alterações',
+      },
+    );
+
+    setConfirmDeleteId(null);
+    setLinkedStockItems([]);
   };
 
   const renderCard = (s: SupplierItem, onPress: () => void) => {
@@ -309,7 +325,15 @@ export default observer(function FornecedoresScreen() {
           <TouchableOpacity
             style={styles.actionBtn}
             activeOpacity={0.7}
-            onPress={() => setConfirmDeleteId(s.id)}
+            onPress={() => {
+              setConfirmDeleteId(s.id);
+              setDeactivatingSupplierName(s.name);
+              const linked = dataStore.ingredients
+                .filter((i) => i.supplierId === s.id)
+                .map((i) => ({ _id: i.id, name: i.name, brand: i.brand }));
+              setLinkedStockItems(linked);
+              setShowAffectedModal(true);
+            }}
           >
             <TrashIcon color={theme.contrast} opacity={0.7} size={20} />
           </TouchableOpacity>
@@ -338,6 +362,13 @@ export default observer(function FornecedoresScreen() {
             onPress={() => setFilterModalVisible(true)}
           >
             <Text style={styles.filterBtnText} numberOfLines={1}>{filterLabel(filterMode)}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.inactiveBtn}
+            activeOpacity={0.7}
+            onPress={() => router.push('/(auth)/fornecedores/inativos' as any)}
+          >
+            <Text style={styles.inactiveBtnText}>Inativos</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.plusBtn}
@@ -424,13 +455,16 @@ export default observer(function FornecedoresScreen() {
         title="Filtrar Por"
       />
 
-      <ConfirmModal
-        visible={!!confirmDeleteId}
-        onClose={() => setConfirmDeleteId(null)}
-        onConfirm={handleDelete}
-        title="Excluir Fornecedor"
-        message="Tem certeza que deseja excluir este fornecedor? Esta ação não pode ser desfeita."
-        confirmText="Excluir"
+      <SupplierDeactivateModal
+        visible={showAffectedModal}
+        supplierName={deactivatingSupplierName}
+        linkedStockItems={linkedStockItems}
+        onClose={() => {
+          setShowAffectedModal(false);
+          setConfirmDeleteId(null);
+          setLinkedStockItems([]);
+        }}
+        onConfirm={handleDeactivateConfirm}
       />
     </View>
   );
@@ -485,6 +519,22 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       fontFamily: 'Jost_600SemiBold',
       fontSize: 13,
       color: theme.text,
+    },
+    inactiveBtn: {
+      backgroundColor: theme.foreground,
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      height: 56,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: theme.text + '20',
+    },
+    inactiveBtnText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 13,
+      color: theme.text,
+      opacity: 0.7,
     },
     plusBtn: {
       backgroundColor: theme.contrast,
