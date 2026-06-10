@@ -32,7 +32,6 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  ClipboardIcon,
   CloseIcon,
   FoodStoreIcon,
   LightbulbIcon,
@@ -41,7 +40,6 @@ import {
   ModulesIcon,
   MoonIcon,
   PlusIcon,
-  SpoonIcon,
   SunIcon,
   TrashIcon,
   UserIcon,
@@ -185,8 +183,6 @@ export default observer(function ConfigScreen() {
   const theme = useAppTheme();
   const router = useRouter();
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [confirmClearOrders, setConfirmClearOrders] = useState(false);
-  const [confirmClearAll, setConfirmClearAll] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -255,17 +251,6 @@ export default observer(function ConfigScreen() {
   const handleLogout = async () => {
     await authStore.logout();
     router.replace('/login');
-  };
-
-  const handleClearOrders = () => {
-    dataStore.clearOrders();
-    setConfirmClearOrders(false);
-  };
-
-  const handleClearAll = () => {
-    dataStore.clear();
-    dataStore.save();
-    setConfirmClearAll(false);
   };
 
   const handleCreateRestaurant = async () => {
@@ -508,107 +493,6 @@ export default observer(function ConfigScreen() {
               />
             </View>
 
-            {activeRole === 'GERENTE' && (
-              <>
-                <SectionLabel label="Dados" theme={theme} />
-                <View style={{ borderRadius: 20, overflow: 'hidden' }}>
-                  <SettingRow
-                    isFirst
-                    theme={theme}
-                    icon={<ClipboardIcon color={theme.text} size={18} />}
-                    label="Total de Pedidos"
-                    sublabel={`${dataStore.orders.length} registrado${dataStore.orders.length !== 1 ? 's' : ''}`}
-                  />
-                  <SettingRow
-                    theme={theme}
-                    icon={<CardapioIcon color={theme.text} size={18} />}
-                    label="Itens no Cardápio"
-                    sublabel={`${dataStore.menuItems.length} item${dataStore.menuItems.length !== 1 ? 's' : ''}`}
-                  />
-                  <SettingRow
-                    isLast
-                    theme={theme}
-                    icon={<SpoonIcon color={theme.text} size={18} />}
-                    label="Ingredientes"
-                    sublabel={`${dataStore.ingredients.length} no estoque`}
-                  />
-                </View>
-              </>
-            )}
-
-            {/* Gerenciamento */}
-            {activeRole === 'GERENTE' && (
-              <>
-                <SectionLabel label="Gerenciamento" theme={theme} />
-                <View style={{ borderRadius: 20, overflow: 'hidden' }}>
-                  <SettingRow
-                    isFirst
-                    theme={theme}
-                    danger
-                    icon={<TrashIcon color="#EF4444" size={18} />}
-                    label="Apagar Pedidos"
-                    sublabel="Remove todos os pedidos registrados"
-                    onPress={() => setConfirmClearOrders(true)}
-                  />
-                  <SettingRow
-                    isLast
-                    theme={theme}
-                    danger
-                    icon={<TrashIcon color="#EF4444" size={18} />}
-                    label="Limpar Tudo"
-                    sublabel="Apaga pedidos, cardápio e ingredientes"
-                    onPress={() => setConfirmClearAll(true)}
-                  />
-                </View>
-
-                {permissionStore.can('restaurant:suspend') && !isCurrentRestaurantSuspended && (
-                  <View style={{ marginTop: 12, borderRadius: 20, overflow: 'hidden' }}>
-                    <SettingRow
-                      isFirst
-                      isLast
-                      theme={theme}
-                      danger
-                      icon={<TrashIcon color="#EF4444" size={18} />}
-                      label="Suspender Restaurante"
-                      sublabel="Desativa o restaurante e todos os vínculos. Pode ser reativado depois."
-                      onPress={() => {
-                        const restId = authStore.user?.restaurantId;
-                        const rest = dataStore.restaurants.find(r => r.id === restId);
-                        if (restId && rest) {
-                          setRemovingRestId(restId);
-                          setRemovingRestName(rest.name);
-                          setRemovingIsOwner(true);
-                          setConfirmRemoveWorkspace(true);
-                        }
-                      }}
-                    />
-                  </View>
-                )}
-                {permissionStore.can('restaurant:suspend') && isCurrentRestaurantSuspended && (
-                  <View style={{ marginTop: 12, borderRadius: 20, overflow: 'hidden' }}>
-                    <SettingRow
-                      isFirst
-                      isLast
-                      theme={theme}
-                      icon={<CheckIcon color="#10B981" size={22} />}
-                      label="Reativar Restaurante"
-                      sublabel="Reativa o restaurante e todos os vínculos de usuários."
-                      onPress={async () => {
-                        const restId = authStore.user?.restaurantId;
-                        if (restId) {
-                          try {
-                            await authStore.reactivateRestaurantWorkspace(restId);
-                            Toast.show({ type: 'success', text1: 'Restaurante reativado com sucesso!' });
-                          } catch (err: any) {
-                            Toast.show({ type: 'error', text1: err?.response?.data?.message || err?.message || 'Erro ao reativar restaurante.' });
-                          }
-                        }
-                      }}
-                    />
-                  </View>
-                )}
-              </>
-            )}
           </>
         )}
 
@@ -617,7 +501,7 @@ export default observer(function ConfigScreen() {
         <View style={{ borderRadius: 20, overflow: 'hidden' }}>
           <SettingRow
             isFirst
-            isLast
+            isLast={!(activeRole === 'GERENTE' && permissionStore.can('restaurant:suspend'))}
             theme={theme}
             danger
             icon={<LogOutIcon color="#EF4444" size={20} />}
@@ -625,6 +509,46 @@ export default observer(function ConfigScreen() {
             sublabel="Você precisará fazer login novamente"
             onPress={() => setConfirmLogout(true)}
           />
+          {activeRole === 'GERENTE' && permissionStore.can('restaurant:suspend') && !isCurrentRestaurantSuspended && (
+            <SettingRow
+              isLast
+              theme={theme}
+              danger
+              icon={<TrashIcon color="#EF4444" size={18} />}
+              label="Suspender Restaurante"
+              sublabel="Desativa o restaurante e todos os vínculos. Pode ser reativado depois."
+              onPress={() => {
+                const restId = authStore.user?.restaurantId;
+                const rest = dataStore.restaurants.find(r => r.id === restId);
+                if (restId && rest) {
+                  setRemovingRestId(restId);
+                  setRemovingRestName(rest.name);
+                  setRemovingIsOwner(true);
+                  setConfirmRemoveWorkspace(true);
+                }
+              }}
+            />
+          )}
+          {activeRole === 'GERENTE' && permissionStore.can('restaurant:suspend') && isCurrentRestaurantSuspended && (
+            <SettingRow
+              isLast
+              theme={theme}
+              icon={<CheckIcon color="#10B981" size={22} />}
+              label="Reativar Restaurante"
+              sublabel="Reativa o restaurante e todos os vínculos de usuários."
+              onPress={async () => {
+                const restId = authStore.user?.restaurantId;
+                if (restId) {
+                  try {
+                    await authStore.reactivateRestaurantWorkspace(restId);
+                    Toast.show({ type: 'success', text1: 'Restaurante reativado com sucesso!' });
+                  } catch (err: any) {
+                    Toast.show({ type: 'error', text1: err?.response?.data?.message || err?.message || 'Erro ao reativar restaurante.' });
+                  }
+                }
+              }}
+            />
+          )}
         </View>
 
         {/* Footer */}
@@ -641,22 +565,6 @@ export default observer(function ConfigScreen() {
         title="Sair da Conta"
         message="Tem certeza que deseja encerrar sua sessão?"
         confirmText="Sair"
-      />
-      <ConfirmModal
-        visible={confirmClearOrders}
-        onClose={() => setConfirmClearOrders(false)}
-        onConfirm={handleClearOrders}
-        title="Apagar Pedidos"
-        message="Todos os pedidos serão removidos permanentemente. Esta ação não pode ser desfeita."
-        confirmText="Apagar"
-      />
-      <ConfirmModal
-        visible={confirmClearAll}
-        onClose={() => setConfirmClearAll(false)}
-        onConfirm={handleClearAll}
-        title="Limpar Tudo"
-        message="Cardápio, ingredientes e pedidos serão apagados permanentemente. Esta ação não pode ser desfeita."
-        confirmText="Limpar Tudo"
       />
       <ConfirmModal
         visible={confirmRemoveWorkspace}

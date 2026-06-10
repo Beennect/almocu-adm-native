@@ -9,7 +9,7 @@ import { dataStore } from '@/stores/DataStore';
 import { authStore } from '@/stores/AuthStore';
 import { permissionStore } from '@/stores/PermissionStore';
 import Toast from 'react-native-toast-message';
-import { AlertIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
+import { ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
 import { useRealtimeChannel } from '@/hooks/useRealtimeChannel';
 
 const ITEMS_PER_PAGE = 9;
@@ -127,41 +127,6 @@ export default observer(function PedidosScreen() {
         </View>
       </View>
 
-      {/* Emergency Panel for Kitchen */}
-      {activeRole === 'COZINHA' && (
-        <View style={[styles.emergencyContainer, { backgroundColor: theme.foreground }]}>
-          <View style={styles.emergencyTitleRow}>
-            <AlertIcon color="#EF4444" size={18} />
-            <Text style={styles.emergencyTitle}> Painel de Emergência KDS</Text>
-          </View>
-          <Text style={styles.emergencySub}>Toque em um prato para alternar a disponibilidade e evitar novos pedidos.</Text>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.emergencyScroll}>
-            {dataStore.menuItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.emergencyItemCard,
-                  { backgroundColor: theme.background },
-                  !item.available && { borderColor: '#EF4444', borderWidth: 1 }
-                ]}
-                onPress={() => {
-                  dataStore.toggleMenuItemAvailability(item.id);
-                  Toast.show({ type: 'info', text1: `${item.name} marcado como ${item.available ? 'Disponível' : 'ESGOTADO'}!` });
-                }}
-              >
-                <Text style={styles.emergencyItemName}>{item.name}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: item.available ? '#10B981' : '#EF4444' }} />
-                  <Text style={[styles.emergencyItemStatus, { color: item.available ? '#10B981' : '#EF4444' }]}>
-                    {item.available ? 'Disponível' : 'ESGOTADO'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
 
       {/* Top Bar / Search Row */}
       <View style={styles.topBar}>
@@ -471,46 +436,6 @@ function makeStyles(theme: any, isWeb: boolean) {
       fontSize: 14,
       color: theme.text,
     },
-    emergencyContainer: {
-      borderRadius: 24,
-      padding: 16,
-      marginBottom: 20,
-    },
-    emergencyTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 6,
-    },
-    emergencyTitle: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 15,
-      color: '#EF4444',
-    },
-    emergencySub: {
-      fontFamily: 'Jost_400Regular',
-      fontSize: 12,
-      color: theme.text,
-      opacity: 0.6,
-      marginTop: 2,
-      marginBottom: 12,
-    },
-    emergencyScroll: {
-      gap: 10,
-    },
-    emergencyItemCard: {
-      borderRadius: 14,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      minWidth: 120,
-    },
-    emergencyItemName: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 13,
-      color: theme.text,
-    },
-    emergencyItemStatus: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 11,
-    },
+
   });
 }
