@@ -6,6 +6,7 @@ import api, { API_URL } from "../services/api-service";
 import { apiStaffService, mapRoleToFrontend } from "../services/api-staff-service";
 import { apiStockService } from "../services/api-stock-service";
 import { apiSupplierService, SupplierInput } from "../services/api-supplier-service";
+import { apiModulesService } from "../services/api-modules-service";
 import { authStore } from "./AuthStore";
 import { permissionStore } from "./PermissionStore";
 
@@ -40,6 +41,7 @@ export interface Order {
   id: string;
   clientName: string;
   table: string;
+  tableId?: string;
   total: number;
   status: OrderStatus;
   time: string;
@@ -142,6 +144,13 @@ export interface StaffMember {
   };
 }
 
+export interface TableItem {
+  id: string;
+  number: string;
+  capacity: number;
+  isActive: boolean;
+}
+
 export interface InviteCodeInfo {
   code: string;
   expiresAt: number; // timestamp em ms
@@ -167,6 +176,10 @@ const DEFAULT_MODULES: ModuleItem[] = [
   { id: 'estoque', name: 'Estoque', description: 'Controle inteligente de insumos e matérias-primas com alerta.', price: 0, icon: 'ClocheIcon', acquired: true, showInNavbar: true },
   { id: 'funcionarios', name: 'Funcionários', description: 'Gestão da equipe, atribuição de cargos e códigos de convites.', price: 0, icon: 'UsersIcon', acquired: true, showInNavbar: false },
   { id: 'fornecedores', name: 'Fornecedores', description: 'Cadastro de fornecedores vinculados aos itens de estoque.', price: 0, icon: 'TruckIcon', acquired: true, showInNavbar: false },
+  { id: 'mesas', name: 'Mesas & Reservas', description: 'Mapa interativo de mesas, comandas e QR code na mesa.', price: 1490, icon: 'PinIcon', acquired: false, showInNavbar: true },
+  { id: 'financeiro', name: 'Financeiro Avançado', description: 'Fluxo de caixa avançado, demonstrativo de DRE automático.', price: 1990, icon: 'FileTextIcon', acquired: false, showInNavbar: true },
+  { id: 'fidelidade', name: 'Fidelidade & Cupons', description: 'Criação de cashbacks acumulativos e cupons inteligentes.', price: 1290, icon: 'ShieldCheckIcon', acquired: false, showInNavbar: true },
+  { id: 'delivery', name: 'Delivery Próprio', description: 'Cardápio público próprio para vendas via link / WhatsApp.', price: 2490, icon: 'FoodStoreIcon', acquired: false, showInNavbar: true },
 ];
 
 const DEFAULT_RESTAURANT: RestaurantDetails = {
@@ -200,6 +213,10 @@ class DataStore {
   isRefreshingStaff: boolean = false;
   isRefreshingOrders: boolean = false;
 
+  // ── Tables ────────────────────────────────────────────────────────────
+  tables: TableItem[] = [];
+  hasTablesFeature: boolean = false;
+
   constructor() {
     makeAutoObservable(this);
   }
@@ -225,6 +242,7 @@ class DataStore {
       this.refreshSuppliers().then(() => this.enrichIngredientsWithSupplierNames()),
       this.refreshOrders(),
       this.refreshStock(), // ingredients sempre carregados (necessários p/ exibir ingredientes nos itens do cardápio)
+      this.fetchTables(),  // mesas carregadas na inicialização
     ];
 
     // Só carrega funcionários se for gerente
@@ -266,6 +284,27 @@ class DataStore {
     }
   }
 
+  async refreshModules() {
+    try {
+      const serverModules = await apiModulesService.getModules();
+      for (const sm of serverModules) {
+        const idx = this.modules.findIndex((m) => m.id === sm.id);
+        if (idx !== -1) {
+          this.modules[idx].acquired = sm.acquired;
+        }
+      }
+      // Sync hasTablesFeature with mesas module
+      const mesas = this.modules.find((m) => m.id === 'mesas');
+      if (mesas?.acquired && !this.hasTablesFeature) {
+        this.hasTablesFeature = true;
+      } else if (!mesas?.acquired && this.hasTablesFeature) {
+        this.hasTablesFeature = false;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch modules from server, using local state.', e);
+    }
+  }
+
   async refreshWorkspaces() {
     if (this.isRefreshingWorkspaces) return;
     if (!authStore.user) return;
@@ -299,6 +338,8 @@ class DataStore {
             status: rDetails.status || 'active',
             inviteCode: rDetails.inviteCode,
           };
+          this.hasTablesFeature = rDetails.features?.hasTables === true;
+          await this.refreshModules();
         } else if (!this.restaurantDetails) {
           this.restaurantDetails = {
             ...DEFAULT_RESTAURANT,
@@ -442,6 +483,7 @@ class DataStore {
         stock: ing.quantity || 0,
         minQuantity: ing.minQuantity || 0,
         supplierId: ing.supplierId || undefined,
+        category: ing.category || '',
       }));
       this.enrichIngredientsWithSupplierNames();
 
@@ -537,6 +579,7 @@ class DataStore {
           id: mappedId,
           clientName: ord.clientName || ord.origin || 'Cliente',
           table: ord.origin || 'Balcão',
+          tableId: ord.tableId?._id || ord.tableId || undefined,
           total: ord.totalValue,
           status: mapStatusToFrontend(ord.status),
           time: dateStr,
@@ -924,6 +967,7 @@ class DataStore {
       observations: order.additionalInfo || '',
       deliveryAddress,
       deliveryUserId: (order as any).deliveryUserId || undefined,
+      tableId: (order as any).tableId || undefined,
     });
 
     await this.refreshOrders();
@@ -1231,6 +1275,61 @@ class DataStore {
     }
   }
 
+  // ── Tables ────────────────────────────────────────────────────────────
+
+  async fetchTables() {
+    if (!authStore.user?.restaurantId) return;
+    try {
+      const data = await apiOrderService.getTables();
+      const list = Array.isArray(data) ? data : data.items || [];
+      this.tables = list.map((t: any) => ({
+        id: t._id || t.id,
+        number: t.number,
+        capacity: t.capacity,
+        isActive: t.isActive !== false,
+      }));
+    } catch (e) {
+      console.warn('fetchTables() falhou:', e);
+    }
+  }
+
+  async createTable(number: string, capacity: number) {
+    const created = await apiOrderService.createTable({ number, capacity });
+    await this.fetchTables();
+    return created;
+  }
+
+  async updateTable(id: string, data: { number?: string; capacity?: number; isActive?: boolean }) {
+    const updated = await apiOrderService.updateTable(id, data);
+    await this.fetchTables();
+    return updated;
+  }
+
+  async deleteTable(id: string) {
+    await apiOrderService.deleteTable(id);
+    await this.fetchTables();
+  }
+
+  async enableTablesFeature(enabled: boolean) {
+    const restId = authStore.user?.restaurantId;
+    if (!restId) return;
+    await apiOrderService.enableTablesFeature(restId, enabled);
+    this.hasTablesFeature = enabled;
+
+    // Sync module system
+    const mesas = this.modules.find((m) => m.id === 'mesas');
+    if (mesas && enabled !== mesas.acquired) {
+      try {
+        await apiModulesService.acquireModule('mesas', enabled);
+      } catch (e: any) {
+        console.warn('Failed to sync module acquisition:', e?.message);
+      }
+      mesas.acquired = enabled;
+      mesas.showInNavbar = enabled;
+      this.save();
+    }
+  }
+
   async addBranch(branch: Omit<Branch, 'id'>): Promise<Branch> {
     // API-first: chama o backend antes de atualizar o estado local
     const response = await api.post('/restaurants/branch', {
@@ -1259,12 +1358,24 @@ class DataStore {
     await authStore.removeRestaurantWorkspace(id);
   }
 
-  purchaseModule(moduleId: string) {
+  async purchaseModule(moduleId: string) {
+    // Chama o backend para módulos premium
+    try {
+      await apiModulesService.acquireModule(moduleId, true);
+    } catch (e: any) {
+      console.warn('Backend acquire failed, updating local only:', e?.message);
+    }
+
     const index = this.modules.findIndex(m => m.id === moduleId);
     if (index !== -1) {
       this.modules[index].acquired = true;
       this.modules[index].showInNavbar = true;
       this.save();
+    }
+
+    // Side effects locais
+    if (moduleId === 'mesas') {
+      this.hasTablesFeature = true;
     }
   }
 
@@ -1286,6 +1397,8 @@ class DataStore {
     this.restaurantDetails = null;
     this.restaurants = [];
     this.staff = [];
+    this.tables = [];
+    this.hasTablesFeature = false;
     this.inviteCodeInfo = null;
     this.isRefreshingInviteCode = false;
     this.isRefreshingWorkspaces = false;

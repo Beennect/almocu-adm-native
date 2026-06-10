@@ -47,6 +47,12 @@ export interface OrderInput {
   deliveryAddress?: DeliveryAddressInput;
   totalValue?: number;
   deliveryUserId?: string;
+  tableId?: string;
+}
+
+export interface TableInput {
+  number: string;
+  capacity: number;
 }
 
 export const apiOrderService = {
@@ -74,6 +80,9 @@ export const apiOrderService = {
     if (data.deliveryUserId) {
       payload.deliveryUserId = data.deliveryUserId;
     }
+    if (data.tableId) {
+      payload.tableId = data.tableId;
+    }
     const response = await api.post('/api/order', payload);
     return response.data;
   },
@@ -90,6 +99,37 @@ export const apiOrderService = {
 
   async deleteOrder(id: string) {
     const response = await api.delete(`/api/order/${id}`);
+    return response.data;
+  },
+
+  // ── Tables ────────────────────────────────────────────────────────────
+
+  async createTable(data: TableInput) {
+    const response = await api.post('/api/order/tables', data);
+    return response.data;
+  },
+
+  async getTables() {
+    const response = await api.get('/api/order/tables/all');
+    return response.data;
+  },
+
+  async updateTable(id: string, data: Partial<TableInput> & { isActive?: boolean }) {
+    const response = await api.patch(`/api/order/tables/${id}`, data);
+    return response.data;
+  },
+
+  async deleteTable(id: string) {
+    const response = await api.delete(`/api/order/tables/${id}`);
+    return response.data;
+  },
+
+  // ── Restaurant Features ───────────────────────────────────────────────
+
+  async enableTablesFeature(restaurantId: string, enabled: boolean) {
+    const response = await api.patch(`/restaurants/${restaurantId}/features`, {
+      hasTables: enabled,
+    });
     return response.data;
   },
 };

@@ -144,6 +144,11 @@ class SocketManager {
       eventBus.emit('staff:changed', {});
     });
 
+    this.socket.on('table:changed', () => {
+      dataStore.fetchTables();
+      eventBus.emit('table:changed', {});
+    });
+
     this.socket.on('connected', (data: any) => {
       console.log('[SocketManager]', data?.message);
     });

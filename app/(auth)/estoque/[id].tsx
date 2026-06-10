@@ -178,6 +178,12 @@ export default observer(function EstoqueItemDetailScreen() {
         </View>
       </View>
 
+      {item.category ? (
+        <Text style={[styles.itemBrand, { color: theme.text }]}>
+          Categoria: {item.category}
+        </Text>
+      ) : null}
+
       {item.brand ? (
         <Text style={[styles.itemBrand, { color: theme.text }]}>
           Marca: {item.brand}

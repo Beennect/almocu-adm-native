@@ -7,7 +7,7 @@ import { dataStore } from '@/stores/DataStore';
 import { permissionStore } from '@/stores/PermissionStore';
 import { authStore } from '@/stores/AuthStore';
 import { useAppTheme } from '@/themes/colors';
-import { computeStockDelta, parseAmountInput, sanitizeAmountInput } from '@/utils/stock-helpers';
+import { parseAmountInput, sanitizeAmountInput } from '@/utils/stock-helpers';
 import { withLoading } from '@/utils/toast';
 import { apiNfeService, NfeParseItem } from '@/services/api-nfe-service';
 import { getCategoryFromNcm } from '@/utils/ncmCategories';
@@ -98,19 +98,18 @@ const formatQty = (qty: number, unit?: string) => {
 };
 
 const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, styles, canEdit, canDelete }: any) => {
-  const [amount, setAmount] = useState('1');
-  const parsedAmount = parseAmountInput(amount);
-  const canDecrease = (item.stock ?? 0) > 0 && (Number.isFinite(parsedAmount) ? parsedAmount > 0 : false) && (item.stock ?? 0) >= parsedAmount;
+  const [inputValue, setInputValue] = useState('');
+
+  useEffect(() => {
+    setInputValue(formatQty(item.stock, item.unit));
+  }, [item.stock]);
+
+  const canDecrease = (item.stock ?? 0) >= 1;
 
   const handleUpdate = async (sign: 1 | -1) => {
-    const val = parseAmountInput(amount);
-    const { delta, error } = computeStockDelta(item.stock ?? 0, sign, val, {
-      name: item.name,
-      unit: item.unit,
-    });
-
-    if (error || delta === 0) {
-      Toast.show({ type: 'error', text1: error || 'Não foi possível ajustar o estoque.' });
+    const delta = sign * 1;
+    if (sign === -1 && (item.stock ?? 0) < 1) {
+      Toast.show({ type: 'error', text1: 'Estoque insuficiente.' });
       return;
     }
 
@@ -120,72 +119,105 @@ const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, style
     );
   };
 
+  const handleDirectSet = async () => {
+    const val = parseAmountInput(inputValue);
+    if (!Number.isFinite(val) || val < 0) {
+      setInputValue(formatQty(item.stock, item.unit));
+      return;
+    }
+    const currentStock = item.stock ?? 0;
+    if (val === currentStock) return;
+    const delta = val - currentStock;
+    await withLoading(
+      () => dataStore.updateIngredientStock(item.id, delta),
+      { loading: 'Ajustando estoque...', success: 'Estoque ajustado!', error: 'Erro ao ajustar estoque' }
+    );
+  };
+
+  const isLowStock = item.minQuantity > 0 && item.stock <= item.minQuantity;
+
   return (
     <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <TouchableOpacity
+          style={styles.cardHeaderTitle}
+          activeOpacity={0.7}
+          onPress={onPress}
+          disabled={!onPress}
+        >
+          <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
+        </TouchableOpacity>
+        {canEdit && (
+          <View style={styles.cardActions}>
+            <TouchableOpacity onPress={onEdit} style={styles.cardActionBtn}>
+              <EditIcon color={theme.text} size={18} />
+            </TouchableOpacity>
+            {canDelete && (
+              <TouchableOpacity onPress={onRemove} style={styles.cardActionBtn}>
+                <TrashIcon color={theme.contrast} size={20} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+
       <TouchableOpacity
         style={styles.cardContent}
         activeOpacity={0.7}
         onPress={onPress}
         disabled={!onPress}
       >
-        <Text style={styles.cardTitle}>{item.name}</Text>
         <Text style={styles.cardCategory}>{item.category}</Text>
-        <Text style={styles.cardSubtitle}>{formatQty(item.stock, item.unit)} {item.unit}</Text>
-        {item.unitPrice ? (
-          <Text style={styles.cardUnitPrice}>R$ {item.unitPrice.toFixed(2).replace('.', ',')}</Text>
-        ) : null}
         {item.supplierName ? (
           <View style={styles.supplierRow}>
             <TruckIcon color={theme.text} opacity={0.4} size={11} />
             <Text style={styles.supplierName} numberOfLines={1}>{item.supplierName}</Text>
           </View>
         ) : null}
-        <View style={styles.badgePlaceholder}>
-          {item.minQuantity > 0 && item.stock <= item.minQuantity && (
-            <View style={styles.lowStockBadge}>
-              <Text style={styles.lowStockText}>Estoque Baixo</Text>
-            </View>
-          )}
-        </View>
       </TouchableOpacity>
 
-      {canEdit && (
-        <View style={styles.cardActions}>
-          <View style={styles.qtyControls}>
-            <TouchableOpacity
-              style={[styles.qtyBtn, !canDecrease && styles.qtyBtnDisabled]}
-              onPress={() => handleUpdate(-1)}
-              disabled={!canDecrease}
-            >
-              <Text style={styles.qtyBtnText}>-</Text>
-            </TouchableOpacity>
+      <View style={styles.qtySection}>
+        {canEdit && (
+          <TouchableOpacity
+            style={[styles.qtyBtn, !canDecrease && styles.qtyBtnDisabled]}
+            onPress={() => handleUpdate(-1)}
+            disabled={!canDecrease}
+          >
+            <Text style={styles.qtyBtnText}>−</Text>
+          </TouchableOpacity>
+        )}
 
+        <View
+          style={styles.qtyCircle}
+        >
+          {canEdit ? (
             <TextInput
-              style={styles.qtyInput}
-              value={amount}
-              onChangeText={(text) => setAmount(sanitizeAmountInput(text))}
+              style={styles.qtyCircleInput}
+              value={inputValue}
+              onChangeText={(text) => setInputValue(sanitizeAmountInput(text))}
+              onBlur={handleDirectSet}
+              onSubmitEditing={handleDirectSet}
               keyboardType="decimal-pad"
+              selectTextOnFocus
               placeholderTextColor={theme.text + '40'}
             />
+          ) : (
+            <Text style={styles.qtyCircleText}>{formatQty(item.stock, item.unit)}</Text>
+          )}
+          <Text style={styles.qtyCircleUnit}>{item.unit}</Text>
+        </View>
 
-            <TouchableOpacity
-              style={styles.qtyBtn}
-              onPress={() => handleUpdate(1)}
-            >
-              <Text style={styles.qtyBtnText}>+</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity onPress={onEdit}>
-              <View style={{ opacity: 0.6 }}>
-                <EditIcon color={theme.text} size={18} />
-              </View>
-            </TouchableOpacity>
-            {canDelete && (
-              <TouchableOpacity onPress={onRemove}>
-                <TrashIcon color={theme.contrast} size={20} />
-              </TouchableOpacity>
-            )}
+        {canEdit && (
+          <TouchableOpacity style={styles.qtyBtn} onPress={() => handleUpdate(1)}>
+            <Text style={styles.qtyBtnText}>+</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {isLowStock && (
+        <View style={styles.lowStockFooter}>
+          <View style={styles.lowStockBadge}>
+            <Text style={styles.lowStockText}>Estoque Baixo</Text>
           </View>
         </View>
       )}
@@ -1069,17 +1101,12 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
     card: {
       backgroundColor: theme.foreground,
       borderRadius: 20,
-      padding: isWeb ? 20 : 16,
-      flexDirection: 'row',
-      alignItems: 'center',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.05,
       shadowRadius: 10,
       elevation: 2,
-      minHeight: 160,
       transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-      cursor: 'pointer',
       ':hover': {
         transform: 'scale(1.01)',
         shadowOpacity: 0.12,
@@ -1088,8 +1115,7 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       },
     } as any,
     cardContent: {
-      flex: 1,
-      justifyContent: 'center',
+      paddingHorizontal: isWeb ? 20 : 16,
     },
     cardTitle: {
       fontFamily: 'Jost_700Bold',
@@ -1103,24 +1129,33 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       textTransform: 'uppercase' as any,
       marginTop: 2,
     },
-    cardUnitPrice: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 13,
-      color: theme.text,
-      opacity: 0.7,
-      marginTop: 2,
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: isWeb ? 20 : 16,
+      paddingTop: isWeb ? 20 : 16,
     },
-    cardSubtitle: {
-      fontFamily: 'Jost_400Regular',
-      fontSize: 14,
-      color: theme.text,
-      opacity: 0.6,
+    cardHeaderTitle: {
+      flex: 1,
     },
-    badgePlaceholder: {
-      height: 20,
+    cardActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    cardActionBtn: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
       justifyContent: 'center',
+      borderRadius: 12,
+    },
+    lowStockFooter: {
+      paddingHorizontal: isWeb ? 20 : 16,
+      paddingBottom: isWeb ? 16 : 14,
+      paddingTop: 4,
       alignItems: 'flex-start',
-      marginTop: 6,
     },
     lowStockBadge: {
       backgroundColor: '#FF525220',
@@ -1147,41 +1182,61 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       opacity: 0.5,
       flex: 1,
     },
-    cardActions: {
+    qtySection: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    qtyControls: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: theme.background,
-      borderRadius: 12,
-      padding: 2,
-      borderWidth: 1,
-      borderColor: theme.text + '10',
-    },
-    qtyInput: {
-      width: 40,
-      height: 32,
-      textAlign: 'center',
-      color: theme.text,
-      fontFamily: 'Jost_700Bold',
-      fontSize: 14,
-      padding: 0,
-    },
-    qtyBtn: {
-      width: 32,
-      height: 32,
       alignItems: 'center',
       justifyContent: 'center',
+      padding: isWeb ? 20 : 16,
+      paddingTop: 12,
+      gap: 12,
+    },
+    qtyCircle: {
+      width: 100,
+      height: 100,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: theme.text + '10',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.background,
+    },
+    qtyCircleInput: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 22,
+      color: theme.contrast,
+      padding: 0,
+      textAlign: 'center',
+      maxWidth: 80,
+    },
+    qtyCircleText: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 22,
+      color: theme.contrast,
+      textAlign: 'center',
+    },
+    qtyCircleUnit: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 11,
+      color: theme.contrast,
+      opacity: 0.7,
+      marginTop: 2,
+    },
+    qtyBtn: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      backgroundColor: theme.foreground,
+      borderWidth: 1,
+      borderColor: theme.text + '10',
     },
     qtyBtnDisabled: {
       opacity: 0.3,
     },
     qtyBtnText: {
       fontFamily: 'Jost_700Bold',
-      fontSize: 18,
+      fontSize: 20,
       color: theme.text,
     },
     emptyContainer: {

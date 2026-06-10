@@ -5,6 +5,7 @@ export type EventChannel =
   | 'menu:changed'
   | 'stock:changed'
   | 'staff:changed'
+  | 'table:changed'
   | 'workspace:changed';
 
 export type EventPayload<T = any> = T;

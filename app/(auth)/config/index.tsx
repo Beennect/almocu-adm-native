@@ -700,8 +700,7 @@ export default observer(function ConfigScreen() {
                   activeOpacity={0.7}
                   onPress={() => {
                     setShowWorkspaceModal(false);
-                    setCreateModalError('');
-                    setTimeout(() => setShowCreateModal(true), 300);
+                    router.push('/(auth)/criar-restaurante');
                   }}
                 >
                   <PlusIcon color={theme.text} size={16} style={{ marginRight: 10 }} />
