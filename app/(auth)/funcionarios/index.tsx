@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  Alert,
   useWindowDimensions,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
@@ -16,7 +15,9 @@ import { authStore } from '@/stores/AuthStore';
 import { permissionStore } from '@/stores/PermissionStore';
 import { dataStore, StaffMember } from '@/stores/DataStore';
 import Toast from 'react-native-toast-message';
-import { AlertIcon, CheckIcon, ChevronDownIcon, StarIcon, TrashIcon, UsersIcon } from '@/components/shared/Icons';
+import { ConfirmModal } from '@/components/shared/ConfirmModal';
+import { withLoading } from '@/utils/toast';
+import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon, TrashIcon, UsersIcon } from '@/components/shared/Icons';
 import { InlineAlert } from '@/components/shared/InlineAlert';
 
 export default observer(function FuncionariosScreen() {
@@ -28,6 +29,8 @@ export default observer(function FuncionariosScreen() {
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [roleModalMember, setRoleModalMember] = useState<StaffMember | null>(null);
   const [roleModalMessage, setRoleModalMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [removingMember, setRemovingMember] = useState<StaffMember | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const inviteCode = dataStore.inviteCodeInfo?.code || dataStore.restaurantDetails?.inviteCode || '';
 
@@ -97,6 +100,11 @@ export default observer(function FuncionariosScreen() {
     dataStore.refreshStaff();
   }, []);
 
+  // ── Resetar página ao trocar de aba ──
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
   const handleCopyCode = async () => {
     try {
       await navigator.clipboard.writeText(inviteCode);
@@ -120,35 +128,25 @@ export default observer(function FuncionariosScreen() {
     }
   };
 
-  const handleRemoveMember = useCallback((targetMember: StaffMember) => {
-    // setTimeout sai do ciclo de evento do React Native para garantir
-    // que o Alert apareça mesmo com re-renders frequentes (ex: timer do inviteCode)
-    setTimeout(() => {
-      Alert.alert(
-        'Remover Funcionário',
-        `Tem certeza que deseja remover "${targetMember.name}" da equipe? Ele perderá acesso ao restaurante.`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Remover',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await dataStore.removeStaffMember(targetMember.email);
-                Toast.show({ type: 'success', text1: `${targetMember.name} removido da equipe.` });
-              } catch (err: any) {
-                const message = err?.response?.data?.message || err?.message || 'Erro ao remover funcionário.';
-                console.error('removeStaffMember error:', message, err);
-                Toast.show({ type: 'error', text1: message });
-              }
-            },
-          },
-        ],
-      );
-    }, 0);
-  }, []);
+  const handleRemoveMember = (targetMember: StaffMember) => {
+    setRemovingMember(targetMember);
+  };
 
+  const confirmRemoveMember = async () => {
+    if (!removingMember) return;
+    await withLoading(
+      async () => {
+        await dataStore.removeStaffMember(removingMember.email);
+        setRemovingMember(null);
+      },
+      { loading: 'Removendo funcionário...', success: `${removingMember.name} removido da equipe.`, error: 'Erro ao remover funcionário.' },
+    );
+  };
+
+  const itemsPerPage = 5;
   const staffFiltered = dataStore.staff.filter(s => s.role === activeTab);
+  const totalPages = Math.max(1, Math.ceil(staffFiltered.length / itemsPerPage));
+  const paginatedStaff = staffFiltered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // Spotlight employee
   const highlightEmployee = dataStore.staff.find(s => s.role === 'GARCOM' || s.role === 'COZINHA' || s.role === 'ENTREGADOR');
@@ -269,7 +267,7 @@ export default observer(function FuncionariosScreen() {
             </Text>
           </View>
         ) : (
-          staffFiltered.map((member) => (
+          paginatedStaff.map((member) => (
             <View
               key={member.userId}
               style={[styles.memberCard, { backgroundColor: theme.foreground }]}
@@ -331,6 +329,30 @@ export default observer(function FuncionariosScreen() {
         )}
       </View>
 
+      {totalPages > 1 && (
+        <View style={styles.paginationContainer}>
+          <TouchableOpacity
+            style={[styles.pageBtn, { backgroundColor: theme.foreground, borderColor: theme.text + '10' }, currentPage === 1 && styles.pageBtnDisabled]}
+            onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeftIcon color={theme.text} size={20} />
+          </TouchableOpacity>
+
+          <View style={[styles.pageIndicator, { backgroundColor: theme.foreground, borderColor: theme.text + '10' }]}>
+            <Text style={[styles.pageIndicatorText, { color: theme.text }]}>{currentPage} / {totalPages}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.pageBtn, { backgroundColor: theme.foreground, borderColor: theme.text + '10' }, currentPage === totalPages && styles.pageBtnDisabled]}
+            onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRightIcon color={theme.text} size={20} />
+          </TouchableOpacity>
+        </View>
+      )}
+
     </ScrollView>
 
       {/* Role selection modal */}
@@ -381,6 +403,15 @@ export default observer(function FuncionariosScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <ConfirmModal
+        visible={!!removingMember}
+        onClose={() => setRemovingMember(null)}
+        onConfirm={confirmRemoveMember}
+        title="Remover Funcionário"
+        message={removingMember ? `Tem certeza que deseja remover "${removingMember.name}" da equipe? Ele perderá acesso ao restaurante.` : ''}
+        confirmText="Remover"
+      />
     </>
   );
 });
@@ -627,6 +658,44 @@ const styles = StyleSheet.create({
   },
   modalCancelText: {
     fontFamily: 'Jost_600SemiBold',
+    fontSize: 14,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 16,
+  },
+  pageBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  pageBtnDisabled: {
+    opacity: 0.3,
+  },
+  pageIndicator: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  pageIndicatorText: {
+    fontFamily: 'Jost_700Bold',
     fontSize: 14,
   },
 });

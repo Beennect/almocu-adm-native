@@ -179,6 +179,19 @@ export default observer(function CardapioScreen() {
     <View style={styles.container}>
       {!isWeb && <UserHeader />}
 
+      <View style={styles.headerTabRow}>
+        <View style={styles.tabButtons}>
+          <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
+            <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
+          </TouchableOpacity>
+          {canDelete && (
+            <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('cardapio/inativos' as any)}>
+              <Text style={styles.tabBtnText}>Inativos</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
       <View style={styles.topBar}>
         <View style={styles.searchContainer}>
           <TextInput
@@ -196,16 +209,6 @@ export default observer(function CardapioScreen() {
           >
             <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
           </TouchableOpacity>
-
-          {canDelete && (
-            <TouchableOpacity
-              style={styles.inactiveBtn}
-              activeOpacity={0.7}
-              onPress={() => router.push('cardapio/inativos' as any)}
-            >
-              <Text style={styles.inactiveBtnText}>Inativos</Text>
-            </TouchableOpacity>
-          )}
 
           {permissionStore.can('menu:create') && (isWeb ? (
             <TouchableOpacity
@@ -364,21 +367,38 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       fontSize: 14,
       color: theme.text,
     },
-    inactiveBtn: {
-      backgroundColor: theme.foreground,
-      borderRadius: 20,
-      paddingHorizontal: 16,
-      height: 56,
+    headerTabRow: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: theme.text + '20',
+      justifyContent: 'space-between',
+      marginBottom: 20,
     },
-    inactiveBtnText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 13,
+    tabButtons: {
+      flexDirection: 'row',
+      backgroundColor: theme.foreground,
+      borderRadius: 16,
+      padding: 4,
+    },
+    tabBtn: {
+      paddingHorizontal: 24,
+      paddingVertical: 8,
+      borderRadius: 12,
+    },
+    tabBtnActive: {
+      backgroundColor: theme.background,
+      shadowColor: '#000',
+      shadowOpacity: 0.05,
+      shadowRadius: 5,
+      elevation: 2,
+    },
+    tabBtnText: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 14,
       color: theme.text,
-      opacity: 0.7,
+      opacity: 0.5,
+    },
+    tabBtnTextActive: {
+      opacity: 1,
     },
     createBtn: {
       backgroundColor: theme.contrast,

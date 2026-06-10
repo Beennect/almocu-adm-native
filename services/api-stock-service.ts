@@ -7,6 +7,8 @@ export interface StockItemInput {
   unit: string;
   minQuantity?: number;
   supplierId?: string;
+  category: string;
+  unitPrice?: number;
 }
 
 export const apiStockService = {

@@ -51,7 +51,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const NEXT_STATUS_LABELS: Record<string, string> = {
-  PENDENTE: 'Aceitar →',
+  PENDENTE: 'Preparar →',
   PREPARANDO: 'Finalizar →',
   PRONTO: 'Saiu para Entrega →',
   SAIU_PARA_ENTREGA: 'Entregar →',
@@ -127,14 +127,9 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
   const activeRole = authStore.activeRole;
 
   const [detailsVisible, setDetailsVisible] = useState(false);
-  const [checkoutVisible, setCheckoutVisible] = useState(false);
-  const [splitCount, setSplitCount] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDITO' | 'DEBITO' | 'DINHEIRO'>('PIX');
 
   const [detailsError, setDetailsError] = useState('');
   const [cancelling, setCancelling] = useState(false);
-  const [checkoutError, setCheckoutError] = useState('');
-  const [closing, setClosing] = useState(false);
 
   const isFinal = status === 'CONCLUIDO' || status === 'CANCELADO';
   const isDelivery = !!address;
@@ -171,23 +166,6 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
     }
   };
 
-  const handleCloseOrder = async () => {
-    setClosing(true);
-    setCheckoutError('');
-    try {
-      try {
-        await dataStore.closeOrder(id, paymentMethod);
-        setCheckoutVisible(false);
-        setDetailsVisible(false);
-        Toast.show({ type: 'success', text1: 'Conta fechada com sucesso!' });
-      } catch (err: any) {
-        setCheckoutError(err?.response?.data?.message || err?.message || 'Erro ao fechar conta');
-      }
-    } finally {
-      setClosing(false);
-    }
-  };
-
   // Status transitions for labels
   const getNextLabel = () => {
     if (status === 'PREPARANDO' && address) return 'Pronto →';
@@ -219,15 +197,17 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
         {/* Items Summary */}
         {(items || []).length > 0 && (
           <View style={styles.itemsList}>
-            {(items || []).slice(0, 2).map((item, idx) => (
+            {(items || []).slice(0, 3).map((item, idx) => (
               <View key={`${item.id}-${idx}`} style={styles.itemRow}>
                 <Text style={styles.itemQty}>{item.quantity}x</Text>
                 <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
                 <Text style={styles.itemPrice}>R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}</Text>
               </View>
             ))}
-            {(items || []).length > 2 && (
-              <Text style={styles.moreItems}>+ {(items || []).length - 2} mais...</Text>
+            {(items || []).length > 3 && (
+              <Text style={{ fontFamily: 'Jost_700Bold', fontSize: 13, color: theme.contrast, marginTop: 2 }}>
+                E mais {(items || []).length - 3}...
+              </Text>
             )}
           </View>
         )}
@@ -487,7 +467,6 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
 
               <View style={styles.modalActions}>
                 {!isFinal && activeRole === 'GERENTE' && (
-                  <View style={{ gap: 10, marginBottom: 12 }}>
                     <TouchableOpacity 
                       style={[styles.modalCloseBtn, { backgroundColor: theme.contrast }]} 
                       onPress={() => {
@@ -497,25 +476,15 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
                     >
                       <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Retirar Itens</Text>
                     </TouchableOpacity>
-                    
-                    {permissionStore.can('orders:update-status') && (
-                      <TouchableOpacity 
-                        style={[styles.modalCloseBtn, { backgroundColor: '#10B981' }]} 
-                        onPress={() => setCheckoutVisible(true)}
-                      >
-                        <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>Fechar Conta (Nota)</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
                 )}
 
                 {!isFinal && permissionStore.can('orders:delete') && (
                   <TouchableOpacity
-                    style={[styles.modalCancelBtn, { backgroundColor: '#EF4444' + '22', borderColor: '#EF4444' + '44', opacity: cancelling ? 0.6 : 1 }]}
+                    style={[styles.modalCancelBtn, { backgroundColor: '#EF4444', opacity: cancelling ? 0.6 : 1 }]}
                     onPress={handleCancel}
                     disabled={cancelling}
                   >
-                    <Text style={{ fontFamily: 'Jost_700Bold', color: '#EF4444', fontSize: 15 }}>
+                    <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>
                       {cancelling ? 'Cancelando...' : 'Cancelar Pedido'}
                     </Text>
                   </TouchableOpacity>
@@ -529,102 +498,6 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
         </View>
       </Modal>
 
-      {/* Checkout Bill Closure Modal */}
-      <Modal visible={checkoutVisible} transparent animationType="slide" onRequestClose={() => { setCheckoutError(''); setCheckoutVisible(false); }}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.foreground }]}>
-            <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 12 }]}>Fechamento de Conta</Text>
-
-            {checkoutError ? <InlineAlert type="error" message={checkoutError} /> : null}
-            
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Receipt Breakdown */}
-              <View style={{ gap: 8, marginBottom: 16 }}>
-                <Text style={[styles.modalSectionTitle, { color: theme.text }]}>Resumo Financeiro</Text>
-                <View style={styles.modalInfoRow}>
-                  <Text style={[styles.modalLabel, { color: theme.text }]}>Subtotal</Text>
-                  <Text style={[styles.modalValue, { color: theme.text, fontFamily: 'Jost_700Bold' }]}>
-                    R$ {total.toFixed(2).replace('.', ',')}
-                  </Text>
-                </View>
-                
-                {/* Splitting check row */}
-                <View style={styles.modalInfoRow}>
-                  <Text style={[styles.modalLabel, { color: theme.text }]}>Dividir Conta</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <TouchableOpacity 
-                      style={styles.circleBtn}
-                      onPress={() => setSplitCount(Math.max(1, splitCount - 1))}
-                    >
-                      <Text style={{ color: theme.text, fontFamily: 'Jost_700Bold', fontSize: 16 }}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={[styles.modalValue, { color: theme.text, fontFamily: 'Jost_700Bold' }]}>{splitCount}x</Text>
-                    <TouchableOpacity 
-                      style={styles.circleBtn}
-                      onPress={() => setSplitCount(splitCount + 1)}
-                    >
-                      <Text style={{ color: theme.text, fontFamily: 'Jost_700Bold', fontSize: 16 }}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {splitCount > 1 && (
-                  <View style={[styles.modalInfoRow, { marginTop: 4 }]}>
-                    <Text style={[styles.modalLabel, { color: theme.contrast }]}>Valor por Pessoa</Text>
-                    <Text style={[styles.modalValue, { color: theme.contrast, fontFamily: 'Jost_700Bold', fontSize: 16 }]}>
-                      R$ {(total / splitCount).toFixed(2).replace('.', ',')}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              <View style={[styles.divider, { marginVertical: 12 }]} />
-
-              {/* Payment Methods */}
-              <Text style={[styles.modalSectionTitle, { color: theme.text }]}>Método de Pagamento</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                {(['PIX', 'CREDITO', 'DEBITO', 'DINHEIRO'] as const).map((method) => (
-                  <TouchableOpacity
-                    key={method}
-                    style={[
-                      styles.methodBtn,
-                      { backgroundColor: theme.background, borderColor: 'transparent', borderWidth: 2 },
-                      paymentMethod === method && { borderColor: theme.contrast, backgroundColor: theme.contrast + '15' }
-                    ]}
-                    onPress={() => setPaymentMethod(method)}
-                  >
-                    <Text style={[styles.methodText, { color: theme.text }, paymentMethod === method && { color: theme.contrast, fontWeight: '700' }]}>
-                      {method === 'CREDITO' ? 'Crédito' : method === 'DEBITO' ? 'Débito' : method === 'DINHEIRO' ? 'Dinheiro' : 'PIX'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={[styles.divider, { marginVertical: 16 }]} />
-
-              {/* Actions */}
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalCloseBtn, { backgroundColor: '#10B981', opacity: closing ? 0.6 : 1 }]}
-                  onPress={handleCloseOrder}
-                  disabled={closing}
-                >
-                  <Text style={{ fontFamily: 'Jost_700Bold', color: '#FFF', fontSize: 15 }}>
-                    {closing ? 'Fechando...' : 'Confirmar e Fechar Conta'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.modalCloseBtn}
-                  onPress={() => { setCheckoutError(''); setCheckoutVisible(false); }}
-                >
-                  <Text style={styles.modalCloseBtnText}>Voltar</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 }
@@ -719,13 +592,6 @@ function makeStyles(theme: any, status: string) {
       fontFamily: 'Jost_600SemiBold',
       fontSize: 14,
       color: theme.text,
-    },
-    moreItems: {
-      fontFamily: 'Jost_400Regular',
-      fontSize: 13,
-      color: theme.text,
-      opacity: 0.5,
-      marginTop: 2,
     },
     deliveryRow: {
       flexDirection: 'row',
@@ -902,7 +768,6 @@ function makeStyles(theme: any, status: string) {
       borderRadius: 18,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
     },
     modalCloseBtn: {
       backgroundColor: theme.background,
@@ -915,26 +780,6 @@ function makeStyles(theme: any, status: string) {
       fontFamily: 'Jost_700Bold',
       fontSize: 15,
       color: theme.text,
-    },
-    circleBtn: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: 'rgba(255,255,255,0.1)',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    methodBtn: {
-      flex: 1,
-      minWidth: 90,
-      paddingVertical: 10,
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    methodText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 13,
     },
   });
 }

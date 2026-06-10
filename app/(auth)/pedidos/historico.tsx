@@ -9,7 +9,7 @@ import { dataStore } from '@/stores/DataStore';
 import { authStore } from '@/stores/AuthStore';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
 
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 9;
 
 type SortMode = 'newest' | 'oldest' | 'highest' | 'lowest';
 

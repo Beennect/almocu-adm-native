@@ -165,14 +165,13 @@ export default function RegisterScreen() {
           variant="primary"
           onPress={handleRegister}
         />
+        <View style={styles.mobileFooter}>
+          <Text style={{ color: text, opacity: 0.6, fontSize: 14 }}>Já tem uma conta? </Text>
+          <TouchableOpacity onPress={() => router.push('/login' as any)}>
+            <Text style={{ color: contrast, fontFamily: 'Jost_700Bold', fontSize: 14 }}>Faça Login</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
-
-      <View style={styles.mobileFooter}>
-        <Text style={{ color: text, opacity: 0.6, fontSize: 14 }}>Já tem uma conta? </Text>
-        <TouchableOpacity onPress={() => router.push('/login' as any)}>
-          <Text style={{ color: contrast, fontFamily: 'Jost_700Bold', fontSize: 14 }}>Faça Login</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -265,7 +264,8 @@ function makeStyles(background: string, foreground: string, contrast: string, te
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
-      paddingBottom: 16,
+      marginTop: 16,
+      paddingBottom: 8,
     },
     // ── Compartilhado (heading, inputs) ──────────────────────────────────
     headingBlock: {

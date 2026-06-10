@@ -1,9 +1,10 @@
 import { useAppTheme } from '@/themes/colors';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { UserHeader } from '../../../components/shared/UserHeader';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
+import { SelectModal } from '@/components/shared/SelectModal';
 import { observer } from 'mobx-react-lite';
 import { dataStore } from '@/stores/DataStore';
 import { apiStockService } from '@/services/api-stock-service';
@@ -46,6 +47,38 @@ export default observer(function InativosEstoqueScreen() {
     fetchInactive(page);
   });
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterMode, setFilterMode] = useState<string>('todos');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+
+  type FilterMode = 'todos' | 'alfabetica' | 'estoque_baixo' | 'apenas_kg' | 'apenas_litros' | 'apenas_unidades' | 'recentes' | 'antigos';
+
+  const FILTER_LABELS: Record<FilterMode, string> = {
+    todos: 'Todos',
+    alfabetica: 'A-Z ↓',
+    estoque_baixo: 'Estoque Baixo ↓',
+    apenas_kg: 'Apenas Kg',
+    apenas_litros: 'Apenas Litros',
+    apenas_unidades: 'Apenas Unidades',
+    recentes: 'Mais Recentes ↓',
+    antigos: 'Mais Antigos ↑',
+  };
+
+  const filteredItems = () => {
+    let list = [...inactiveItems];
+    if (searchTerm) {
+      list = list.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+    if (filterMode === 'alfabetica') {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (filterMode === 'recentes') {
+      list.reverse();
+    }
+    return list;
+  };
+
+  const displayItems = filteredItems();
+
   const handleReactivate = async () => {
     if (!reactivateId) return;
     await withLoading(
@@ -62,26 +95,51 @@ export default observer(function InativosEstoqueScreen() {
     <View style={styles.container}>
       {!isWeb && <UserHeader />}
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ChevronLeftIcon color={theme.text} size={24} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Itens Inativos do Estoque</Text>
+      <View style={styles.headerTabRow}>
+        <View style={styles.tabButtons}>
+          <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('estoque' as any)}>
+            <Text style={styles.tabBtnText}>Ativos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
+            <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Inativos</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.topBar}>
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar..."
+            placeholderTextColor={theme.text + '80'}
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+          />
+        </View>
+        <View style={styles.topBarActions}>
+          <TouchableOpacity
+            style={styles.filterBtn}
+            onPress={() => setFilterModalVisible(true)}
+          >
+            <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode as FilterMode]}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         {loading ? (
           <Text style={styles.loadingText}>Carregando...</Text>
-        ) : inactiveItems.length === 0 ? (
+        ) : displayItems.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Nenhum item inativo</Text>
             <Text style={styles.emptySubtext}>Itens desativados do estoque aparecerão aqui.</Text>
           </View>
         ) : (
-          inactiveItems.map((item: any) => (
+          displayItems.map((item: any) => (
             <View key={item._id || item.id} style={styles.card}>
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>{item.name}</Text>
+                <Text style={styles.cardCategory}>{item.category}</Text>
                 <Text style={styles.cardSubtitle}>
                   {item.quantity} {item.unit} {item.previousProductRelations?.length > 0 ? `• ${item.previousProductRelations.length} produto(s) relacionado(s)` : ''}
                 </Text>
@@ -126,6 +184,18 @@ export default observer(function InativosEstoqueScreen() {
         message="Tem certeza que deseja reativar este item no estoque? As relações com produtos do cardápio serão restauradas automaticamente."
         confirmText="Reativar"
       />
+
+      <SelectModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        onSelect={(val: any) => {
+          const key = (Object.keys(FILTER_LABELS) as FilterMode[]).find(k => FILTER_LABELS[k] === val);
+          if (key) setFilterMode(key);
+          setFilterModalVisible(false);
+        }}
+        options={Object.values(FILTER_LABELS)}
+        title="Filtrar Por"
+      />
     </View>
   );
 });
@@ -136,23 +206,81 @@ function makeStyles(theme: any, isWeb: boolean) {
       flex: 1,
       paddingTop: isWeb ? 0 : 20,
     },
-    header: {
+    headerTabRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 20,
+    },
+    tabButtons: {
+      flexDirection: 'row',
+      backgroundColor: theme.foreground,
+      borderRadius: 16,
+      padding: 4,
+    },
+    tabBtn: {
+      paddingHorizontal: 24,
+      paddingVertical: 8,
+      borderRadius: 12,
+    },
+    tabBtnActive: {
+      backgroundColor: theme.background,
+      shadowColor: '#000',
+      shadowOpacity: 0.05,
+      shadowRadius: 5,
+      elevation: 2,
+    },
+    tabBtnText: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 14,
+      color: theme.text,
+      opacity: 0.5,
+    },
+    tabBtnTextActive: {
+      opacity: 1,
+    },
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       marginBottom: 24,
+      gap: 16,
+    },
+    searchContainer: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.foreground,
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      height: 56,
+    },
+    searchInput: {
+      flex: 1,
+      fontFamily: 'Jost_400Regular',
+      fontSize: 16,
+      color: theme.text,
+      outlineStyle: 'none',
+    } as any,
+    topBarActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: 12,
     },
-    backBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: 14,
+    filterBtn: {
       backgroundColor: theme.foreground,
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      height: 56,
       alignItems: 'center',
       justifyContent: 'center',
+      minWidth: 100,
+      borderWidth: 1,
+      borderColor: theme.background,
     },
-    title: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 20,
+    filterBtnText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 14,
       color: theme.text,
     },
     loadingText: {
@@ -170,6 +298,7 @@ function makeStyles(theme: any, isWeb: boolean) {
       borderRadius: 16,
       padding: 16,
       marginBottom: 12,
+      minHeight: 100,
       opacity: 0.8,
     },
     cardContent: {
@@ -179,6 +308,13 @@ function makeStyles(theme: any, isWeb: boolean) {
       fontFamily: 'Jost_700Bold',
       fontSize: 16,
       color: theme.text,
+    },
+    cardCategory: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 11,
+      color: theme.contrast,
+      textTransform: 'uppercase' as any,
+      marginTop: 2,
     },
     cardSubtitle: {
       fontFamily: 'Jost_400Regular',
@@ -199,19 +335,21 @@ function makeStyles(theme: any, isWeb: boolean) {
       color: '#FFFFFF',
     },
     emptyContainer: {
+      flex: 1,
+      width: '100%',
       alignItems: 'center',
-      paddingVertical: 60,
-      opacity: 0.5,
+      justifyContent: 'center',
+      paddingVertical: isWeb ? 80 : 60,
     },
     emptyText: {
       fontFamily: 'Jost_700Bold',
-      fontSize: 18,
+      fontSize: isWeb ? 20 : 18,
       color: theme.text,
       marginBottom: 8,
     },
     emptySubtext: {
       fontFamily: 'Jost_400Regular',
-      fontSize: 14,
+      fontSize: isWeb ? 15 : 14,
       color: theme.text,
       textAlign: 'center',
     },
@@ -220,7 +358,7 @@ function makeStyles(theme: any, isWeb: boolean) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 24,
-      gap: 16,
+      gap: 12,
     },
     pageBtn: {
       width: 44,

@@ -1,4 +1,4 @@
-import { EmailIcon, KeyIcon } from '@/components/shared/Icons';
+import { EmailIcon, EyeIcon, EyeOffIcon, KeyIcon } from '@/components/shared/Icons';
 import { useAppTheme } from '@/themes/colors';
 import React, { useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -15,6 +15,7 @@ import { withLoading } from '@/utils/toast';
 export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const theme = useAppTheme();
   const router = useRouter();
 
@@ -104,10 +105,12 @@ export function LoginForm({ onToggleForm }: { onToggleForm: () => void }) {
         <FormInput
           Icon={KeyIcon}
           placeholder="Senha"
-          secureTextEntry
+          secureTextEntry={!showPassword}
           value={password}
           onChangeText={setPassword}
           onSubmitEditing={handleLogin}
+          RightIcon={showPassword ? EyeOffIcon : EyeIcon}
+          onRightIconPress={() => setShowPassword((prev) => !prev)}
         />
       </View>
 

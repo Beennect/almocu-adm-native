@@ -18,15 +18,6 @@ export interface MenuItem {
   hasInactiveIngredient?: boolean;
 }
 
-function formatIngredient(ing: any): string {
-  const qty = ing.quantity ? String(ing.quantity).replace('.', ',') : '';
-  const unit = ing.unit;
-  const name = ing.name || 'Ingrediente';
-  if (!qty) return name;
-  if (!unit || unit === 'Unidades') return `${qty} ${name}`;
-  return `${qty} ${unit.toLowerCase()} de ${name}`;
-}
-
 export function MenuCard({ name, description, price, image, ingredients, available = true, onPress, onEdit, onDelete, hasInactiveIngredient }: MenuItem) {
   const theme = useAppTheme();
   const styles = makeStyles(theme);
@@ -69,9 +60,16 @@ export function MenuCard({ name, description, price, image, ingredients, availab
           {ingredients && ingredients.length > 0 && (
             <View style={styles.ingredientsContainer}>
               <Text style={styles.ingredientsHeader}>Ingredientes</Text>
-              <Text style={styles.ingredientItemText}>
-                {ingredients.map(formatIngredient).join('  •  ')}
-              </Text>
+              {ingredients.slice(0, 3).map((ing, idx) => (
+                <Text key={idx} style={styles.ingredientItemText}>
+                  {ing.name || 'Ingrediente'}
+                </Text>
+              ))}
+              {ingredients.length > 3 && (
+                <Text style={{ fontFamily: 'Jost_700Bold', fontSize: 12, color: theme.contrast, marginTop: 2 }}>
+                  E mais {ingredients.length - 3}...
+                </Text>
+              )}
             </View>
           )}
         </View>
@@ -106,6 +104,7 @@ function makeStyles(theme: any) {
       borderRadius: 24,
       padding: 16,
       alignItems: 'center',
+      minHeight: 145,
     },
     touchableArea: {
       flex: 1,

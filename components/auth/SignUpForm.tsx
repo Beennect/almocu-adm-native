@@ -1,4 +1,4 @@
-import { EmailIcon, KeyIcon, ShieldCheckIcon, UserIcon } from '@/components/shared/Icons';
+import { EmailIcon, EyeIcon, EyeOffIcon, KeyIcon, ShieldCheckIcon, UserIcon } from '@/components/shared/Icons';
 import { useAppTheme } from '@/themes/colors';
 import React, { useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -16,6 +16,8 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const theme = useAppTheme();
   const router = useRouter();
 
@@ -124,17 +126,21 @@ export function SignUpForm({ onToggleForm }: { onToggleForm: () => void }) {
         <FormInput
           Icon={KeyIcon}
           placeholder="Senha"
-          secureTextEntry
+          secureTextEntry={!showPassword}
           value={senha}
           onChangeText={setSenha}
+          RightIcon={showPassword ? EyeOffIcon : EyeIcon}
+          onRightIconPress={() => setShowPassword((prev) => !prev)}
         />
         <FormInput
           Icon={ShieldCheckIcon}
           placeholder="Confirmar senha"
-          secureTextEntry
+          secureTextEntry={!showConfirmPassword}
           value={confirmarSenha}
           onChangeText={setConfirmarSenha}
           onSubmitEditing={handleRegister}
+          RightIcon={showConfirmPassword ? EyeOffIcon : EyeIcon}
+          onRightIconPress={() => setShowConfirmPassword((prev) => !prev)}
         />
       </View>
 

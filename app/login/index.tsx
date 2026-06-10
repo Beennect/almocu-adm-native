@@ -50,9 +50,6 @@ export default function Login() {
           <View style={styles.logoRow}>
             <AlmocuIcon color={contrast} size={128} />
           </View>
-          <TouchableOpacity style={styles.clienteBtn} activeOpacity={0.8}>
-            <Text style={styles.clienteBtnText}>Cliente</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Card centralizado */}
@@ -136,17 +133,6 @@ function makeStyles(background: string, foreground: string, contrast: string, te
       color: contrast,
       fontSize: 20,
       marginLeft: 8,
-    },
-    clienteBtn: {
-      backgroundColor: contrast,
-      borderRadius: 50,
-      paddingHorizontal: 28,
-      paddingVertical: 12,
-    },
-    clienteBtnText: {
-      fontFamily: 'Jost_700Bold',
-      color: '#FFFFFF',
-      fontSize: 15,
     },
     webCenter: {
       flex: 1,

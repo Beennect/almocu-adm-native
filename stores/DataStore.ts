@@ -71,6 +71,8 @@ export interface IngredientItem {
   minQuantity?: number;
   supplierId?: string;
   supplierName?: string;
+  category: string;
+  unitPrice?: number;
 }
 
 export interface SupplierAddress {
@@ -1073,6 +1075,8 @@ class DataStore {
       unit: ingredient.unit,
       minQuantity: ingredient.minQuantity,
       supplierId: ingredient.supplierId,
+      category: ingredient.category,
+      unitPrice: ingredient.unitPrice,
     });
 
     // Recarrega só o estoque para confirmar o dado salvo no servidor
@@ -1122,6 +1126,8 @@ class DataStore {
       if (updates.unit !== undefined) payload.unit = updates.unit;
       if (updates.minQuantity !== undefined) payload.minQuantity = updates.minQuantity;
       if (updates.supplierId !== undefined) payload.supplierId = updates.supplierId;
+      if (updates.category !== undefined) payload.category = updates.category;
+      if (updates.unitPrice !== undefined) payload.unitPrice = updates.unitPrice;
 
       await apiStockService.updateStock(id, payload);
       await this.refreshStock();

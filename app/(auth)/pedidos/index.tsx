@@ -12,7 +12,7 @@ import Toast from 'react-native-toast-message';
 import { AlertIcon, ChevronLeftIcon, ChevronRightIcon } from '@/components/shared/Icons';
 import { useRealtimeChannel } from '@/hooks/useRealtimeChannel';
 
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 9;
 
 type SortMode = 'newest' | 'oldest' | 'status';
 

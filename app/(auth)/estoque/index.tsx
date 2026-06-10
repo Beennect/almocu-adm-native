@@ -1,6 +1,6 @@
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
 import { StockDeactivateModal } from '@/components/shared/StockDeactivateModal';
-import { ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon, FileTextIcon, CheckIcon, AlertIcon } from '@/components/shared/Icons';
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EditIcon, TrashIcon, TruckIcon, FileTextIcon } from '@/components/shared/Icons';
 import { SelectModal } from '@/components/shared/SelectModal';
 import { UserHeader } from '@/components/shared/UserHeader';
 import { dataStore } from '@/stores/DataStore';
@@ -9,7 +9,9 @@ import { authStore } from '@/stores/AuthStore';
 import { useAppTheme } from '@/themes/colors';
 import { computeStockDelta, parseAmountInput, sanitizeAmountInput } from '@/utils/stock-helpers';
 import { withLoading } from '@/utils/toast';
-import { apiNfeService } from '@/services/api-nfe-service';
+import { apiNfeService, NfeParseItem } from '@/services/api-nfe-service';
+import { getCategoryFromNcm } from '@/utils/ncmCategories';
+import * as FileSystem from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import { observer } from 'mobx-react-lite';
 import React, { useEffect, useRef, useState } from 'react';
@@ -27,8 +29,20 @@ import Toast from 'react-native-toast-message';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRealtimeChannel } from '@/hooks/useRealtimeChannel';
 
-const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: any) => (
-  <View style={styles.paginationContainer}>
+const getPageNumbers = (current: number, total: number): (number | 'ellipsis')[] => {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | 'ellipsis')[] = [1]
+  if (current > 3) pages.push('ellipsis')
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  for (let i = start; i <= end; i++) pages.push(i)
+  if (current < total - 2) pages.push('ellipsis')
+  pages.push(total)
+  return pages
+}
+
+const Pagination = ({ currentPage, totalPages, onPrev, onNext, onGoTo, isWeb, theme, styles }: any) => (
+  <View style={[styles.paginationContainer, isWeb && styles.paginationContainerWeb]}>
     <TouchableOpacity
       style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
       onPress={onPrev}
@@ -37,9 +51,35 @@ const Pagination = ({ currentPage, totalPages, onPrev, onNext, theme, styles }: 
       <ChevronLeftIcon color={theme.text} size={20} />
     </TouchableOpacity>
 
-    <View style={styles.pageIndicator}>
-      <Text style={styles.pageIndicatorText}>{currentPage} / {totalPages}</Text>
-    </View>
+    {isWeb ? (
+      <View style={styles.pageNumbersRow}>
+        {getPageNumbers(currentPage, totalPages).map((page, idx) =>
+          page === 'ellipsis' ? (
+            <Text key={`e-${idx}`} style={[styles.pageEllipsis, { color: theme.text, opacity: 0.4 }]}>...</Text>
+          ) : (
+            <TouchableOpacity
+              key={page}
+              style={[styles.pageNumberBtn, currentPage === page && { backgroundColor: theme.contrast }]}
+              onPress={() => onGoTo(page)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.pageNumberText,
+                  { color: currentPage === page ? '#FFFFFF' : theme.text },
+                ]}
+              >
+                {page}
+              </Text>
+            </TouchableOpacity>
+          )
+        )}
+      </View>
+    ) : (
+      <View style={styles.pageIndicator}>
+        <Text style={styles.pageIndicatorText}>{currentPage} / {totalPages}</Text>
+      </View>
+    )}
 
     <TouchableOpacity
       style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
@@ -89,7 +129,11 @@ const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, style
         disabled={!onPress}
       >
         <Text style={styles.cardTitle}>{item.name}</Text>
+        <Text style={styles.cardCategory}>{item.category}</Text>
         <Text style={styles.cardSubtitle}>{formatQty(item.stock, item.unit)} {item.unit}</Text>
+        {item.unitPrice ? (
+          <Text style={styles.cardUnitPrice}>R$ {item.unitPrice.toFixed(2).replace('.', ',')}</Text>
+        ) : null}
         {item.supplierName ? (
           <View style={styles.supplierRow}>
             <TruckIcon color={theme.text} opacity={0.4} size={11} />
@@ -97,7 +141,7 @@ const IngredientCard = observer(({ item, onRemove, onEdit, onPress, theme, style
           </View>
         ) : null}
         <View style={styles.badgePlaceholder}>
-          {item.stock <= 3 && (
+          {item.minQuantity > 0 && item.stock <= item.minQuantity && (
             <View style={styles.lowStockBadge}>
               <Text style={styles.lowStockText}>Estoque Baixo</Text>
             </View>
@@ -162,6 +206,21 @@ const FILTER_LABELS: Record<FilterMode, string> = {
   antigos: 'Mais Antigos ↑',
 };
 
+const UNIT_OPTIONS = ['Kg', 'Litros', 'Unidades'];
+
+const UNIT_NORMALIZE_MAP: Record<string, string> = {
+  'KG': 'Kg', 'L': 'Litros', 'LT': 'Litros',
+  'UN': 'Unidades', 'MT': 'Unidades', 'PC': 'Unidades', 'MIL': 'Unidades',
+  'CX': 'Unidades', 'DZ': 'Unidades', 'PAC': 'Unidades', 'PT': 'Unidades',
+  'FD': 'Unidades', 'BD': 'Unidades',
+};
+
+function normalizeUnit(u: string): string {
+  return UNIT_NORMALIZE_MAP[u.trim().toUpperCase()] || 'Unidades';
+}
+
+const CATEGORY_OPTIONS = ['Grãos', 'Laticínios', 'Carnes', 'Massa', 'Conservas', 'Óleos', 'Bebidas', 'Temperos', 'Caixa', 'Outra...'];
+
 const getGridColumns = (width: number) => {
   if (width >= 1440) return 3;
   if (width >= 1024) return 2;
@@ -194,9 +253,32 @@ export default observer(function EstoqueScreen() {
 
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [nfeModalVisible, setNfeModalVisible] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<{ name: string; uri: string; size: number } | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [nfeResult, setNfeResult] = useState<{ created: number; updated: number; errors: string[]; supplierName?: string } | null>(null);
+  const [nfeStep, setNfeStep] = useState<'select' | 'review'>('select');
+  const [nfeParsedItems, setNfeParsedItems] = useState<EditableNfeItem[]>([]);
+  const [nfeImporting, setNfeImporting] = useState(false);
+  const [nfeXmlText, setNfeXmlText] = useState('');
+  const [categoryPickerTarget, setCategoryPickerTarget] = useState<string | null>(null);
+  const [unitPickerTarget, setUnitPickerTarget] = useState<string | null>(null);
+  const [customCategoryItems, setCustomCategoryItems] = useState<Set<string>>(new Set());
+  const [nfeAccessKey, setNfeAccessKey] = useState<string | null>(null);
+  const [nfeSupplierName, setNfeSupplierName] = useState<string | undefined>();
+  const [nfeSupplierCnpj, setNfeSupplierCnpj] = useState<string | undefined>();
+  const [nfeDuplicateWarning, setNfeDuplicateWarning] = useState<{ visible: boolean; importedAt?: string; userName?: string; itemCount?: number }>({ visible: false });
+  const [nfeReviewPage, setNfeReviewPage] = useState(1);
+  const NFE_ITEMS_PER_PAGE = 5;
+
+  interface EditableNfeItem {
+    id: string;
+    name: string;
+    ncm?: string;
+    unit: string;
+    quantity: string;
+    unitPrice: string;
+    category: string;
+    xmlUnit: string;
+    xmlQty: number;
+    xmlUnitPrice: number;
+  }
 
   useEffect(() => {
     dataStore.refreshSuppliers();
@@ -205,7 +287,7 @@ export default observer(function EstoqueScreen() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('todos');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = isWeb ? 12 : 6;
+  const itemsPerPage = 9;
 
   // Filter and Sort logic
   const processIngredients = () => {
@@ -225,7 +307,7 @@ export default observer(function EstoqueScreen() {
     if (filterMode === 'alfabetica') {
       list.sort((a, b) => a.name.localeCompare(b.name));
     } else if (filterMode === 'estoque_baixo') {
-      list = list.filter(i => i.stock <= 3);
+      list = list.filter(i => i.minQuantity > 0 && i.stock <= i.minQuantity);
       list.sort((a, b) => a.stock - b.stock);
     } else if (filterMode === 'recentes') {
       list.reverse(); // Assuming original order is chronological
@@ -332,9 +414,179 @@ export default observer(function EstoqueScreen() {
     setAffectedProducts([]);
   };
 
+  const handleNfeSelectFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      })
+      if (result.canceled || !result.assets?.length) return
+
+      const uri = result.assets[0].uri
+      let rawXml: string
+      try {
+        rawXml = await FileSystem.readAsStringAsync(uri)
+      } catch {
+        const resp = await fetch(uri)
+        rawXml = await resp.text()
+      }
+
+      if (!rawXml.trim().startsWith('<')) {
+        Toast.show({ type: 'error', text1: 'O arquivo não parece ser um XML válido.' })
+        return
+      }
+
+      const resultData = await apiNfeService.parseXml(rawXml)
+
+      if (!resultData.items || resultData.items.length === 0) {
+        Toast.show({ type: 'error', text1: 'Nenhum item encontrado no XML.' })
+        return
+      }
+
+      const editable: EditableNfeItem[] = resultData.items.map((item, idx) => {
+        const suggested = getCategoryFromNcm(item.ncm)
+        return {
+          id: `nfe-item-${idx + 1}`,
+          name: item.name,
+          ncm: item.ncm,
+          unit: normalizeUnit(item.unit),
+          quantity: item.quantity.toString(),
+          unitPrice: item.unitPrice.toFixed(2),
+          category: suggested || '',
+          xmlUnit: item.unit,
+          xmlQty: item.quantity,
+          xmlUnitPrice: item.unitPrice,
+        }
+      })
+
+      setNfeParsedItems(editable)
+      setNfeAccessKey(resultData.accessKey ?? null)
+      setNfeSupplierName(resultData.supplierName)
+      setNfeSupplierCnpj(resultData.supplierCnpj)
+
+      if (resultData.duplicate) {
+        setNfeDuplicateWarning({
+          visible: true,
+          importedAt: resultData.duplicate.importedAt,
+          userName: resultData.duplicate.userName,
+          itemCount: resultData.duplicate.itemCount,
+        })
+      }
+
+      setNfeReviewPage(1)
+      setNfeStep('review')
+    } catch (e: any) {
+      console.error('NF-e parse error:', e)
+      Toast.show({ type: 'error', text1: e?.message || 'Erro ao processar o XML.' })
+    }
+  }
+
+  const handleNfeItemChange = (id: string, field: keyof EditableNfeItem, value: string) => {
+    setNfeParsedItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
+    )
+  }
+
+  const handleNfeRemoveItem = (id: string) => {
+    setNfeParsedItems((prev) => {
+      const next = prev.filter((item) => item.id !== id).map((item, idx) => ({
+        ...item,
+        id: `nfe-item-${idx + 1}`,
+      }))
+      const maxPage = Math.ceil(next.length / NFE_ITEMS_PER_PAGE) || 1
+      if (nfeReviewPage > maxPage) {
+        setNfeReviewPage(maxPage)
+      }
+      return next
+    })
+  }
+
+  const handleNfeClose = () => {
+    setNfeModalVisible(false)
+    setNfeStep('select')
+    setNfeParsedItems([])
+    setNfeXmlText('')
+    setNfeAccessKey(null)
+    setNfeSupplierName(undefined)
+    setNfeSupplierCnpj(undefined)
+    setNfeDuplicateWarning({ visible: false })
+    setNfeReviewPage(1)
+  }
+
+  const handleNfeImportAll = async () => {
+    if (nfeParsedItems.length === 0) return
+    setNfeImporting(true)
+    let success = 0
+    let errors = 0
+
+    for (const item of nfeParsedItems) {
+      try {
+        const qty = parseFloat(item.quantity.replace(',', '.'))
+        const up = parseFloat(item.unitPrice.replace(',', '.'))
+        await dataStore.addIngredient({
+          name: item.name.trim(),
+          brand: '',
+          unit: normalizeUnit(item.unit),
+          stock: isNaN(qty) ? 0 : qty,
+          minQuantity: 1,
+          category: item.category.trim() || 'Outra',
+          unitPrice: isNaN(up) || up <= 0 ? undefined : up,
+        })
+        success++
+      } catch (e) {
+        console.error(`Erro ao adicionar "${item.name}":`, e)
+        errors++
+      }
+    }
+
+    setNfeModalVisible(false)
+    setNfeStep('select')
+    setNfeParsedItems([])
+    setNfeXmlText('')
+    setNfeAccessKey(null)
+    setNfeSupplierName(undefined)
+    setNfeSupplierCnpj(undefined)
+    setNfeDuplicateWarning({ visible: false })
+    setNfeImporting(false)
+    setNfeReviewPage(1)
+    setCurrentPage(1)
+
+    const itemCount = nfeParsedItems.length
+    if (nfeAccessKey && success > 0) {
+      apiNfeService.recordImport({
+        accessKey: nfeAccessKey,
+        supplierName: nfeSupplierName,
+        supplierCnpj: nfeSupplierCnpj,
+        itemCount,
+      }).catch((err) => {
+        console.error('Erro ao registrar importação NF-e:', err)
+      })
+    }
+
+    await dataStore.refreshStock()
+
+    Toast.show({
+      type: success > 0 ? 'success' : 'error',
+      text1: `${success} item(ns) adicionado(s)${errors > 0 ? `, ${errors} erro(s)` : ''}`,
+    })
+  }
+
   return (
     <View style={styles.container}>
       {!isWeb && <UserHeader />}
+
+      <View style={styles.headerTabRow}>
+        <View style={styles.tabButtons}>
+          <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
+            <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
+          </TouchableOpacity>
+          {canDeleteStock && (
+            <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('estoque/inativos' as any)}>
+              <Text style={styles.tabBtnText}>Inativos</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
       <View style={styles.topBar}>
         <View style={styles.searchContainer}>
@@ -354,21 +606,11 @@ export default observer(function EstoqueScreen() {
             <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
           </TouchableOpacity>
 
-          {canDeleteStock && (
-            <TouchableOpacity
-              style={styles.inactiveBtn}
-              activeOpacity={0.7}
-              onPress={() => router.push('estoque/inativos' as any)}
-            >
-              <Text style={styles.inactiveBtnText}>Inativos</Text>
-            </TouchableOpacity>
-          )}
-
           {isGerente && (
             <TouchableOpacity
               style={styles.importXmlBtn}
               activeOpacity={0.8}
-              onPress={() => { setNfeModalVisible(true); setSelectedFile(null); setNfeResult(null); }}
+              onPress={() => { setNfeModalVisible(true); setNfeStep('select'); setNfeParsedItems([]); setNfeXmlText(''); }}
             >
               <FileTextIcon color={theme.contrast} size={22} />
             </TouchableOpacity>
@@ -432,6 +674,8 @@ export default observer(function EstoqueScreen() {
             totalPages={totalPages}
             onPrev={() => setCurrentPage(p => Math.max(1, p - 1))}
             onNext={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            onGoTo={(p: number) => setCurrentPage(p)}
+            isWeb={false}
             theme={theme}
             styles={styles}
           />
@@ -446,6 +690,8 @@ export default observer(function EstoqueScreen() {
             totalPages={totalPages}
             onPrev={() => setCurrentPage(p => Math.max(1, p - 1))}
             onNext={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            onGoTo={(p: number) => setCurrentPage(p)}
+            isWeb={true}
             theme={theme}
             styles={styles}
           />
@@ -481,131 +727,242 @@ export default observer(function EstoqueScreen() {
       <Modal
         visible={nfeModalVisible}
         transparent
-        animationType="slide"
-        onRequestClose={() => setNfeModalVisible(false)}
+        animationType={isWeb ? "fade" : "slide"}
+        onRequestClose={handleNfeClose}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+        <View style={[styles.modalOverlay, isWeb && styles.modalOverlayWeb]}>
+          <View style={[styles.modalContent, isWeb && styles.modalContentWeb, nfeStep === 'review' && styles.modalContentReview, { backgroundColor: theme.background }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Importar XML</Text>
-              <TouchableOpacity onPress={() => setNfeModalVisible(false)}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Importar Nota Fiscal</Text>
+              <TouchableOpacity onPress={handleNfeClose}>
                 <Text style={[styles.modalClose, { color: theme.text, opacity: 0.5 }]}>Fechar</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={[styles.modalSubtitle, { color: theme.text, opacity: 0.5 }]}>
-              Selecione o XML de uma Nota Fiscal Eletrônica para atualizar o estoque automaticamente.
-            </Text>
-
-            <TouchableOpacity
-              style={[styles.dropZone, { borderColor: theme.contrast + '40', backgroundColor: theme.foreground }]}
-              onPress={async () => {
-                try {
-                  const docResult = await DocumentPicker.getDocumentAsync({
-                    type: 'text/xml',
-                    copyToCacheDirectory: true,
-                  });
-                  if (docResult.canceled) return;
-                  const file = docResult.assets?.[0];
-                  if (!file) return;
-                  if (!file.name.toLowerCase().endsWith('.xml')) {
-                    Toast.show({ type: 'error', text1: 'Selecione um arquivo XML.' });
-                    return;
-                  }
-                  if (file.size && file.size > 10 * 1024 * 1024) {
-                    Toast.show({ type: 'error', text1: 'O arquivo excede o limite de 10 MB.' });
-                    return;
-                  }
-                  setSelectedFile({ name: file.name, uri: file.uri, size: file.size || 0 });
-                  setNfeResult(null);
-                } catch {
-                  Toast.show({ type: 'error', text1: 'Erro ao selecionar arquivo.' });
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <FileTextIcon color={theme.contrast} size={32} />
-              <Text style={[styles.dropZoneText, { color: theme.text }]}>
-                {selectedFile ? selectedFile.name : 'Toque para selecionar o XML'}
-              </Text>
-              {selectedFile && (
-                <Text style={[styles.dropZoneSize, { color: theme.text, opacity: 0.4 }]}>
-                  {(selectedFile.size / 1024).toFixed(1)} KB
+            {nfeStep === 'select' && (
+              <>
+                <Text style={[styles.modalSubtitle, { color: theme.text, opacity: 0.5 }]}>
+                  Selecione o XML de uma Nota Fiscal Eletrônica. Os itens serão listados para revisão antes de importar.
                 </Text>
-              )}
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.uploadBtn,
-                {
-                  backgroundColor: selectedFile && !uploading ? theme.contrast : theme.foreground,
-                  opacity: selectedFile && !uploading ? 1 : 0.5,
-                },
-              ]}
-              onPress={async () => {
-                if (!selectedFile) return;
-                setUploading(true);
-                setNfeResult(null);
-                try {
-                  const result = await apiNfeService.uploadXmlFile(
-                    selectedFile.uri,
-                    selectedFile.name,
-                  );
-                  setNfeResult({
-                    created: result.summary.created,
-                    updated: result.summary.updated,
-                    errors: result.summary.errors,
-                    supplierName: result.supplier?.name,
-                  });
-                  await dataStore.refreshStock();
-                  Toast.show({ type: 'success', text1: 'Estoque atualizado com sucesso!' });
-                } catch (err: any) {
-                  const msg = err?.message || 'Erro ao importar NF-e.';
-                  Toast.show({ type: 'error', text1: msg });
-                } finally {
-                  setUploading(false);
-                }
-              }}
-              disabled={!selectedFile || uploading}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.uploadBtnText, { color: selectedFile && !uploading ? '#FFFFFF' : theme.text }]}>
-                {uploading ? 'Importando...' : 'Importar Nota Fiscal'}
-              </Text>
-            </TouchableOpacity>
-
-            {nfeResult && (
-              <View style={[styles.resultCard, { backgroundColor: theme.foreground }]}>
-                <View style={styles.resultHeader}>
-                  <CheckIcon color="#4CAF50" size={18} />
-                  <Text style={[styles.resultTitle, { color: theme.text }]}>Importado com sucesso</Text>
-                </View>
-                {nfeResult.supplierName && (
-                  <View style={styles.resultRow}>
-                    <TruckIcon color={theme.text} size={14} opacity={0.5} />
-                    <Text style={[styles.resultText, { color: theme.text }]}>Fornecedor: {nfeResult.supplierName}</Text>
-                  </View>
-                )}
-                <Text style={[styles.resultSummary, { color: theme.text, opacity: 0.6 }]}>
-                  {nfeResult.created} item(ns) criado(s), {nfeResult.updated} atualizado(s)
-                </Text>
-                {nfeResult.errors.length > 0 && (
-                  <View style={styles.errorsSection}>
-                    <Text style={[styles.errorsTitle, { color: '#FF5252' }]}>{nfeResult.errors.length} erro(s):</Text>
-                    {nfeResult.errors.map((err, idx) => (
-                      <View key={idx} style={styles.errorRow}>
-                        <AlertIcon color="#FF5252" size={12} />
-                        <Text style={[styles.errorText, { color: '#FF5252' }]}>{err}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
+                <TouchableOpacity
+                  style={[styles.dropZone, { borderColor: theme.contrast + '40', backgroundColor: theme.foreground }]}
+                  onPress={handleNfeSelectFile}
+                  activeOpacity={0.7}
+                >
+                  <FileTextIcon color={theme.contrast} size={32} />
+                  <Text style={[styles.dropZoneText, { color: theme.text }]}>
+                    Toque para selecionar o XML
+                  </Text>
+                </TouchableOpacity>
+              </>
             )}
+
+            {nfeStep === 'review' && (() => {
+              const totalReviewPages = Math.ceil(nfeParsedItems.length / NFE_ITEMS_PER_PAGE);
+              const reviewStart = (nfeReviewPage - 1) * NFE_ITEMS_PER_PAGE;
+              const reviewPageItems = nfeParsedItems.slice(reviewStart, reviewStart + NFE_ITEMS_PER_PAGE);
+              return (
+                <>
+                <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 4 }}>
+                  {reviewPageItems.map((item) => (
+                    <View key={item.id} style={[styles.nfeItemCard, { backgroundColor: theme.foreground }]}>
+                      <View style={styles.nfeItemHeader}>
+                        <Text style={[styles.nfeItemNumber, { color: theme.text, opacity: 0.4 }]}>
+                          #{item.id.split('-')[2]!}
+                        </Text>
+                        <TouchableOpacity onPress={() => handleNfeRemoveItem(item.id)} style={styles.nfeRemoveBtn}>
+                          <Text style={[styles.nfeRemoveBtnText, { color: theme.contrast }]}>Remover</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <Text style={[styles.nfeFieldLabel, { color: theme.text }]}>Nome *</Text>
+                      <TextInput
+                        style={[styles.nfeFieldInput, { backgroundColor: theme.background, color: theme.text }]}
+                        value={item.name}
+                        onChangeText={(v) => handleNfeItemChange(item.id, 'name', v)}
+                      />
+
+                      <View style={styles.nfeFieldRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.nfeFieldLabel, { color: theme.text }]}>Medida</Text>
+                          <TouchableOpacity
+                            style={[styles.nfeFieldInput, { backgroundColor: theme.background, flexDirection: 'row', alignItems: 'center' }]}
+                            onPress={() => setUnitPickerTarget(item.id)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={{ color: theme.text, fontSize: 14, flex: 1 }}>{item.unit}</Text>
+                            <ChevronDownIcon color={theme.text} size={18} opacity={0.5} />
+                          </TouchableOpacity>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.nfeFieldLabel, { color: theme.text }]}>Quantidade</Text>
+                          <TextInput
+                            style={[styles.nfeFieldInput, { backgroundColor: theme.background, color: theme.text }]}
+                            value={item.quantity}
+                            onChangeText={(v) => handleNfeItemChange(item.id, 'quantity', v.replace(/[^0-9.,]/g, ''))}
+                            keyboardType="decimal-pad"
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.nfeFieldRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.nfeFieldLabel, { color: theme.text }]}>Valor Unitário (R$)</Text>
+                          <TextInput
+                            style={[styles.nfeFieldInput, { backgroundColor: theme.background, color: theme.text }]}
+                            value={item.unitPrice}
+                            onChangeText={(v) => handleNfeItemChange(item.id, 'unitPrice', v.replace(/[^0-9.,]/g, ''))}
+                            keyboardType="decimal-pad"
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.nfeFieldLabel, { color: theme.text }]}>Categoria</Text>
+                          {customCategoryItems.has(item.id) ? (
+                            <TextInput
+                              style={[styles.nfeFieldInput, { backgroundColor: theme.background, color: theme.text }]}
+                              value={item.category}
+                              onChangeText={(v) => handleNfeItemChange(item.id, 'category', v)}
+                              placeholder="Digite a categoria..."
+                              placeholderTextColor={theme.text + '40'}
+                            />
+                          ) : (
+                            <TouchableOpacity
+                              style={[styles.nfeFieldInput, { backgroundColor: theme.background, flexDirection: 'row', alignItems: 'center' }]}
+                              onPress={() => setCategoryPickerTarget(item.id)}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={{ color: item.category ? theme.text : theme.text + '60', fontSize: 14, flex: 1 }} numberOfLines={1}>
+                                {item.category || 'Selecione...'}
+                              </Text>
+                              <ChevronDownIcon color={theme.text} size={18} opacity={0.5} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+
+                      {item.xmlUnit !== item.unit && (
+                        <Text style={[styles.nfeXmlHint, { color: theme.text, opacity: 0.4 }]}>
+                          Original: {item.xmlQty} {item.xmlUnit} a R$ {item.xmlUnitPrice.toFixed(2)}/{item.xmlUnit}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </ScrollView>
+
+                <View style={{ height: 1, backgroundColor: theme.text + '10', marginVertical: 4 }} />
+
+                <TouchableOpacity
+                  style={[styles.nfeImportBtn, { backgroundColor: theme.contrast, opacity: nfeImporting ? 0.6 : 1 }]}
+                  onPress={handleNfeImportAll}
+                  disabled={nfeImporting}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.nfeImportBtnText}>
+                    {nfeImporting ? 'Importando...' : `Adicionar Todos (${nfeParsedItems.length})`}
+                  </Text>
+                </TouchableOpacity>
+
+                {totalReviewPages > 1 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, gap: 16 }}>
+                    <TouchableOpacity
+                      style={[styles.pageBtn, nfeReviewPage === 1 && styles.pageBtnDisabled]}
+                      onPress={() => setNfeReviewPage(p => Math.max(1, p - 1))}
+                      disabled={nfeReviewPage === 1}
+                    >
+                      <ChevronLeftIcon color={theme.text} size={20} />
+                    </TouchableOpacity>
+                    <Text style={{ fontFamily: 'Jost_700Bold', fontSize: 14, color: theme.text }}>
+                      {nfeReviewPage} / {totalReviewPages}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.pageBtn, nfeReviewPage === totalReviewPages && styles.pageBtnDisabled]}
+                      onPress={() => setNfeReviewPage(p => Math.min(totalReviewPages, p + 1))}
+                      disabled={nfeReviewPage === totalReviewPages}
+                    >
+                      <ChevronRightIcon color={theme.text} size={20} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            );
+          })()}
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={nfeDuplicateWarning.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNfeDuplicateWarning({ visible: false })}
+      >
+        <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background, maxWidth: 400, borderRadius: 24 }]}>
+            <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 12 }]}>
+              Esta NF-e já foi importada
+            </Text>
+            <Text style={[{ color: theme.text, opacity: 0.7, lineHeight: 20, marginBottom: 16 }]}>
+              Esta NF-e já foi importada em{' '}
+              {nfeDuplicateWarning.importedAt ? new Date(nfeDuplicateWarning.importedAt).toLocaleDateString('pt-BR') : ''}
+              {' '}
+              {'\n\n'}
+              Deseja continuar mesmo assim?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
+              <TouchableOpacity
+                style={[styles.cancelBtn, { backgroundColor: theme.foreground }]}
+                onPress={() => {
+                  setNfeDuplicateWarning({ visible: false })
+                  handleNfeClose()
+                }}
+              >
+                <Text style={[styles.cancelBtnText, { color: theme.text }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: theme.contrast }]}
+                onPress={() => setNfeDuplicateWarning({ visible: false })}
+              >
+                <Text style={[styles.confirmBtnText, { color: '#fff' }]}>Continuar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <SelectModal
+        visible={unitPickerTarget !== null}
+        onClose={() => setUnitPickerTarget(null)}
+        onSelect={(val: string) => {
+          if (!unitPickerTarget) return
+          handleNfeItemChange(unitPickerTarget, 'unit', val)
+          setUnitPickerTarget(null)
+        }}
+        options={UNIT_OPTIONS}
+        title="Selecione a Medida"
+      />
+
+      <SelectModal
+        visible={categoryPickerTarget !== null}
+        onClose={() => setCategoryPickerTarget(null)}
+        onSelect={(val: string) => {
+          if (!categoryPickerTarget) return
+          if (val === 'Outra...') {
+            setCustomCategoryItems((prev) => new Set(prev).add(categoryPickerTarget))
+            handleNfeItemChange(categoryPickerTarget, 'category', '')
+          } else {
+            setCustomCategoryItems((prev) => {
+              const next = new Set(prev)
+              next.delete(categoryPickerTarget)
+              return next
+            })
+            handleNfeItemChange(categoryPickerTarget, 'category', val)
+          }
+          setCategoryPickerTarget(null)
+        }}
+        options={CATEGORY_OPTIONS}
+        title="Selecione a Categoria"
+      />
     </View>
   );
 });
@@ -619,6 +976,7 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
     topBar: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       marginBottom: 24,
       gap: 16,
     },
@@ -653,7 +1011,11 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       minWidth: 100,
       borderWidth: 1,
       borderColor: theme.background,
-    },
+      transition: 'border-color 0.2s ease',
+      ':hover': {
+        borderColor: theme.text + '20',
+      },
+    } as any,
     filterBtnText: {
       fontFamily: 'Jost_600SemiBold',
       fontSize: 14,
@@ -666,7 +1028,11 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       height: 56,
       alignItems: 'center',
       justifyContent: 'center',
-    },
+      transition: 'opacity 0.2s ease',
+      ':hover': {
+        opacity: 0.85,
+      },
+    } as any,
     plusBtnText: {
       fontFamily: 'Jost_700Bold',
       fontSize: 24,
@@ -676,12 +1042,12 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
     sectionDivider: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 20,
+      marginBottom: isWeb ? 24 : 20,
       gap: 12,
     },
     sectionText: {
       fontFamily: 'Jost_600SemiBold',
-      fontSize: 14,
+      fontSize: isWeb ? 15 : 14,
       color: theme.text,
       opacity: 0.6,
     },
@@ -693,24 +1059,24 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
     },
     sectionCount: {
       fontFamily: 'Jost_400Regular',
-      fontSize: 13,
+      fontSize: isWeb ? 14 : 13,
       color: theme.text,
       opacity: 0.4,
     },
     grid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      marginHorizontal: -10,
+      marginHorizontal: isWeb ? -12 : -10,
     },
     gridItem: {
       width: `${100 / gridColumns}%`,
-      paddingHorizontal: 10,
-      marginBottom: 16,
+      paddingHorizontal: isWeb ? 12 : 10,
+      marginBottom: isWeb ? 24 : 16,
     },
     card: {
       backgroundColor: theme.foreground,
       borderRadius: 20,
-      padding: 16,
+      padding: isWeb ? 20 : 16,
       flexDirection: 'row',
       alignItems: 'center',
       shadowColor: '#000',
@@ -718,15 +1084,38 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       shadowOpacity: 0.05,
       shadowRadius: 10,
       elevation: 2,
-      minHeight: 110,
-    },
+      minHeight: 160,
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      cursor: 'pointer',
+      ':hover': {
+        transform: 'scale(1.01)',
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
+        elevation: 8,
+      },
+    } as any,
     cardContent: {
       flex: 1,
+      justifyContent: 'center',
     },
     cardTitle: {
       fontFamily: 'Jost_700Bold',
       fontSize: 16,
       color: theme.text,
+    },
+    cardCategory: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 11,
+      color: theme.contrast,
+      textTransform: 'uppercase' as any,
+      marginTop: 2,
+    },
+    cardUnitPrice: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 13,
+      color: theme.text,
+      opacity: 0.7,
+      marginTop: 2,
     },
     cardSubtitle: {
       fontFamily: 'Jost_400Regular',
@@ -807,18 +1196,18 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       width: '100%',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 60,
+      paddingVertical: isWeb ? 80 : 60,
       opacity: 0.5,
     },
     emptyText: {
       fontFamily: 'Jost_700Bold',
-      fontSize: 18,
+      fontSize: isWeb ? 20 : 18,
       color: theme.text,
       marginBottom: 8,
     },
     emptySubtext: {
       fontFamily: 'Jost_400Regular',
-      fontSize: 14,
+      fontSize: isWeb ? 15 : 14,
       color: theme.text,
       textAlign: 'center',
     },
@@ -827,7 +1216,33 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 24,
-      gap: 16,
+      gap: 12,
+    },
+    paginationContainerWeb: {
+      gap: 8,
+      paddingVertical: 16,
+    },
+    pageNumbersRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    pageNumberBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pageNumberText: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 13,
+    },
+    pageEllipsis: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 14,
+      width: 24,
+      textAlign: 'center',
     },
     fixedPagination: {
       position: 'absolute',
@@ -851,7 +1266,11 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       shadowOpacity: 0.1,
       shadowRadius: 8,
       elevation: 4,
-    },
+      transition: 'border-color 0.2s ease, opacity 0.2s ease',
+      ':hover': {
+        borderColor: theme.text + '30',
+      },
+    } as any,
     pageBtnDisabled: {
       opacity: 0.3,
     },
@@ -873,21 +1292,38 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       fontSize: 14,
       color: theme.text,
     },
-    inactiveBtn: {
-      backgroundColor: theme.foreground,
-      borderRadius: 20,
-      paddingHorizontal: 16,
-      height: 56,
+    headerTabRow: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: theme.text + '20',
+      justifyContent: 'space-between',
+      marginBottom: 20,
     },
-    inactiveBtnText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 13,
+    tabButtons: {
+      flexDirection: 'row',
+      backgroundColor: theme.foreground,
+      borderRadius: 16,
+      padding: 4,
+    },
+    tabBtn: {
+      paddingHorizontal: 24,
+      paddingVertical: 8,
+      borderRadius: 12,
+    },
+    tabBtnActive: {
+      backgroundColor: theme.background,
+      shadowColor: '#000',
+      shadowOpacity: 0.05,
+      shadowRadius: 5,
+      elevation: 2,
+    },
+    tabBtnText: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 14,
       color: theme.text,
-      opacity: 0.7,
+      opacity: 0.5,
+    },
+    tabBtnTextActive: {
+      opacity: 1,
     },
     importXmlBtn: {
       backgroundColor: theme.foreground,
@@ -896,19 +1332,37 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       height: 56,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: theme.contrast + '30',
-    },
+      transition: 'border-color 0.2s ease',
+      ':hover': {
+        borderColor: theme.contrast,
+      },
+    } as any,
     modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.5)',
       justifyContent: 'flex-end',
+    },
+    modalOverlayWeb: {
+      justifyContent: 'center',
+      padding: 40,
     },
     modalContent: {
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
       padding: 24,
       maxHeight: '90%',
+    },
+    modalContentWeb: {
+      borderRadius: 24,
+      maxWidth: 640,
+      maxHeight: '85%',
+      alignSelf: 'center',
+      width: '100%',
+    },
+    modalContentReview: {
+      paddingBottom: 12,
     },
     modalHeader: {
       flexDirection: 'row',
@@ -1010,6 +1464,87 @@ function makeStyles(theme: any, isWeb: boolean, gridColumns: number) {
       fontFamily: 'Jost_400Regular',
       fontSize: 12,
       flex: 1,
+    },
+
+    // NF-e editable items
+    nfeItemCard: {
+      borderRadius: 16,
+      padding: 14,
+      gap: 8,
+    },
+    nfeItemHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    nfeItemNumber: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 12,
+    },
+    nfeRemoveBtn: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    nfeRemoveBtnText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 13,
+    },
+    nfeFieldLabel: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 12,
+      marginBottom: 4,
+    },
+    nfeFieldInput: {
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+      fontFamily: 'Jost_400Regular',
+      outlineStyle: 'none',
+    } as any,
+    nfeFieldRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    nfeXmlHint: {
+      fontFamily: 'Jost_400Regular',
+      fontSize: 11,
+      marginTop: 2,
+    },
+    nfeImportBtn: {
+      marginTop: 16,
+      paddingVertical: 16,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    nfeImportBtnText: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 16,
+      color: '#FFFFFF',
+    },
+    cancelBtn: {
+      borderRadius: 12,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelBtnText: {
+      fontFamily: 'Jost_600SemiBold',
+      fontSize: 14,
+    },
+    confirmBtn: {
+      borderRadius: 12,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    confirmBtnText: {
+      fontFamily: 'Jost_700Bold',
+      fontSize: 14,
     },
   });
 }
