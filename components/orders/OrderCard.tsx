@@ -276,7 +276,7 @@ export function OrderCard({ id, orderNumber, customerName, status, total, items,
               </View>
               {table && !address && (
                 <View style={styles.modalInfoRow}>
-                  <Text style={[styles.modalLabel, { color: theme.text }]}>Mesa</Text>
+                  <Text style={[styles.modalLabel, { color: theme.text }]}>Origem</Text>
                   <Text style={[styles.modalValue, { color: theme.text }]}>{table}</Text>
                 </View>
               )}

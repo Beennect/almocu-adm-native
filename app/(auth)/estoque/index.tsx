@@ -516,59 +516,52 @@ export default observer(function EstoqueScreen() {
   const handleNfeImportAll = async () => {
     if (nfeParsedItems.length === 0) return
     setNfeImporting(true)
-    let success = 0
-    let errors = 0
 
-    for (const item of nfeParsedItems) {
-      try {
-        const qty = parseFloat(item.quantity.replace(',', '.'))
-        const up = parseFloat(item.unitPrice.replace(',', '.'))
-        await dataStore.addIngredient({
-          name: item.name.trim(),
-          brand: '',
-          unit: normalizeUnit(item.unit),
-          stock: isNaN(qty) ? 0 : qty,
-          minQuantity: 1,
-          category: item.category.trim() || 'Outra',
-          unitPrice: isNaN(up) || up <= 0 ? undefined : up,
-        })
-        success++
-      } catch (e) {
-        console.error(`Erro ao adicionar "${item.name}":`, e)
-        errors++
-      }
-    }
-
-    setNfeModalVisible(false)
-    setNfeStep('select')
-    setNfeParsedItems([])
-    setNfeXmlText('')
-    setNfeAccessKey(null)
-    setNfeSupplierName(undefined)
-    setNfeSupplierCnpj(undefined)
-    setNfeDuplicateWarning({ visible: false })
-    setNfeImporting(false)
-    setNfeReviewPage(1)
-    setCurrentPage(1)
-
-    const itemCount = nfeParsedItems.length
-    if (nfeAccessKey && success > 0) {
-      apiNfeService.recordImport({
-        accessKey: nfeAccessKey,
+    try {
+      const result = await apiNfeService.importNfe({
+        items: nfeParsedItems.map((item) => {
+          const qty = parseFloat(item.quantity.replace(',', '.'))
+          const up = parseFloat(item.unitPrice.replace(',', '.'))
+          return {
+            name: item.name.trim(),
+            unit: normalizeUnit(item.unit),
+            quantity: isNaN(qty) ? 0 : qty,
+            unitPrice: isNaN(up) || up <= 0 ? undefined : up,
+            category: item.category.trim() || 'Outra',
+          }
+        }),
         supplierName: nfeSupplierName,
         supplierCnpj: nfeSupplierCnpj,
-        itemCount,
-      }).catch((err) => {
-        console.error('Erro ao registrar importação NF-e:', err)
+        accessKey: nfeAccessKey ?? undefined,
       })
+
+      const { summary, supplier } = result
+
+      await dataStore.refreshStock()
+
+      Toast.show({
+        type: summary.created > 0 || summary.updated > 0 ? 'success' : 'error',
+        text1: `${summary.created} criado(s), ${summary.updated} atualizado(s)${summary.errors.length > 0 ? `, ${summary.errors.length} erro(s)` : ''}${supplier ? `\nFornecedor: ${supplier.name}` : ''}`,
+      })
+    } catch (e: any) {
+      console.error('Erro ao importar NF-e:', e)
+      Toast.show({
+        type: 'error',
+        text1: e?.message || 'Erro ao importar NF-e em lote.',
+      })
+    } finally {
+      setNfeModalVisible(false)
+      setNfeStep('select')
+      setNfeParsedItems([])
+      setNfeXmlText('')
+      setNfeAccessKey(null)
+      setNfeSupplierName(undefined)
+      setNfeSupplierCnpj(undefined)
+      setNfeDuplicateWarning({ visible: false })
+      setNfeImporting(false)
+      setNfeReviewPage(1)
+      setCurrentPage(1)
     }
-
-    await dataStore.refreshStock()
-
-    Toast.show({
-      type: success > 0 ? 'success' : 'error',
-      text1: `${success} item(ns) adicionado(s)${errors > 0 ? `, ${errors} erro(s)` : ''}`,
-    })
   }
 
   return (

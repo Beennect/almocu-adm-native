@@ -23,9 +23,37 @@ export interface NfeParseResult {
   duplicate?: NfeDuplicateInfo;
 }
 
+export interface NfeImportItem {
+  name: string;
+  unit: string;
+  quantity: number;
+  unitPrice?: number;
+  category?: string;
+}
+
+export interface NfeImportResult {
+  supplier: { id: string; name: string; cnpj: string } | null;
+  summary: {
+    total: number;
+    created: number;
+    updated: number;
+    errors: string[];
+  };
+}
+
 export const apiNfeService = {
   async parseXml(xmlContent: string): Promise<NfeParseResult> {
     const response = await api.post('/api/stock/nfe/parse', { xml: xmlContent });
+    return response.data;
+  },
+
+  async importNfe(data: {
+    items: NfeImportItem[];
+    supplierName?: string;
+    supplierCnpj?: string;
+    accessKey?: string;
+  }): Promise<NfeImportResult> {
+    const response = await api.post('/api/stock/nfe/import', data);
     return response.data;
   },
 

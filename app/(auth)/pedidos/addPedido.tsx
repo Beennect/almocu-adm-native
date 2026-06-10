@@ -68,9 +68,8 @@ export default observer(function AddPedidoScreen() {
   const styles = makeStyles(theme, isWeb);
 
   const [cliente, setCliente] = useState<string>('');
-  const [mesa, setMesa] = useState<string>('');
+  const [origem, setOrigem] = useState<string>('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [mesaModalVisible, setMesaModalVisible] = useState(false);
   const [itemModalVisible, setItemModalVisible] = useState(false);
 
   // Address
@@ -87,7 +86,6 @@ export default observer(function AddPedidoScreen() {
   const [infoVisible, setInfoVisible] = useState(false);
   const [infoText, setInfoText] = useState('');
 
-  const mesaOptions = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
   const itemOptions = (dataStore.menuItems || [])
     .filter((item) => item.available !== false)
     .map((item) => item.name);
@@ -142,7 +140,7 @@ export default observer(function AddPedidoScreen() {
       const order = dataStore.orders.find((o) => o.id === editOrderId);
       if (order) {
         setCliente(order.clientName);
-        setMesa(order.table === 'DELIVERY' ? '' : order.table);
+        setOrigem(order.table === 'DELIVERY' ? '' : order.table);
         setCart((order.items || []).map((i) => ({ id: i.id, name: i.name, price: parseFloat(String(i.price)) || 0, quantity: i.quantity || 1 })));
         if (order.address) {
           setAddressVisible(true);
@@ -230,8 +228,8 @@ export default observer(function AddPedidoScreen() {
       Toast.show({ type: 'error', text1: 'Preencha o nome do cliente.' });
       return;
     }
-    if (!mesa && !addressVisible) {
-      Toast.show({ type: 'error', text1: 'Selecione a mesa.' });
+    if (!origem && !addressVisible) {
+      Toast.show({ type: 'error', text1: 'Informe a origem do pedido.' });
       return;
     }
     if (cart.length === 0) {
@@ -252,7 +250,7 @@ export default observer(function AddPedidoScreen() {
       if (editOrderId) {
         dataStore.updateOrder(editOrderId as string, {
           clientName: cliente,
-          table: addressVisible ? 'DELIVERY' : mesa,
+          table: addressVisible ? 'DELIVERY' : origem,
           items: cart.map((c) => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity })),
           address: addressVisible ? address : undefined,
           additionalInfo: infoText || undefined,
@@ -261,7 +259,7 @@ export default observer(function AddPedidoScreen() {
       } else {
         await dataStore.addOrder({
           clientName: cliente,
-          table: addressVisible ? 'DELIVERY' : mesa,
+          table: addressVisible ? 'DELIVERY' : origem,
           items: cart.map((c) => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity })),
           address: addressVisible ? address : undefined,
           additionalInfo: infoText || undefined,
@@ -298,7 +296,7 @@ export default observer(function AddPedidoScreen() {
           <View style={styles.headerLine} />
         </View>
 
-        {/* Cliente + Mesa */}
+        {/* Cliente + Origem */}
         <View style={styles.row}>
           <View style={styles.inputWrapper}>
             <TextInput
@@ -311,14 +309,16 @@ export default observer(function AddPedidoScreen() {
             />
           </View>
           {!addressVisible && (
-            <TouchableOpacity
-              style={styles.pickerContainer}
-              activeOpacity={0.7}
-              onPress={() => setMesaModalVisible(true)}
-            >
-              <Text style={styles.pickerText}>{mesa || 'Mesa'}</Text>
-              <ChevronDownIcon color={theme.text} size={20} />
-            </TouchableOpacity>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Origem (ex: Mesa 05, Balcão)"
+                placeholderTextColor={theme.text + '80'}
+                value={origem}
+                onChangeText={setOrigem}
+                onSubmitEditing={handleFinalize}
+              />
+            </View>
           )}
         </View>
 
@@ -534,14 +534,6 @@ export default observer(function AddPedidoScreen() {
       </ScrollView>
 
       <SelectModal
-        visible={mesaModalVisible}
-        onClose={() => setMesaModalVisible(false)}
-        onSelect={setMesa}
-        options={mesaOptions}
-        title="Selecione a Mesa"
-      />
-
-      <SelectModal
         visible={deliveryPersonModalVisible}
         onClose={() => setDeliveryPersonModalVisible(false)}
         onSelect={handleSelectDeliveryPerson}
@@ -621,17 +613,6 @@ function makeStyles(theme: any, isWeb: boolean) {
       borderWidth: 1,
       borderColor: 'rgba(255, 255, 255, 0.12)',
     } as any,
-    pickerContainer: {
-      backgroundColor: theme.foreground,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.12)',
-    },
     pickerRow: {
       backgroundColor: theme.foreground,
       borderRadius: 20,
@@ -655,11 +636,6 @@ function makeStyles(theme: any, isWeb: boolean) {
       fontFamily: 'Jost_400Regular',
       fontSize: 14,
       color: theme.text,
-    },
-    pickerText: {
-      color: theme.text,
-      fontSize: 14,
-      fontFamily: 'Jost_400Regular',
     },
     // Cart
     cartSection: {
