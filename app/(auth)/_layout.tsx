@@ -27,7 +27,8 @@ export default observer(function AuthLayout() {
     if (
       authStore.isAuthenticated &&
       !hasRestaurant &&
-      pathname !== '/config'
+      pathname !== '/config' &&
+      pathname !== '/criar-restaurante'
     ) {
       router.replace('/(auth)/config');
     }
@@ -48,7 +49,7 @@ export default observer(function AuthLayout() {
 
   if (!authStore.isInitialized) return null;
   if (!authStore.isAuthenticated && pathname !== '/login') return null;
-  if (!hasRestaurant && pathname !== '/config') return null;
+  if (!hasRestaurant && pathname !== '/config' && pathname !== '/criar-restaurante') return null;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>

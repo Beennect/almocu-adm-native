@@ -111,53 +111,52 @@ export default observer(function PedidosScreen() {
 
   return (
     <View style={styles.container}>
-      {!isWeb && <UserHeader />}
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
 
-      {/* Header and Switch tab */}
-      <View style={styles.headerTabRow}>
-        <View style={styles.tabButtons}>
-          <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
-            <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
-          </TouchableOpacity>
-          {canSeeHistory && (
-            <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(auth)/pedidos/historico' as any)}>
-              <Text style={styles.tabBtnText}>Histórico</Text>
+        {!isWeb && <UserHeader />}
+
+        {/* Header and Switch tab */}
+        <View style={styles.headerTabRow}>
+          <View style={styles.tabButtons}>
+            <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
+              <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
             </TouchableOpacity>
-          )}
+            {canSeeHistory && (
+              <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(auth)/pedidos/historico' as any)}>
+                <Text style={styles.tabBtnText}>Histórico</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
 
 
-      {/* Top Bar / Search Row */}
-      <View style={styles.topBar}>
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar..."
-            placeholderTextColor={theme.text + '80'}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-        <View style={styles.actionsRight}>
-          <TouchableOpacity style={styles.orderBtn} activeOpacity={0.7} onPress={cycleSortMode}>
-            <Text style={styles.orderBtnText}>{SORT_LABELS[sortMode]}</Text>
-          </TouchableOpacity>
-
-          {permissionStore.can('orders:create') && (isWeb ? (
-            <TouchableOpacity style={styles.createBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
-              <Text style={styles.createBtnText}>Criar Pedido</Text>
+        {/* Top Bar / Search Row */}
+        <View style={styles.topBar}>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar..."
+              placeholderTextColor={theme.text + '80'}
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+            />
+          </View>
+          <View style={styles.actionsRight}>
+            <TouchableOpacity style={styles.orderBtn} activeOpacity={0.7} onPress={cycleSortMode}>
+              <Text style={styles.orderBtnText}>{SORT_LABELS[sortMode]}</Text>
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
-              <Text style={styles.plusBtnText}>+</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
 
-      <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
-        <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
+            {permissionStore.can('orders:create') && (isWeb ? (
+              <TouchableOpacity style={styles.createBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
+                <Text style={styles.createBtnText}>Criar Pedido</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.plusBtn} activeOpacity={0.8} onPress={() => router.push('pedidos/addPedido' as any)}>
+                <Text style={styles.plusBtnText}>+</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
           {paginated.length > 0 ? (
             <>
               {/* Date Divider */}
@@ -227,7 +226,7 @@ export default observer(function PedidosScreen() {
             </View>
           )}
         </ScrollView>
-      </View>
+
     </View>
   );
 });

@@ -14,7 +14,9 @@ import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { authStore } from '@/stores/AuthStore';
 import { dataStore } from '@/stores/DataStore';
+import { apiOrderService } from '@/services/api-order-service';
 import Toast from 'react-native-toast-message';
+import * as WebBrowser from 'expo-web-browser';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -22,10 +24,7 @@ import {
   PinIcon,
   PlusIcon,
   TrashIcon,
-  AlmocuIcon,
-  UserIcon,
 } from '@/components/shared/Icons';
-import { FormInput } from '@/components/shared/FormInput';
 
 const PLANS = [
   { key: 'BASIC' as const, label: 'BASIC', limit: '3 filiais', desc: 'Para pequenos restaurantes' },
@@ -77,12 +76,6 @@ const PLAN_PRICES: Record<string, number> = {
   PREMIUM: 199.9,
 };
 
-function formatTimer(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-}
-
 export default observer(function CriarRestauranteScreen() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
@@ -105,13 +98,7 @@ export default observer(function CriarRestauranteScreen() {
   const [newMesaNumber, setNewMesaNumber] = useState('');
   const [newMesaCapacity, setNewMesaCapacity] = useState('');
 
-  // Step 3 (visual only)
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'pix'>('card');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardHolder, setCardHolder] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-  const [timeLeft] = useState(600);
+  // Step 3
 
   const handleNext = () => {
     if (!name.trim()) {
@@ -168,6 +155,34 @@ export default observer(function CriarRestauranteScreen() {
   const handleFinalize = async () => {
     setSaving(true);
     try {
+      const planPrice = PLAN_PRICES[plan] || 0;
+
+      if (planPrice > 0) {
+        const successUrl = isWeb
+          ? `${typeof window !== 'undefined' ? window.location.origin : ''}/payment/success`
+          : 'almocu://payment/success';
+        const cancelUrl = isWeb
+          ? `${typeof window !== 'undefined' ? window.location.origin : ''}/payment/cancel`
+          : 'almocu://payment/cancel';
+
+        const { url, sessionId } = await apiOrderService.createCheckoutSession(
+          [{ name: `Plano ${plan}`, amount: Math.round(planPrice * 100), quantity: 1 }],
+          { successUrl, cancelUrl },
+        );
+
+        const result = await WebBrowser.openAuthSessionAsync(url, successUrl);
+
+        if (result.type !== 'success') {
+          throw new Error('Pagamento cancelado ou não concluído.');
+        }
+
+        const { paymentStatus } = await apiOrderService.verifyPayment(sessionId);
+
+        if (paymentStatus !== 'paid') {
+          throw new Error('Pagamento não confirmado.');
+        }
+      }
+
       await authStore.createRestaurantWorkspace(name.trim(), cnpj, plan);
 
       const restId = authStore.user?.restaurantId;
@@ -207,52 +222,53 @@ export default observer(function CriarRestauranteScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(auth)/config')}>
-          <ChevronLeftIcon color={theme.text} size={24} />
-          <Text style={[styles.backText, { color: theme.text }]}>Config</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Criar Restaurante</Text>
-        <View style={{ width: 80 }} />
-      </View>
-
-      {/* Step Indicator */}
-      <View style={styles.stepHeader}>
-        <View style={styles.stepDotsRow}>
-          <View style={styles.stepColumn}>
-            <View style={[styles.stepDot, step >= 1 ? styles.stepDotActive : styles.stepDotInactive]}>
-              <Text style={[styles.stepDotText, step >= 1 ? styles.stepDotTextActive : styles.stepDotTextInactive]}>1</Text>
-            </View>
-            <Text style={[styles.stepLabel, step >= 1 ? styles.stepLabelActive : styles.stepLabelInactive]}>
-              Dados
-            </Text>
-          </View>
-          <View style={[styles.stepDotLine, step >= 2 ? styles.stepDotLineActive : styles.stepDotLineInactive]} />
-          <View style={styles.stepColumn}>
-            <View style={[styles.stepDot, step >= 2 ? styles.stepDotActive : styles.stepDotInactive]}>
-              <Text style={[styles.stepDotText, step >= 2 ? styles.stepDotTextActive : styles.stepDotTextInactive]}>2</Text>
-            </View>
-            <Text style={[styles.stepLabel, step >= 2 ? styles.stepLabelActive : styles.stepLabelInactive]}>
-              Configuração
-            </Text>
-          </View>
-          <View style={[styles.stepDotLine, step >= 3 ? styles.stepDotLineActive : styles.stepDotLineInactive]} />
-          <View style={styles.stepColumn}>
-            <View style={[styles.stepDot, step >= 3 ? styles.stepDotActive : styles.stepDotInactive]}>
-              <Text style={[styles.stepDotText, step >= 3 ? styles.stepDotTextActive : styles.stepDotTextInactive]}>3</Text>
-            </View>
-            <Text style={[styles.stepLabel, step >= 3 ? styles.stepLabelActive : styles.stepLabelInactive]}>
-              Pagamento
-            </Text>
-          </View>
-        </View>
-      </View>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.scrollContent, isWeb && { maxWidth: 600, width: '100%', alignSelf: 'center' }]}
       >
+
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(auth)/config')}>
+              <ChevronLeftIcon color={theme.text} size={24} />
+              <Text style={[styles.backText, { color: theme.text }]}>Config</Text>
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>Criar Restaurante</Text>
+            <View style={{ width: 80 }} />
+          </View>
+
+          {/* Step Indicator */}
+          <View style={styles.stepHeader}>
+            <View style={styles.stepDotsRow}>
+              <View style={styles.stepColumn}>
+                <View style={[styles.stepDot, step >= 1 ? styles.stepDotActive : styles.stepDotInactive]}>
+                  <Text style={[styles.stepDotText, step >= 1 ? styles.stepDotTextActive : styles.stepDotTextInactive]}>1</Text>
+                </View>
+                <Text style={[styles.stepLabel, step >= 1 ? styles.stepLabelActive : styles.stepLabelInactive]}>
+                  Dados
+                </Text>
+              </View>
+              <View style={[styles.stepDotLine, step >= 2 ? styles.stepDotLineActive : styles.stepDotLineInactive]} />
+              <View style={styles.stepColumn}>
+                <View style={[styles.stepDot, step >= 2 ? styles.stepDotActive : styles.stepDotInactive]}>
+                  <Text style={[styles.stepDotText, step >= 2 ? styles.stepDotTextActive : styles.stepDotTextInactive]}>2</Text>
+                </View>
+                <Text style={[styles.stepLabel, step >= 2 ? styles.stepLabelActive : styles.stepLabelInactive]}>
+                  Configuração
+                </Text>
+              </View>
+              <View style={[styles.stepDotLine, step >= 3 ? styles.stepDotLineActive : styles.stepDotLineInactive]} />
+              <View style={styles.stepColumn}>
+                <View style={[styles.stepDot, step >= 3 ? styles.stepDotActive : styles.stepDotInactive]}>
+                  <Text style={[styles.stepDotText, step >= 3 ? styles.stepDotTextActive : styles.stepDotTextInactive]}>3</Text>
+                </View>
+                <Text style={[styles.stepLabel, step >= 3 ? styles.stepLabelActive : styles.stepLabelInactive]}>
+                  Pagamento
+                </Text>
+              </View>
+            </View>
+          </View>
+
         {step === 1 ? (
           <>
             {/* Step 1: Restaurant Data */}
@@ -411,8 +427,7 @@ export default observer(function CriarRestauranteScreen() {
           </>
         ) : (
           <>
-            {/* Step 3: Payment (visual only) */}
-            {/* Order Summary */}
+            {/* Step 3: Payment */}
             <View style={[styles.card, { backgroundColor: theme.foreground }]}>
               <Text style={[styles.cardTitle, { color: theme.text }]}>Resumo do Pedido</Text>
               <View style={styles.summaryRow}>
@@ -433,84 +448,11 @@ export default observer(function CriarRestauranteScreen() {
               </View>
             </View>
 
-            {/* Payment Method Selector */}
-            <View style={styles.paySelector}>
-              <TouchableOpacity
-                style={[styles.payMethodBtn, paymentMethod === 'card' && styles.payMethodBtnActive]}
-                onPress={() => setPaymentMethod('card')}
-              >
-                <Text style={[styles.payMethodText, paymentMethod === 'card' && styles.payMethodTextActive, { color: theme.text }]}>Cartão de Crédito</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.payMethodBtn, paymentMethod === 'pix' && styles.payMethodBtnActive]}
-                onPress={() => setPaymentMethod('pix')}
-              >
-                <Text style={[styles.payMethodText, paymentMethod === 'pix' && styles.payMethodTextActive, { color: theme.text }]}>Pix imediato</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Card Form */}
-            {paymentMethod === 'card' ? (
+            {planPrice > 0 && (
               <View style={[styles.card, { backgroundColor: theme.foreground }]}>
-                <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 16 }]}>Dados do Cartão</Text>
-                <View style={styles.inputGroup}>
-                  <FormInput
-                    Icon={UserIcon}
-                    placeholder="Número do Cartão"
-                    keyboardType="number-pad"
-                    value={cardNumber}
-                    onChangeText={setCardNumber}
-                  />
-                  <FormInput
-                    Icon={UserIcon}
-                    placeholder="Nome do Titular impresso no cartão"
-                    autoCapitalize="characters"
-                    value={cardHolder}
-                    onChangeText={setCardHolder}
-                  />
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
-                    <View style={{ flex: 1 }}>
-                      <FormInput
-                        placeholder="Vencimento (MM/AA)"
-                        keyboardType="number-pad"
-                        value={cardExpiry}
-                        onChangeText={setCardExpiry}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <FormInput
-                        placeholder="CVV"
-                        secureTextEntry
-                        keyboardType="number-pad"
-                        maxLength={4}
-                        value={cardCvv}
-                        onChangeText={setCardCvv}
-                      />
-                    </View>
-                  </View>
-                </View>
-              </View>
-            ) : (
-              /* Pix */
-              <View style={[styles.card, { backgroundColor: theme.foreground, alignItems: 'center' }]}>
-                <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 8, alignSelf: 'flex-start' }]}>Pagamento Pix</Text>
-                <Text style={[styles.cardDesc, { color: theme.text, alignSelf: 'flex-start', marginBottom: 20 }]}>
-                  Escaneie o QR Code abaixo com o app do seu banco ou use a chave Copia e Cola.
+                <Text style={[styles.cardDesc, { color: theme.text, textAlign: 'center' }]}>
+                  Você será redirecionado para o Stripe Checkout para realizar o pagamento com cartão de crédito, débito ou PIX.
                 </Text>
-                <View style={[styles.qrCodeBox, { borderColor: theme.background }]}>
-                  <AlmocuIcon color={theme.contrast} size={80} />
-                  <Text style={styles.qrCodeBoxText}>QR CODE PIX DINÂMICO</Text>
-                </View>
-                <Text style={[styles.timerText, { color: theme.text }]}>
-                  O QR Code expira em:{' '}
-                  <Text style={{ fontFamily: 'Jost_700Bold', color: theme.contrast }}>{formatTimer(timeLeft)}</Text>
-                </Text>
-                <TouchableOpacity
-                  style={[styles.copyKeyBtn, { borderColor: theme.contrast }]}
-                  onPress={() => Toast.show({ type: 'info', text1: 'Funcionalidade em breve.' })}
-                >
-                  <Text style={[styles.copyKeyBtnText, { color: theme.contrast }]}>Copiar Chave Pix Copia-e-Cola</Text>
-                </TouchableOpacity>
               </View>
             )}
           </>
@@ -881,71 +823,7 @@ function makeStyles(theme: any, isWeb: boolean) {
       fontFamily: 'Jost_700Bold',
       fontSize: 18,
     },
-    paySelector: {
-      flexDirection: 'row',
-      backgroundColor: '#9CA3AF15',
-      borderRadius: 30,
-      padding: 4,
-      marginBottom: 20,
-    },
-    payMethodBtn: {
-      flex: 1,
-      borderRadius: 26,
-      paddingVertical: 10,
-      alignItems: 'center',
-    },
-    payMethodBtnActive: {
-      backgroundColor: '#FFFFFF',
-      shadowColor: '#000',
-      shadowOpacity: 0.05,
-      shadowRadius: 5,
-      elevation: 2,
-    },
-    payMethodText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 13,
-      opacity: 0.5,
-    },
-    payMethodTextActive: {
-      opacity: 1,
-    },
-    inputGroup: {
-      gap: 2,
-    },
-    qrCodeBox: {
-      width: 150,
-      height: 150,
-      borderRadius: 20,
-      borderWidth: 2,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 16,
-      padding: 10,
-    },
-    qrCodeBoxText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 9,
-      opacity: 0.4,
-      textAlign: 'center',
-      marginTop: 8,
-    },
-    timerText: {
-      fontFamily: 'Jost_600SemiBold',
-      fontSize: 13,
-      marginBottom: 20,
-    },
-    copyKeyBtn: {
-      borderWidth: 2,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 14,
-      width: '100%',
-      alignItems: 'center',
-    },
-    copyKeyBtnText: {
-      fontFamily: 'Jost_700Bold',
-      fontSize: 12.5,
-    },
+
     // Actions
     actions: {
       gap: 12,

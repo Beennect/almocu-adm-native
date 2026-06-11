@@ -346,13 +346,13 @@ export default observer(function ConfigScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {!isWeb && <UserHeader />}
-
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[
         { paddingBottom: 40 },
         isWeb && { maxWidth: 600, width: '100%', alignSelf: 'center' }
       ]}>
-        
+
+          {!isWeb && <UserHeader />}
+
         {/* Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: theme.foreground }]}>
           <View style={[styles.avatar, { backgroundColor: theme.contrast }]}>

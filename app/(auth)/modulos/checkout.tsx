@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/themes/colors';
 import { dataStore } from '@/stores/DataStore';
+import { apiOrderService } from '@/services/api-order-service';
 import Toast from 'react-native-toast-message';
-import { ChevronLeftIcon, AlmocuIcon, UserIcon } from '@/components/shared/Icons';
-import { FormInput } from '@/components/shared/FormInput';
+import * as WebBrowser from 'expo-web-browser';
+import { ChevronLeftIcon } from '@/components/shared/Icons';
 import { FormButton } from '@/components/shared/FormButton';
 
 export default observer(function CheckoutScreen() {
@@ -19,33 +20,7 @@ export default observer(function CheckoutScreen() {
   const allModules = dataStore.modules || [];
   const moduleItem = allModules.find(m => m.id === id);
 
-  // Tabs for payment: Pix or Card
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'pix'>('card');
-
-  // Card form states
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardHolder, setCardHolder] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-
-  // Timer for simulated Pix
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
-
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (paymentMethod !== 'pix') return;
-    const interval = setInterval(() => {
-      setTimeLeft(t => (t > 0 ? t - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [paymentMethod]);
-
-  const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
 
   if (!moduleItem) {
     return (
@@ -58,39 +33,49 @@ export default observer(function CheckoutScreen() {
     );
   }
 
-  const handlePurchase = () => {
-    if (paymentMethod === 'card') {
-      if (!cardNumber || !cardHolder || !cardExpiry || !cardCvv) {
-        Toast.show({ type: 'error', text1: 'Por favor, preencha todos os campos do cartão.' });
+  const handlePurchase = async () => {
+    setLoading(true);
+    try {
+      const isWeb = width >= 768;
+      const successUrl = isWeb
+        ? `${typeof window !== 'undefined' ? window.location.origin : ''}/payment/success`
+        : 'almocu://payment/success';
+      const cancelUrl = isWeb
+        ? `${typeof window !== 'undefined' ? window.location.origin : ''}/payment/cancel`
+        : 'almocu://payment/cancel';
+
+      const { url, sessionId } = await apiOrderService.createCheckoutSession(
+        [{ name: moduleItem.name, amount: Math.round(moduleItem.price * 100), quantity: 1 }],
+        { successUrl, cancelUrl },
+      );
+
+      const result = await WebBrowser.openAuthSessionAsync(url, successUrl);
+
+      if (result.type !== 'success') {
+        Toast.show({ type: 'error', text1: 'Pagamento cancelado ou não concluído.' });
+        setLoading(false);
         return;
       }
-    }
 
-    Toast.show({ type: 'info', text1: 'Processando pagamento...' });
-    setLoading(true);
+      const { paymentStatus } = await apiOrderService.verifyPayment(sessionId);
 
-    // Simulated network delay
-    setTimeout(() => {
-      try {
-        dataStore.purchaseModule(moduleItem.id);
-        Toast.show({ type: 'success', text1: `Módulo "${moduleItem.name}" ativado com sucesso!` });
-        setLoading(false);
+      if (paymentStatus === 'paid') {
+        await dataStore.purchaseModule(moduleItem.id);
+        Toast.show({ type: 'success', text1: `"${moduleItem.name}" ativado com sucesso!` });
         router.push('/(auth)/modulos' as any);
-      } catch (err: any) {
-        Toast.show({ type: 'error', text1: 'Erro ao finalizar transação.' });
-        setLoading(false);
+      } else {
+        Toast.show({ type: 'error', text1: 'Pagamento não confirmado. Tente novamente.' });
       }
-    }, 1500);
-  };
-
-  const handleCopyPixKey = () => {
-    Toast.show({ type: 'info', text1: 'Copiando...' });
-    Toast.show({ type: 'success', text1: 'Chave Copia e Cola copiada para a área de transferência!' });
+    } catch (e: any) {
+      const message = e?.response?.data?.message || e?.message || 'Erro ao processar pagamento.';
+      Toast.show({ type: 'error', text1: message });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Header Row */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <ChevronLeftIcon color={theme.text} size={24} />
@@ -104,8 +89,6 @@ export default observer(function CheckoutScreen() {
         { paddingBottom: 40 },
         isWeb && { maxWidth: 500, width: '100%', alignSelf: 'center' }
       ]}>
-
-        {/* Order Summary */}
         <View style={[styles.card, { backgroundColor: theme.foreground }]}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>Resumo do Pedido</Text>
           <View style={styles.summaryRow}>
@@ -126,99 +109,14 @@ export default observer(function CheckoutScreen() {
           </View>
         </View>
 
-        {/* Payment Selector */}
-        <View style={styles.paySelector}>
-          <TouchableOpacity
-            style={[styles.payMethodBtn, paymentMethod === 'card' && styles.payMethodBtnActive]}
-            onPress={() => setPaymentMethod('card')}
-          >
-            <Text style={[styles.payMethodText, paymentMethod === 'card' && styles.payMethodTextActive, { color: theme.text }]}>Cartão de Crédito</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.payMethodBtn, paymentMethod === 'pix' && styles.payMethodBtnActive]}
-            onPress={() => setPaymentMethod('pix')}
-          >
-            <Text style={[styles.payMethodText, paymentMethod === 'pix' && styles.payMethodTextActive, { color: theme.text }]}>Pix imediato</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Form Inputs based on payment method */}
-        {paymentMethod === 'card' ? (
-          <View style={[styles.card, { backgroundColor: theme.foreground }]}>
-            <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 16 }]}>Dados do Cartão</Text>
-            
-            <View style={styles.inputGroup}>
-              <FormInput
-                Icon={UserIcon}
-                placeholder="Número do Cartão"
-                keyboardType="number-pad"
-                value={cardNumber}
-                onChangeText={setCardNumber}
-              />
-              <FormInput
-                Icon={UserIcon}
-                placeholder="Nome do Titular impresso no cartão"
-                autoCapitalize="characters"
-                value={cardHolder}
-                onChangeText={setCardHolder}
-              />
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <FormInput
-                    placeholder="Vencimento (MM/AA)"
-                    keyboardType="number-pad"
-                    value={cardExpiry}
-                    onChangeText={setCardExpiry}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <FormInput
-                    placeholder="CVV"
-                    secureTextEntry
-                    keyboardType="number-pad"
-                    maxLength={4}
-                    value={cardCvv}
-                    onChangeText={setCardCvv}
-                  />
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : (
-          <View style={[styles.card, { backgroundColor: theme.foreground, alignItems: 'center' }]}>
-            <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 8, alignSelf: 'flex-start' }]}>Pagamento Pix</Text>
-            <Text style={[styles.cardDesc, { color: theme.text, alignSelf: 'flex-start', marginBottom: 20 }]}>
-              Escaneie o QR Code abaixo com o app do seu banco ou use a chave Copia e Cola.
-            </Text>
-
-            <View style={[styles.qrCodeBox, { borderColor: theme.background }]}>
-              {/* Almocu icon dummy representation in QR code */}
-              <AlmocuIcon color={theme.contrast} size={80} />
-              <Text style={styles.qrCodeBoxText}>QR CODE PIX DINÂMICO</Text>
-            </View>
-
-            <Text style={[styles.timerText, { color: theme.text }]}>
-              O QR Code expira em: <Text style={{ fontFamily: 'Jost_700Bold', color: theme.contrast }}>{formatTimer(timeLeft)}</Text>
-            </Text>
-
-            <TouchableOpacity 
-              style={[styles.copyKeyBtn, { borderColor: theme.contrast }]} 
-              onPress={handleCopyPixKey}
-            >
-              <Text style={[styles.copyKeyBtnText, { color: theme.contrast }]}>Copiar Chave Pix Copia-e-Cola</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         <View style={{ marginTop: 12 }}>
           <FormButton
-            title={loading ? 'PROCESSANDO TRANSACAO...' : 'AUTORIZAR E PAGAR AGORA'}
+            title={loading ? 'REDIRECIONANDO PARA PAGAMENTO...' : 'PAGAR COM STRIPE'}
             variant="primary"
             onPress={handlePurchase}
-            disabled={loading || (paymentMethod === 'pix' && timeLeft === 0)}
+            disabled={loading}
           />
         </View>
-
       </ScrollView>
     </View>
   );
@@ -263,11 +161,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 4,
   },
-  cardDesc: {
-    fontFamily: 'Jost_400Regular',
-    fontSize: 13,
-    opacity: 0.5,
-  },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -305,70 +198,5 @@ const styles = StyleSheet.create({
   totalValue: {
     fontFamily: 'Jost_700Bold',
     fontSize: 18,
-  },
-  paySelector: {
-    flexDirection: 'row',
-    backgroundColor: '#9CA3AF15',
-    borderRadius: 30,
-    padding: 4,
-    marginBottom: 20,
-  },
-  payMethodBtn: {
-    flex: 1,
-    borderRadius: 26,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  payMethodBtnActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  payMethodText: {
-    fontFamily: 'Jost_700Bold',
-    fontSize: 13,
-    opacity: 0.5,
-  },
-  payMethodTextActive: {
-    opacity: 1,
-  },
-  inputGroup: {
-    gap: 2,
-  },
-  qrCodeBox: {
-    width: 150,
-    height: 150,
-    borderRadius: 20,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    padding: 10,
-  },
-  qrCodeBoxText: {
-    fontFamily: 'Jost_700Bold',
-    fontSize: 9,
-    opacity: 0.4,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  timerText: {
-    fontFamily: 'Jost_600SemiBold',
-    fontSize: 13,
-    marginBottom: 20,
-  },
-  copyKeyBtn: {
-    borderWidth: 2,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 14,
-    width: '100%',
-    alignItems: 'center',
-  },
-  copyKeyBtnText: {
-    fontFamily: 'Jost_700Bold',
-    fontSize: 12.5,
   },
 });

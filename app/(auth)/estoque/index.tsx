@@ -597,68 +597,69 @@ export default observer(function EstoqueScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      {!isWeb && <UserHeader />}
+      <View style={styles.container}>
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
+        >
 
-      <View style={styles.headerTabRow}>
-        <View style={styles.tabButtons}>
-          <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
-            <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
-          </TouchableOpacity>
-          {canDeleteStock && (
-            <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('estoque/inativos' as any)}>
-              <Text style={styles.tabBtnText}>Inativos</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+          {!isWeb && <UserHeader />}
 
-      <View style={styles.topBar}>
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar..."
-            placeholderTextColor={theme.text + '80'}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-        <View style={styles.topBarActions}>
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => setFilterModalVisible(true)}
-          >
-            <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
-          </TouchableOpacity>
+          <View style={styles.headerTabRow}>
+            <View style={styles.tabButtons}>
+              <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
+                <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
+              </TouchableOpacity>
+              {canDeleteStock && (
+                <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('estoque/inativos' as any)}>
+                  <Text style={styles.tabBtnText}>Inativos</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
 
-          {isGerente && (
-            <TouchableOpacity
-              style={styles.importXmlBtn}
-              activeOpacity={0.8}
-              onPress={() => { setNfeModalVisible(true); setNfeStep('select'); setNfeParsedItems([]); setNfeXmlText(''); }}
-            >
-              <FileTextIcon color={theme.contrast} size={22} />
-            </TouchableOpacity>
-          )}
+          <View style={styles.topBar}>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar..."
+                placeholderTextColor={theme.text + '80'}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+              />
+            </View>
+            <View style={styles.topBarActions}>
+              <TouchableOpacity
+                style={styles.filterBtn}
+                onPress={() => setFilterModalVisible(true)}
+              >
+                <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
+              </TouchableOpacity>
 
-          {canCreateStock && (
-            <TouchableOpacity
-              style={styles.plusBtn}
-              activeOpacity={0.8}
-              onPress={() => router.push('estoque/addItem')}
-            >
-              <Text style={styles.plusBtnText}>+</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+              {isGerente && (
+                <TouchableOpacity
+                  style={styles.importXmlBtn}
+                  activeOpacity={0.8}
+                  onPress={() => { setNfeModalVisible(true); setNfeStep('select'); setNfeParsedItems([]); setNfeXmlText(''); }}
+                >
+                  <FileTextIcon color={theme.contrast} size={22} />
+                </TouchableOpacity>
+              )}
 
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        style={{ flex: 1 }}
-      >
-        <View style={styles.sectionDivider}>
+              {canCreateStock && (
+                <TouchableOpacity
+                  style={styles.plusBtn}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('estoque/addItem')}
+                >
+                  <Text style={styles.plusBtnText}>+</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.sectionDivider}>
           <Text style={styles.sectionText}>Estoque Atual</Text>
           <View style={styles.dividerLine} />
           <Text style={styles.sectionCount}>{processedIngredients.length} item{processedIngredients.length !== 1 ? 's' : ''}</Text>

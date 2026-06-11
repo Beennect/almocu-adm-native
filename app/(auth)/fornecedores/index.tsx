@@ -344,47 +344,48 @@ export default observer(function FornecedoresScreen() {
 
   return (
     <View style={styles.container}>
-      {!isWeb && <UserHeader />}
-
-      <View style={styles.topBar}>
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar..."
-            placeholderTextColor={theme.text + '80'}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-        <View style={styles.topBarActions}>
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => setFilterModalVisible(true)}
-          >
-            <Text style={styles.filterBtnText} numberOfLines={1}>{filterLabel(filterMode)}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.inactiveBtn}
-            activeOpacity={0.7}
-            onPress={() => router.push('/(auth)/fornecedores/inativos' as any)}
-          >
-            <Text style={styles.inactiveBtnText}>Inativos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.plusBtn}
-            activeOpacity={0.8}
-            onPress={() => router.push('/(auth)/fornecedores/addItem' as any)}
-          >
-            <PlusIcon color="#FFFFFF" size={22} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
       >
+
+          {!isWeb && <UserHeader />}
+
+          <View style={styles.topBar}>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar..."
+                placeholderTextColor={theme.text + '80'}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+              />
+            </View>
+            <View style={styles.topBarActions}>
+              <TouchableOpacity
+                style={styles.filterBtn}
+                onPress={() => setFilterModalVisible(true)}
+              >
+                <Text style={styles.filterBtnText} numberOfLines={1}>{filterLabel(filterMode)}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.inactiveBtn}
+                activeOpacity={0.7}
+                onPress={() => router.push('/(auth)/fornecedores/inativos' as any)}
+              >
+                <Text style={styles.inactiveBtnText}>Inativos</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.plusBtn}
+                activeOpacity={0.8}
+                onPress={() => router.push('/(auth)/fornecedores/addItem' as any)}
+              >
+                <PlusIcon color="#FFFFFF" size={22} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
         <View style={styles.sectionDivider}>
           <Text style={styles.sectionText}>Fornecedores Cadastrados</Text>
           <View style={styles.dividerLine} />

@@ -135,15 +135,6 @@ export default observer(function GerenciarMesasScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <ChevronLeftIcon color={theme.text} size={24} />
-          <Text style={[styles.backText, { color: theme.text }]}>Voltar</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Mesas</Text>
-        <View style={{ width: 80 }} />
-      </View>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
@@ -151,6 +142,16 @@ export default observer(function GerenciarMesasScreen() {
           isWeb && { maxWidth: 600, width: '100%', alignSelf: 'center' },
         ]}
       >
+
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <ChevronLeftIcon color={theme.text} size={24} />
+            <Text style={[styles.backText, { color: theme.text }]}>Voltar</Text>
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Mesas</Text>
+          <View style={{ width: 80 }} />
+        </View>
+
         {/* Status Card */}
         {!hasFeature ? (
           <View style={[styles.statusCard, { backgroundColor: theme.foreground }]}>

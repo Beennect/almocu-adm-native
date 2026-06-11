@@ -12,6 +12,8 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
 
+import { StripeWrapper } from '@/components/shared/StripeWrapper';
+
 import Toast, { ErrorToast, InfoToast, SuccessToast } from 'react-native-toast-message';
 
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -106,29 +108,31 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="login" />
-          <Stack.Screen name="register" />
-          <Stack.Screen name="forgot-password" />
-          <Stack.Screen name="oauth-callback" />
-        </Stack>
-        <View
-          pointerEvents="box-none"
-          style={[
-            StyleSheet.absoluteFillObject,
-            { zIndex: 9999, elevation: 9999 },
-          ]}
-        >
-          <Toast
-            config={toastConfig}
-            position="top"
-            visibilityTime={3000}
-          />
-        </View>
-        <StatusBar style="auto" />
-      </SafeAreaProvider>
-    </QueryClientProvider>
+    <StripeWrapper>
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="login" />
+            <Stack.Screen name="register" />
+            <Stack.Screen name="forgot-password" />
+            <Stack.Screen name="oauth-callback" />
+          </Stack>
+          <View
+            pointerEvents="box-none"
+            style={[
+              StyleSheet.absoluteFillObject,
+              { zIndex: 9999, elevation: 9999 },
+            ]}
+          >
+            <Toast
+              config={toastConfig}
+              position="top"
+              visibilityTime={3000}
+            />
+          </View>
+          <StatusBar style="auto" />
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    </StripeWrapper>
   );
 }

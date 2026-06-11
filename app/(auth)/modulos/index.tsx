@@ -98,21 +98,21 @@ export default observer(function ModulosIndexScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {!isWeb && <UserHeader />}
-
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(auth)/modulos/gerenciar' as any)}>
-          <ChevronLeftIcon color={theme.text} size={24} />
-          <Text style={[styles.backText, { color: theme.text }]}>Voltar</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Módulos Almocu</Text>
-        <View style={{ width: 80 }} />
-      </View>
-      <Text style={[styles.subtitle, { color: theme.text }]}>Turbine seu restaurante ativando ferramentas adicionais sob demanda.</Text>
-
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        
+
+          {!isWeb && <UserHeader />}
+
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(auth)/modulos/gerenciar' as any)}>
+              <ChevronLeftIcon color={theme.text} size={24} />
+              <Text style={[styles.backText, { color: theme.text }]}>Voltar</Text>
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>Módulos Almocu</Text>
+            <View style={{ width: 80 }} />
+          </View>
+          <Text style={[styles.subtitle, { color: theme.text }]}>Turbine seu restaurante ativando ferramentas adicionais sob demanda.</Text>
+
         {/* Active Modules */}
         <Text style={styles.sectionTitle}>Meus Módulos Ativos ({activeModules.length})</Text>
         <View style={styles.grid}>

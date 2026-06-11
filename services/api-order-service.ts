@@ -124,6 +124,25 @@ export const apiOrderService = {
     return response.data;
   },
 
+  // ── Stripe Payments ───────────────────────────────────────────────────
+
+  async createCheckoutSession(
+    items: { name: string; amount: number; quantity: number }[],
+    options?: { successUrl?: string; cancelUrl?: string },
+  ) {
+    const response = await api.post('/api/order/stripe/checkout', {
+      items,
+      successUrl: options?.successUrl,
+      cancelUrl: options?.cancelUrl,
+    });
+    return response.data as { success: boolean; url: string; sessionId: string };
+  },
+
+  async verifyPayment(sessionId: string) {
+    const response = await api.get(`/api/order/stripe/verify/${sessionId}`);
+    return response.data as { success: boolean; paymentStatus: string; customerEmail?: string };
+  },
+
   // ── Restaurant Features ───────────────────────────────────────────────
 
   async enableTablesFeature(restaurantId: string, enabled: boolean) {

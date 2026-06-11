@@ -176,62 +176,61 @@ export default observer(function CardapioScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {!isWeb && <UserHeader />}
-
-      <View style={styles.headerTabRow}>
-        <View style={styles.tabButtons}>
-          <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
-            <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
-          </TouchableOpacity>
-          {canDelete && (
-            <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('cardapio/inativos' as any)}>
-              <Text style={styles.tabBtnText}>Inativos</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.topBar}>
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar..."
-            placeholderTextColor={theme.text + '80'}
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-          />
-        </View>
-        <View style={styles.actionsRight}>
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => setFilterModalVisible(true)}
-          >
-            <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
-          </TouchableOpacity>
-
-          {permissionStore.can('menu:create') && (isWeb ? (
-            <TouchableOpacity
-              style={styles.createBtn}
-              activeOpacity={0.8}
-              onPress={() => router.push('cardapio/addItem' as any)}
-            >
-              <Text style={styles.createBtnText}>Novo Item</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.plusBtn}
-              activeOpacity={0.8}
-              onPress={() => router.push('cardapio/addItem' as any)}
-            >
-              <Text style={styles.plusBtnText}>+</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={isWeb ? styles.webListContainer : { flex: 1 }}>
+      <View style={styles.container}>
         <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
+
+          {!isWeb && <UserHeader />}
+
+          <View style={styles.headerTabRow}>
+            <View style={styles.tabButtons}>
+              <TouchableOpacity style={[styles.tabBtn, styles.tabBtnActive]}>
+                <Text style={[styles.tabBtnText, styles.tabBtnTextActive]}>Ativos</Text>
+              </TouchableOpacity>
+              {canDelete && (
+                <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('cardapio/inativos' as any)}>
+                  <Text style={styles.tabBtnText}>Inativos</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.topBar}>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar..."
+                placeholderTextColor={theme.text + '80'}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+              />
+            </View>
+            <View style={styles.actionsRight}>
+              <TouchableOpacity
+                style={styles.filterBtn}
+                onPress={() => setFilterModalVisible(true)}
+              >
+                <Text style={styles.filterBtnText}>{FILTER_LABELS[filterMode]}</Text>
+              </TouchableOpacity>
+
+              {permissionStore.can('menu:create') && (isWeb ? (
+                <TouchableOpacity
+                  style={styles.createBtn}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('cardapio/addItem' as any)}
+                >
+                  <Text style={styles.createBtnText}>Novo Item</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.plusBtn}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('cardapio/addItem' as any)}
+                >
+                  <Text style={styles.plusBtnText}>+</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
           {paginatedData.length > 0 ? (
             paginatedData.map((section, index) => (
               <View key={`${section.category}-${index}`} style={styles.categorySection}>
@@ -276,10 +275,9 @@ export default observer(function CardapioScreen() {
               styles={styles}
             />
           )}
-        </ScrollView>
-      </View>
+          </ScrollView>
 
-      {/* Fixed Pagination for Web */}
+          {/* Fixed Pagination for Web */}
       {isWeb && totalPages > 1 && (
         <View style={styles.fixedPagination}>
           <Pagination
