@@ -43,7 +43,11 @@ const ICON_COMPONENTS: Record<string, React.FC<any>> = {
   UsersIcon, // funcionarios
 };
 
-export const Navbar = observer(function Navbar() {
+interface NavbarProps {
+  overlay?: boolean;
+}
+
+export const Navbar = observer(function Navbar({ overlay }: NavbarProps) {
   const { width } = useWindowDimensions();
   const theme = useAppTheme();
   const pathname = usePathname();
@@ -91,7 +95,7 @@ export const Navbar = observer(function Navbar() {
     router.replace('/login');
   };
 
-  const styles = makeStyles(theme, isWeb);
+  const styles = makeStyles(theme, isWeb, overlay);
 
   if (isWeb) {
     return (
@@ -250,7 +254,7 @@ export const Navbar = observer(function Navbar() {
   );
 });
 
-function makeStyles(theme: any, isWeb: boolean) {
+function makeStyles(theme: any, isWeb: boolean, overlay?: boolean) {
   return StyleSheet.create({
     webContainer: {
       width: 280,
@@ -261,9 +265,16 @@ function makeStyles(theme: any, isWeb: boolean) {
       paddingBottom: 24,
       paddingHorizontal: 24,
       height: '100%',
-      borderRightWidth: 1,
+      borderRightWidth: overlay ? 0 : 1,
       borderColor: theme.background,
       zIndex: 10,
+      ...(overlay ? {
+        shadowColor: '#000',
+        shadowOffset: { width: 8, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 24,
+        elevation: 20,
+      } : {}),
     },
     logoRow: {
       flexDirection: 'row',

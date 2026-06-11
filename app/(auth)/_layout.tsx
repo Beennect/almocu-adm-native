@@ -1,12 +1,14 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, useWindowDimensions, Pressable } from 'react-native';
 import { Slot, usePathname, useRouter } from 'expo-router';
 import { authStore } from '../../stores/AuthStore';
+import { uiStore } from '../../stores/UiStore';
 import { observer } from 'mobx-react-lite';
 import Toast from 'react-native-toast-message';
 import { Navbar } from '@/components/shared/navbar/Navbar';
 import { useAppTheme } from '@/themes/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 export default observer(function AuthLayout() {
   const { width } = useWindowDimensions();
   const isWeb = width >= 768;
@@ -47,17 +49,40 @@ export default observer(function AuthLayout() {
     }
   }, [hasRestaurant]);
 
+  useEffect(() => {
+    if (!pathname.includes('/dashboard')) {
+      uiStore.setSidebarCollapsed(false);
+    }
+  }, [pathname]);
+
   if (!authStore.isInitialized) return null;
   if (!authStore.isAuthenticated && pathname !== '/login') return null;
   if (!hasRestaurant && pathname !== '/config' && pathname !== '/criar-restaurante') return null;
+
+  const isFullscreen = isWeb && uiStore.sidebarCollapsed;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       {isWeb ? (
         <View style={styles.webWrapper}>
-          <Navbar />
-          <View style={styles.webContentArea}>
-            <View style={styles.maxContentWidth}>
+          {isFullscreen && uiStore.sidebarOverlay && (
+            <Pressable style={styles.backdrop} onPress={() => uiStore.hideSidebarOverlay()}>
+              <View style={[styles.backdropInner, { backgroundColor: theme.background + '99' }]} />
+            </Pressable>
+          )}
+
+          {isFullscreen ? (
+            uiStore.sidebarOverlay && (
+              <View style={styles.navbarOverlay}>
+                <Navbar overlay />
+              </View>
+            )
+          ) : (
+            <Navbar />
+          )}
+
+          <View style={[styles.webContentArea, isFullscreen && styles.webContentFullscreen]}>
+            <View style={[styles.maxContentWidth, isFullscreen && styles.maxContentFullscreen]}>
               <Slot />
             </View>
           </View>
@@ -81,16 +106,47 @@ const styles = StyleSheet.create({
   webWrapper: {
     flex: 1,
     flexDirection: 'row',
+    position: 'relative',
   },
   webContentArea: {
     flex: 1,
     padding: 32,
-    alignItems: 'center', // Centro para aplicar o maxWidth
+    alignItems: 'center',
+  },
+  webContentFullscreen: {
+    padding: 0,
   },
   maxContentWidth: {
     flex: 1,
     width: '100%',
-    maxWidth: 1200, // Max width apenas no conteúdo principal
+    maxWidth: 1200,
+  },
+  maxContentFullscreen: {
+    maxWidth: '100%',
+  },
+  navbarOverlay: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 100,
+    elevation: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+  },
+  backdrop: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 90,
+    elevation: 90,
+  },
+  backdropInner: {
+    flex: 1,
   },
   mobileWrapper: {
     flex: 1,

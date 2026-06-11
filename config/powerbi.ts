@@ -1,0 +1,1 @@
+export const POWERBI_DASHBOARD_URL = process.env.EXPO_PUBLIC_POWERBI_DASHBOARD_URL || '';
